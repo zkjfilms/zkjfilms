@@ -29,13 +29,23 @@ export function getR2Client(): S3Client {
   });
 }
 
-export type GalleryImage = { key: string; url: string };
+export type GalleryImage = {
+  key: string;
+  url: string;
+  downloadUrl: string;
+  filename: string;
+};
 
 export const SIGNED_URL_EXPIRY_SECONDS = 60 * 60; // 1 hour
 
 // Images for a gallery live under galleries/<slug>/ in the bucket. Signed
 // URLs expire after an hour — a client browsing longer than that in one
 // sitting would need to re-unlock to get fresh URLs.
+//
+// Two signed URLs per image: `url` for inline display, and `downloadUrl`
+// with a Content-Disposition override so browsers reliably save it as a
+// file with the right name instead of navigating to it — the plain HTML
+// `download` attribute isn't consistently honored for cross-origin URLs.
 export async function listGalleryImages(slug: string): Promise<GalleryImage[]> {
   const client = getR2Client();
 
@@ -52,13 +62,27 @@ export async function listGalleryImages(slug: string): Promise<GalleryImage[]> {
   );
 
   return Promise.all(
-    objects.map(async (obj) => ({
-      key: obj.Key,
-      url: await getSignedUrl(
-        client,
-        new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: obj.Key }),
-        { expiresIn: SIGNED_URL_EXPIRY_SECONDS },
-      ),
-    })),
+    objects.map(async (obj) => {
+      const filename = obj.Key.split("/").pop() || obj.Key;
+
+      const [url, downloadUrl] = await Promise.all([
+        getSignedUrl(
+          client,
+          new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: obj.Key }),
+          { expiresIn: SIGNED_URL_EXPIRY_SECONDS },
+        ),
+        getSignedUrl(
+          client,
+          new GetObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: obj.Key,
+            ResponseContentDisposition: `attachment; filename="${filename}"`,
+          }),
+          { expiresIn: SIGNED_URL_EXPIRY_SECONDS },
+        ),
+      ]);
+
+      return { key: obj.Key, url, downloadUrl, filename };
+    }),
   );
 }

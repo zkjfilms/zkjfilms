@@ -1,14 +1,39 @@
 "use client";
 
 import { useState, useSyncExternalStore, type FormEvent } from "react";
+import type { GalleryImage } from "@/lib/r2";
+import GalleryLightbox from "./GalleryLightbox";
 
 type SubmitStatus = "idle" | "loading" | "error";
-type GalleryImage = { key: string; url: string };
 type Session = {
   images: GalleryImage[];
   imagesError: boolean;
   expiresAt: number;
 };
+
+// Triggers a native browser download for one image via a throwaway
+// anchor — downloadUrl carries a Content-Disposition: attachment header
+// from the server so this reliably saves a file rather than navigating.
+function triggerDownload(image: GalleryImage) {
+  const link = document.createElement("a");
+  link.href = image.downloadUrl;
+  link.download = image.filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Browsers throttle/block bursts of programmatic downloads fired in a
+// tight loop — spacing them out keeps each one going through cleanly
+// (though the browser may still show a one-time "allow multiple
+// downloads" prompt for the first batch).
+async function triggerDownloads(images: GalleryImage[]) {
+  for (const image of images) {
+    triggerDownload(image);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+}
 
 function sessionKey(slug: string) {
   return `gallery-session:${slug}`;
@@ -83,6 +108,20 @@ export default function GalleryGate({
   const [password, setPassword] = useState("");
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  function toggleSelect(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -148,22 +187,103 @@ export default function GalleryGate({
             Your photos are being prepared and will appear here soon.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-            {images.map((image) => (
-              <div
-                key={image.key}
-                className="group relative aspect-square overflow-hidden bg-surface"
+          <>
+            <div className="mb-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs uppercase tracking-[0.15em]">
+              <button
+                type="button"
+                onClick={() =>
+                  setSelected(
+                    selected.size === images.length
+                      ? new Set()
+                      : new Set(images.map((image) => image.key)),
+                  )
+                }
+                className="text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 URLs, not a static/optimizable asset */}
-                <img
-                  src={image.url}
-                  alt={`${title} photo`}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                />
-              </div>
-            ))}
-          </div>
+                {selected.size === images.length
+                  ? "Clear selection"
+                  : "Select all"}
+              </button>
+              <button
+                type="button"
+                onClick={() => triggerDownloads(images)}
+                className="border border-foreground px-6 py-2 text-foreground transition-colors hover:bg-foreground hover:text-background"
+              >
+                Download all ({images.length})
+              </button>
+              <button
+                type="button"
+                disabled={selected.size === 0}
+                onClick={() =>
+                  triggerDownloads(images.filter((i) => selected.has(i.key)))
+                }
+                className="border border-foreground px-6 py-2 text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-foreground"
+              >
+                Download selected ({selected.size})
+              </button>
+            </div>
+            <p className="mb-8 text-center text-xs text-muted">
+              Downloading several photos at once may prompt your browser to
+              allow multiple downloads.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+              {images.map((image, i) => (
+                <div
+                  key={image.key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setLightboxIndex(i)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setLightboxIndex(i);
+                    }
+                  }}
+                  className="group relative aspect-square cursor-pointer overflow-hidden bg-surface"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 URLs, not a static/optimizable asset */}
+                  <img
+                    src={image.url}
+                    alt={`${title} photo`}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                  />
+
+                  <label
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute left-2 top-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-black/40 backdrop-blur-sm"
+                  >
+                    <span className="sr-only">Select this photo</span>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(image.key)}
+                      onChange={() => toggleSelect(image.key)}
+                      className="h-4 w-4 accent-accent"
+                    />
+                  </label>
+
+                  <a
+                    href={image.downloadUrl}
+                    download={image.filename}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-2 right-2 z-10 rounded bg-black/40 px-2 py-1 text-[10px] uppercase tracking-wide text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
+                  >
+                    Download
+                  </a>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {lightboxIndex !== null && (
+          <GalleryLightbox
+            images={images}
+            index={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+            onNavigate={setLightboxIndex}
+          />
         )}
       </div>
     );
