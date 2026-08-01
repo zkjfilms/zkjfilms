@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { getSupabaseClient } from "@/lib/supabase";
+import { listGalleryImages, SIGNED_URL_EXPIRY_SECONDS } from "@/lib/r2";
 
 type Payload = { slug: string; password: string };
 
@@ -67,5 +68,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "Incorrect password." }, { status: 401 });
   }
 
-  return Response.json({ ok: true });
+  // The client caches this response (including expiresAt) in
+  // sessionStorage so it doesn't need to re-verify the password on every
+  // page load — expiresAt tells it when to drop the cache and re-prompt,
+  // matching how long the signed image URLs below stay valid.
+  const expiresAt = Date.now() + SIGNED_URL_EXPIRY_SECONDS * 1000;
+
+  // The password was correct — don't fail the whole unlock just because
+  // R2 is unreachable. The client shows a distinct "couldn't load photos"
+  // state when imagesError is set instead of an empty gallery.
+  try {
+    const images = await listGalleryImages(payload.slug);
+    return Response.json({ ok: true, images, expiresAt });
+  } catch (err) {
+    console.error("Failed to list gallery images from R2:", err);
+    return Response.json({ ok: true, images: [], imagesError: true, expiresAt });
+  }
 }

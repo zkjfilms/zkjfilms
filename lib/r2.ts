@@ -1,7 +1,12 @@
 // S3-compatible client for Cloudflare R2, used by the client gallery
 // feature to store and serve images.
 
-import { S3Client } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  ListObjectsV2Command,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -22,4 +27,38 @@ export function getR2Client(): S3Client {
       secretAccessKey: requireEnv("R2_SECRET_ACCESS_KEY"),
     },
   });
+}
+
+export type GalleryImage = { key: string; url: string };
+
+export const SIGNED_URL_EXPIRY_SECONDS = 60 * 60; // 1 hour
+
+// Images for a gallery live under galleries/<slug>/ in the bucket. Signed
+// URLs expire after an hour — a client browsing longer than that in one
+// sitting would need to re-unlock to get fresh URLs.
+export async function listGalleryImages(slug: string): Promise<GalleryImage[]> {
+  const client = getR2Client();
+
+  const listing = await client.send(
+    new ListObjectsV2Command({
+      Bucket: R2_BUCKET_NAME,
+      Prefix: `galleries/${slug}/`,
+    }),
+  );
+
+  const objects = (listing.Contents ?? []).filter(
+    (obj): obj is typeof obj & { Key: string } =>
+      typeof obj.Key === "string" && !obj.Key.endsWith("/"),
+  );
+
+  return Promise.all(
+    objects.map(async (obj) => ({
+      key: obj.Key,
+      url: await getSignedUrl(
+        client,
+        new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: obj.Key }),
+        { expiresIn: SIGNED_URL_EXPIRY_SECONDS },
+      ),
+    })),
+  );
 }

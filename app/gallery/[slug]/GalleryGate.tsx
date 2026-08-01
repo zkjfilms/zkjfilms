@@ -3,9 +3,15 @@
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 
 type SubmitStatus = "idle" | "loading" | "error";
+type GalleryImage = { key: string; url: string };
+type Session = {
+  images: GalleryImage[];
+  imagesError: boolean;
+  expiresAt: number;
+};
 
-function storageKey(slug: string) {
-  return `gallery-access:${slug}`;
+function sessionKey(slug: string) {
+  return `gallery-session:${slug}`;
 }
 
 // No real external events to subscribe to — sessionStorage only changes
@@ -15,6 +21,29 @@ function subscribe() {
   return () => {};
 }
 
+function parseSession(raw: string | null): Session | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<Session>;
+    if (typeof parsed.expiresAt !== "number") return null;
+    return {
+      images: parsed.images ?? [],
+      imagesError: parsed.imagesError ?? false,
+      expiresAt: parsed.expiresAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Date.now() is impure, so the expiry check has to happen inside the
+// snapshot function (where useSyncExternalStore expects reads of live
+// external state), not in the render body.
+function isUnlocked(slug: string): boolean {
+  const session = parseSession(sessionStorage.getItem(sessionKey(slug)));
+  return session !== null && Date.now() < session.expiresAt;
+}
+
 export default function GalleryGate({
   slug,
   title,
@@ -22,17 +51,34 @@ export default function GalleryGate({
   slug: string;
   title: string;
 }) {
-  // Unlock state lives in sessionStorage only — there's no server session
-  // behind it. That's fine while this route only shows a placeholder
-  // message, but once real images are wired up, the image-fetching code
-  // must re-verify the password server-side (e.g. via this same
-  // /api/gallery-access check) rather than trusting this client flag,
-  // since sessionStorage can be set directly from devtools.
+  // The unlocked session (including signed image URLs) lives in
+  // sessionStorage only — there's no server session behind it. The
+  // password is verified server-side once (in handleSubmit, via
+  // /api/gallery-access), which also signs the image URLs at that point
+  // and tells us when those URLs expire; nothing here trusts client state
+  // for the actual authorization, only for whether to show the cached
+  // result instead of re-prompting. Once expiresAt passes (the signed
+  // URLs would be dead anyway), this falls back to the locked gate
+  // rather than showing broken images.
+  //
+  // Kept as a raw string (a primitive, comparable with ===) rather than
+  // parsing inside the snapshot function — useSyncExternalStore requires
+  // getSnapshot to return a stable reference when nothing changed, and
+  // JSON.parse would allocate a new object on every call.
   const unlocked = useSyncExternalStore(
     subscribe,
-    () => sessionStorage.getItem(storageKey(slug)) === "unlocked",
+    () => isUnlocked(slug),
     () => false, // server/initial-hydration snapshot — sessionStorage doesn't exist yet
   );
+
+  // Parsing (pure, no Date.now()) happens separately in the render body —
+  // only the unlocked boolean above needed the impure expiry check.
+  const sessionRaw = useSyncExternalStore(
+    subscribe,
+    () => sessionStorage.getItem(sessionKey(slug)),
+    () => null,
+  );
+  const session = parseSession(sessionRaw);
 
   const [password, setPassword] = useState("");
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
@@ -52,7 +98,12 @@ export default function GalleryGate({
         body: JSON.stringify({ slug, password }),
       });
 
-      const data: { error?: string } = await response.json();
+      const data: {
+        error?: string;
+        images?: GalleryImage[];
+        imagesError?: boolean;
+        expiresAt?: number;
+      } = await response.json();
 
       if (!response.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
@@ -60,7 +111,12 @@ export default function GalleryGate({
         return;
       }
 
-      sessionStorage.setItem(storageKey(slug), "unlocked");
+      const newSession: Session = {
+        images: data.images ?? [],
+        imagesError: data.imagesError ?? false,
+        expiresAt: data.expiresAt ?? Date.now(),
+      };
+      sessionStorage.setItem(sessionKey(slug), JSON.stringify(newSession));
       setSubmitStatus("idle");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -68,16 +124,47 @@ export default function GalleryGate({
     }
   }
 
-  if (unlocked) {
+  if (unlocked && session) {
+    const { images, imagesError } = session;
+
     return (
-      <div className="mx-auto flex min-h-[70vh] w-full max-w-2xl flex-col items-center justify-center px-6 py-24 text-center sm:px-10">
-        <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">
-          {title}
-        </p>
-        <h1 className="font-serif text-3xl italic text-foreground sm:text-4xl">
-          Gallery unlocked
-        </h1>
-        <p className="mt-4 text-muted">Images will load here.</p>
+      <div className="mx-auto w-full max-w-5xl px-6 py-16 sm:px-10">
+        <div className="mb-10 text-center">
+          <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">
+            {title}
+          </p>
+          <h1 className="font-serif text-3xl italic text-foreground sm:text-4xl">
+            Your gallery
+          </h1>
+        </div>
+
+        {imagesError ? (
+          <p className="text-center text-muted">
+            Your photos couldn&rsquo;t be loaded right now. Please refresh
+            the page, or get in touch if this keeps happening.
+          </p>
+        ) : images.length === 0 ? (
+          <p className="text-center text-muted">
+            Your photos are being prepared and will appear here soon.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            {images.map((image) => (
+              <div
+                key={image.key}
+                className="group relative aspect-square overflow-hidden bg-surface"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 URLs, not a static/optimizable asset */}
+                <img
+                  src={image.url}
+                  alt={`${title} photo`}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
