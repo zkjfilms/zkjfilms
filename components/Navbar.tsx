@@ -48,7 +48,7 @@ export default function Navbar() {
             scrolled ? "text-foreground" : "text-white"
           }`}
         >
-          Nocturne
+          Zach K. Johnson
         </Link>
         <nav className="flex items-center gap-8 sm:gap-10">
           {links.map((link) => (

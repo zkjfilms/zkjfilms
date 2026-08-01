@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Jost } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { BUSINESS, DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default:
-      "Nocturne Studio | Columbia, MO Portrait & Boudoir Photographer",
+      "Zach K. Johnson | Columbia, MO Portrait & Boudoir Photographer",
     template: `%s | ${SITE_NAME}`,
   },
   description: BUSINESS.description,
@@ -63,6 +64,7 @@ export default function RootLayout({
         <Navbar />
         <main className="flex-1 pt-20">{children}</main>
         <Footer />
+        <SpeedInsights />
       </body>
     </html>
   );

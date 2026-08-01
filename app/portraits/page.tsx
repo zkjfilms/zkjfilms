@@ -58,7 +58,7 @@ const images: GalleryImage[] = [
   {
     seed: "nocturne-portrait-08",
     index: 8,
-    alt: "Painterly fine art photography by Nocturne Studio, Columbia, MO",
+    alt: "Painterly fine art photography by Zach K. Johnson, Columbia, MO",
   },
 ];
 
@@ -117,7 +117,7 @@ export default function PortraitsPage() {
       <section className="relative -mt-20 flex min-h-[70vh] items-end overflow-hidden">
         <Image
           src="https://picsum.photos/seed/nocturne-portrait-00/1800/1200"
-          alt="Columbia, Missouri portrait and creative photography session — Nocturne Studio"
+          alt="Columbia, Missouri portrait and creative photography session — Zach K. Johnson"
           fill
           priority
           className="object-cover"

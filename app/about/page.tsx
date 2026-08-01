@@ -5,7 +5,7 @@ import { buildPageMetadata } from "@/lib/seo";
 
 const TITLE = "About";
 const DESCRIPTION =
-  "Meet the photographer behind Nocturne Studio, a Columbia, Missouri portrait, boudoir, and fine art photographer serving Mid-Missouri.";
+  "Meet Zach K. Johnson, a Columbia, Missouri portrait, boudoir, and fine art photographer serving Mid-Missouri.";
 
 export function generateMetadata(): Metadata {
   return buildPageMetadata({ title: TITLE, description: DESCRIPTION, path: "/about" });
@@ -35,8 +35,8 @@ export default function AboutPage() {
         <div className="mt-8 space-y-6 text-muted leading-relaxed">
           <p>
             I&rsquo;m a portrait and fine art photographer based in
-            Columbia, Missouri, working out of my studio at [STUDIO LOCATION
-            &mdash; placeholder]. Photography found me through a background
+            Columbia, Missouri, working out of my studio on West Broadway.
+            Photography found me through a background
             in research and administration &mdash; a strange starting
             point, maybe, but it taught me patience, attention to detail,
             and how to make people comfortable enough to open up. Those same
@@ -71,26 +71,50 @@ export default function AboutPage() {
         >
           Get in Touch
         </Link>
+      </div>
 
-        <h2 className="mt-10 border-t border-border pt-8 text-xs uppercase tracking-[0.3em] text-muted">
+      <div className="order-3 lg:col-span-2">
+        <h2 className="border-t border-border pt-10 text-xs uppercase tracking-[0.3em] text-muted">
           Studio Details
         </h2>
-        <dl className="mt-4 grid grid-cols-2 gap-6 text-sm">
+        <dl className="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2">
           <div>
-            <dt className="uppercase tracking-[0.15em] text-muted">
-              Based In
+            <dt className="text-xs uppercase tracking-[0.15em] text-muted">
+              Studio Address
             </dt>
-            <dd className="mt-1 text-foreground">Columbia, MO</dd>
+            <dd className="mt-2 font-serif text-lg italic text-foreground">
+              <a
+                href="https://www.google.com/maps/dir/?api=1&destination=2101+W+Broadway+Ave+Suite+208+Columbia+MO+65203"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+              >
+                2101 W Broadway Ave, Suite 208, Columbia, MO 65203
+              </a>
+            </dd>
           </div>
           <div>
-            <dt className="uppercase tracking-[0.15em] text-muted">
+            <dt className="text-xs uppercase tracking-[0.15em] text-muted">
               Available For
             </dt>
-            <dd className="mt-1 text-foreground">
+            <dd className="mt-2 text-sm text-foreground">
               Portraits, Headshots &amp; Boudoir
             </dd>
           </div>
         </dl>
+
+        <div className="mt-10 overflow-hidden rounded-lg border border-border">
+          <iframe
+            src="https://www.google.com/maps?q=2101+W+Broadway+Ave+Suite+208+Columbia+MO+65203&output=embed"
+            title="Map showing Zach K. Johnson's studio location at 2101 W Broadway Ave, Suite 208, Columbia, MO 65203"
+            width="100%"
+            height="560"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+            className="h-[320px] w-full sm:h-[440px] lg:h-[560px]"
+          />
+        </div>
       </div>
     </div>
   );

@@ -6,28 +6,36 @@
 
 import type { Metadata } from "next";
 
-export const SITE_URL = "https://nocturnestudio.example"; // PLACEHOLDER domain
+export const SITE_URL = "https://zkjfilms.com";
 
-export const SITE_NAME = "Nocturne Studio";
+export const SITE_NAME = "Zach K. Johnson";
 
 export const DEFAULT_OG_IMAGE = {
   url: "https://picsum.photos/seed/nocturne-og/1200/630", // PLACEHOLDER — swap for a real branded image
   width: 1200,
   height: 630,
-  alt: "Nocturne Studio — Columbia, Missouri portrait and boudoir photographer",
+  alt: "Zach K. Johnson — Columbia, Missouri portrait and boudoir photographer",
+};
+
+export const SOCIALS = {
+  instagram: "https://www.instagram.com/zach_k_johnson",
+  youtube: "https://www.youtube.com/@zkjfilms",
+  appleMusic: "https://music.apple.com/profile/zkjfilms",
+  facebook: "https://www.facebook.com/profile.php?id=61586214680266",
+  vimeo: "https://vimeo.com/user172241052",
 };
 
 export const BUSINESS = {
   name: SITE_NAME,
   description:
-    "Portrait, boudoir, and fine art photography studio based in Columbia, Missouri, serving clients throughout Mid-Missouri.",
+    "Zach K. Johnson is a portrait, boudoir, and fine art photographer based in Columbia, Missouri, serving clients throughout Mid-Missouri.",
   telephone: "+1-573-000-0000", // PLACEHOLDER
-  email: "hello@nocturnestudio.example", // PLACEHOLDER
+  email: "zach@zkjfilms.com",
   address: {
-    streetAddress: "123 Placeholder St", // PLACEHOLDER
+    streetAddress: "2101 W Broadway Ave, Suite 208",
     addressLocality: "Columbia",
     addressRegion: "MO",
-    postalCode: "65201", // PLACEHOLDER
+    postalCode: "65203",
     addressCountry: "US",
   },
   geo: {
@@ -42,9 +50,7 @@ export const BUSINESS = {
     "Boonville, MO",
     "Mid-Missouri",
   ],
-  sameAs: [
-    "https://www.instagram.com/nocturnestudio", // PLACEHOLDER
-  ],
+  sameAs: Object.values(SOCIALS),
   priceRange: "$$", // PLACEHOLDER
 };
 

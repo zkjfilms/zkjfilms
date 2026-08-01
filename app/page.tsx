@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import SectionNav from "@/components/SectionNav";
 import { BUSINESS, SITE_URL, buildPageMetadata } from "@/lib/seo";
 
-const TITLE = "Nocturne Studio | Columbia, MO Portrait & Boudoir Photographer";
+const TITLE = "Zach K. Johnson | Columbia, MO Portrait & Boudoir Photographer";
 const DESCRIPTION =
   "Columbia, Missouri portrait and boudoir photographer offering natural-light portrait, boudoir, and fine art photography sessions throughout Mid-Missouri.";
 

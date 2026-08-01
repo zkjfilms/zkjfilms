@@ -1,8 +1,7 @@
 import { Resend } from "resend";
 import { BUSINESS } from "@/lib/seo";
 
-// PLACEHOLDER — swap for a verified domain address once one is set up in Resend.
-const FROM_ADDRESS = `${BUSINESS.name} <onboarding@resend.dev>`;
+const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -84,17 +83,10 @@ export async function POST(request: Request) {
 
   const resend = new Resend(apiKey);
 
-  // Resend's sandbox mode (before a sending domain is verified) only
-  // allows delivery to the Resend account's own email. CONTACT_TO_EMAIL
-  // lets that be overridden independently of the public-facing business
-  // email in lib/seo.ts. Once a domain is verified, this can be dropped
-  // in favor of BUSINESS.email again.
-  const toEmail = process.env.CONTACT_TO_EMAIL || BUSINESS.email;
-
   try {
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
-      to: [toEmail],
+      to: [BUSINESS.email],
       replyTo: payload.email,
       subject: `New inquiry from ${payload.name}`,
       text: [
