@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Jost } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { BUSINESS, DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
@@ -65,6 +66,7 @@ export default function RootLayout({
         <main className="flex-1 pt-20">{children}</main>
         <Footer />
         <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
