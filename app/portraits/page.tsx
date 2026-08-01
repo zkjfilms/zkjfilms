@@ -2,6 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo";
+import Gallery, {
+  type GalleryGroup,
+  type GalleryImage,
+} from "@/components/Gallery";
 
 const TITLE = "Portrait & Boudoir Gallery";
 const DESCRIPTION =
@@ -14,8 +18,6 @@ export function generateMetadata(): Metadata {
     path: "/portraits",
   });
 }
-
-type GalleryImage = { seed: string; index: number; alt: string };
 
 // Alt text below is placeholder copy targeting local SEO keywords —
 // replace with real per-image descriptions once final photos are added.
@@ -62,17 +64,7 @@ const images: GalleryImage[] = [
   },
 ];
 
-type Block =
-  | { type: "single"; items: [GalleryImage] }
-  | { type: "pair"; items: [GalleryImage, GalleryImage] };
-
-type Group = {
-  title: string;
-  description: string;
-  blocks: Block[];
-};
-
-const groups: Group[] = [
+const groups: GalleryGroup[] = [
   {
     title: "Headshots & Branding",
     description:
@@ -101,14 +93,6 @@ const groups: Group[] = [
     ],
   },
 ];
-
-function Caption({ index }: { index: number }) {
-  return (
-    <span className="absolute bottom-6 left-6 text-[11px] uppercase tracking-[0.3em] text-white/80 sm:left-10">
-      {String(index).padStart(2, "0")}
-    </span>
-  );
-}
 
 export default function PortraitsPage() {
   return (
@@ -145,59 +129,7 @@ export default function PortraitsPage() {
       </p>
 
       {/* Gallery */}
-      <div className="flex flex-col pb-24">
-        {groups.map((group) => (
-          <div key={group.title} className="flex flex-col gap-3 pb-3">
-            <div className="mx-auto w-full max-w-2xl px-6 py-10 text-center sm:px-10">
-              <h2 className="font-serif text-2xl italic text-foreground sm:text-3xl">
-                {group.title}
-              </h2>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
-                {group.description}
-              </p>
-            </div>
-
-            {group.blocks.map((block, blockIndex) =>
-              block.type === "single" ? (
-                <div
-                  key={blockIndex}
-                  className="group relative h-[80vh] w-full overflow-hidden bg-surface"
-                >
-                  <Image
-                    src={`https://picsum.photos/seed/${block.items[0].seed}/1600/1400`}
-                    alt={block.items[0].alt}
-                    fill
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                    sizes="100vw"
-                  />
-                  <Caption index={block.items[0].index} />
-                </div>
-              ) : (
-                <div
-                  key={blockIndex}
-                  className="grid grid-cols-1 gap-3 sm:grid-cols-2"
-                >
-                  {block.items.map((item) => (
-                    <div
-                      key={item.seed}
-                      className="group relative h-[60vh] overflow-hidden bg-surface sm:h-[70vh]"
-                    >
-                      <Image
-                        src={`https://picsum.photos/seed/${item.seed}/1200/1400`}
-                        alt={item.alt}
-                        fill
-                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                        sizes="(min-width: 640px) 50vw, 100vw"
-                      />
-                      <Caption index={item.index} />
-                    </div>
-                  ))}
-                </div>
-              ),
-            )}
-          </div>
-        ))}
-      </div>
+      <Gallery groups={groups} />
 
       <div className="mx-auto -mt-12 mb-24 flex w-full max-w-2xl justify-center px-6 sm:px-10">
         <Link
