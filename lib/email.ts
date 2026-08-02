@@ -12,7 +12,7 @@ export function escapeHtml(value: string) {
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
 
-// Shared between the Acuity webhook (first send) and the admin
+// Shared between the /api/book flow (first send) and the admin
 // send/resend action, so both paths produce the same email.
 export async function sendSigningLinkEmail(contract: {
   id: string;
