@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
+import { isGalleryUnavailable } from "@/lib/gallery";
 import GalleryGate from "./GalleryGate";
 
 // Client galleries are private — never indexed, and disallowed in
@@ -13,10 +14,6 @@ export function generateMetadata(): Metadata {
       follow: false,
     },
   };
-}
-
-function isGalleryExpired(expiresAt: string | null): boolean {
-  return expiresAt !== null && new Date(expiresAt).getTime() < Date.now();
 }
 
 function GalleryNotFound() {
@@ -75,7 +72,7 @@ export default async function GalleryPage({
   const supabase = getSupabaseClient();
   const { data: gallery, error } = await supabase
     .from("galleries")
-    .select("slug, title, expires_at")
+    .select("slug, title, expires_at, archived_at")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -87,7 +84,7 @@ export default async function GalleryPage({
     return <GalleryNotFound />;
   }
 
-  if (isGalleryExpired(gallery.expires_at)) {
+  if (isGalleryUnavailable(gallery)) {
     return <GalleryExpired title={gallery.title} />;
   }
 

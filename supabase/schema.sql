@@ -10,7 +10,8 @@ create table if not exists galleries (
   password_hash text not null,
   client_name text not null,
   created_at timestamptz not null default now(),
-  expires_at timestamptz
+  expires_at timestamptz,
+  archived_at timestamptz
 );
 
 create index if not exists galleries_slug_idx on galleries (slug);

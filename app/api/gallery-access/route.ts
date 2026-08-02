@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { getSupabaseClient } from "@/lib/supabase";
 import { listGalleryImages, SIGNED_URL_EXPIRY_SECONDS } from "@/lib/r2";
+import { isGalleryUnavailable } from "@/lib/gallery";
 
 type Payload = { slug: string; password: string };
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
 
   const { data: gallery, error } = await supabase
     .from("galleries")
-    .select("password_hash, expires_at")
+    .select("password_hash, expires_at, archived_at")
     .eq("slug", payload.slug)
     .maybeSingle();
 
@@ -59,12 +60,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Gallery not found." }, { status: 404 });
   }
 
-  // Checked before the password so an expired gallery never confirms or
-  // denies a password guess — same reasoning as checking existence first.
-  if (
-    gallery.expires_at !== null &&
-    new Date(gallery.expires_at).getTime() < Date.now()
-  ) {
+  // Checked before the password so an expired/archived gallery never
+  // confirms or denies a password guess — same reasoning as checking
+  // existence first.
+  if (isGalleryUnavailable(gallery)) {
     return Response.json({ error: "This gallery has expired." }, { status: 410 });
   }
 
