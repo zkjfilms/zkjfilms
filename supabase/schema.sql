@@ -147,3 +147,32 @@ create index if not exists booking_slots_start_time_idx on booking_slots (start_
 create index if not exists booking_slots_status_idx on booking_slots (status);
 
 alter table booking_slots enable row level security;
+
+-- Deposits, private-link tokens, and refund tracking for the native
+-- booking system (deposit collection, self-serve reschedule/cancel —
+-- see docs/superpowers/specs/2026-08-02-booking-deposits-reschedule-cancellation-design.md).
+--
+-- booking_token is deliberately NOT the same as `id`: `id` belongs to
+-- whichever row currently represents the appointment, but a reschedule
+-- moves the client to a *different* row (a different admin-created open
+-- slot). The token travels with the client across that move, generated
+-- once when a deposit is confirmed and carried forward on every
+-- reschedule, so their private link (/manage/[booking_token]) never
+-- breaks. It's cleared (set to null) on cancellation and on release
+-- back to 'open' generally — lookups always filter status = 'booked',
+-- so a stale token on an 'open' row is inert either way.
+alter table booking_slots
+  add column if not exists deposit_cents integer not null default 0,
+  add column if not exists deposit_payment_intent_id text,
+  add column if not exists booking_token uuid,
+  add column if not exists pending_expires_at timestamptz,
+  add column if not exists refund_status text
+    check (refund_status in ('refunded', 'partial_refund', 'no_refund', 'failed')),
+  add column if not exists refund_amount_cents integer;
+
+alter table booking_slots drop constraint if exists booking_slots_status_check;
+alter table booking_slots add constraint booking_slots_status_check
+  check (status in ('open', 'pending', 'booked'));
+
+create index if not exists booking_slots_booking_token_idx
+  on booking_slots (booking_token);
