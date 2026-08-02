@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+import Link from "next/link";
 import ContactForm from "./ContactForm";
 import { buildPageMetadata } from "@/lib/seo";
-
-const ACUITY_SCHEDULE_URL =
-  "https://app.acuityscheduling.com/schedule.php?owner=39281554&ref=embedded_csp";
 
 const TITLE = "Contact & Booking";
 const DESCRIPTION =
@@ -35,24 +32,23 @@ export default function ContactPage() {
         </p>
       </header>
 
-      <section id="booking" className="mb-16 scroll-mt-24">
-        <p className="mb-3 text-center text-xs uppercase tracking-[0.3em] text-muted">
+      <section id="booking" className="mb-16 scroll-mt-24 text-center">
+        <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">
           Schedule Online
         </p>
-        <h2 className="mb-8 text-center font-serif text-3xl italic text-foreground sm:text-4xl">
+        <h2 className="mb-6 font-serif text-3xl italic text-foreground sm:text-4xl">
           Book a Session
         </h2>
-        <div className="w-full overflow-hidden border border-border">
-          <iframe
-            src={ACUITY_SCHEDULE_URL}
-            title="Schedule Appointment"
-            width="100%"
-            height="800"
-            frameBorder="0"
-            allow="payment"
-            className="h-[600px] w-full sm:h-[800px]"
-          />
-        </div>
+        <p className="mx-auto mb-8 max-w-md text-muted">
+          Pick a session type and an open time, and you&rsquo;ll get a
+          session agreement to sign by email right after.
+        </p>
+        <Link
+          href="/book"
+          className="inline-block border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+        >
+          View Availability &amp; Book
+        </Link>
       </section>
 
       <ContactForm />
@@ -65,14 +61,6 @@ export default function ContactPage() {
         If you&rsquo;d rather email directly, reach me at [EMAIL &mdash;
         placeholder].
       </p>
-
-      {/* Acuity's embed helper script. next/script with the default
-          afterInteractive strategy is the Next.js-idiomatic equivalent of
-          placing a <script> tag right before the closing </body> tag. */}
-      <Script
-        src="https://embed.acuityscheduling.com/js/embed.js"
-        strategy="afterInteractive"
-      />
     </div>
   );
 }

@@ -32,7 +32,7 @@ create table if not exists leads (
   status text not null default 'new'
     check (status in ('new', 'contacted', 'booked', 'completed', 'lost')),
   source text not null default 'contact_form'
-    check (source in ('contact_form', 'manual')),
+    check (source in ('contact_form', 'manual', 'booking')),
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -121,3 +121,29 @@ Photographer retains copyright to all images produced during the session. Client
 By signing below, Client agrees to the terms outlined above.'
   )
 on conflict (template_type) do nothing;
+
+-- Native booking, replacing the Acuity embed on /contact. A slot's whole
+-- lifecycle lives in one row: admin opens it (status 'open'), a client
+-- claims it via /api/book (status -> 'booked', race-safe via an update
+-- guarded by `where status = 'open'`), admin can cancel a booked slot to
+-- reopen it (clearing client fields) rather than deleting the row.
+-- Deliberately no recurring-availability engine for v1 — the admin opens
+-- specific slots by hand, which fits the site's existing "every other
+-- week" hours better than a rigid weekly-recurrence model would.
+create table if not exists booking_slots (
+  id uuid primary key default gen_random_uuid(),
+  start_time timestamptz not null,
+  end_time timestamptz not null,
+  session_type text not null,
+  status text not null default 'open' check (status in ('open', 'booked')),
+  client_name text,
+  client_email text,
+  client_notes text,
+  booked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists booking_slots_start_time_idx on booking_slots (start_time);
+create index if not exists booking_slots_status_idx on booking_slots (status);
+
+alter table booking_slots enable row level security;
