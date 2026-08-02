@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
   const { data: gallery, error } = await supabase
     .from("galleries")
-    .select("password_hash")
+    .select("password_hash, expires_at")
     .eq("slug", payload.slug)
     .maybeSingle();
 
@@ -57,6 +57,15 @@ export async function POST(request: Request) {
 
   if (!gallery) {
     return Response.json({ error: "Gallery not found." }, { status: 404 });
+  }
+
+  // Checked before the password so an expired gallery never confirms or
+  // denies a password guess — same reasoning as checking existence first.
+  if (
+    gallery.expires_at !== null &&
+    new Date(gallery.expires_at).getTime() < Date.now()
+  ) {
+    return Response.json({ error: "This gallery has expired." }, { status: 410 });
   }
 
   const passwordMatches = await bcrypt.compare(

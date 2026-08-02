@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gallery:list": "node --env-file=.env.local scripts/gallery-expiry.mjs list",
+    "gallery:set-expiry": "node --env-file=.env.local scripts/gallery-expiry.mjs set"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
