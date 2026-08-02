@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 import { formatDate } from "@/lib/format";
 import { formatTemplateType } from "@/lib/contracts";
+import EmailAction from "./EmailAction";
 
 // robots noindex is inherited from app/admin/layout.tsx.
 export function generateMetadata(): Metadata {
@@ -16,6 +17,8 @@ type ContractRow = {
   client_email: string;
   signed: boolean;
   signed_at: string | null;
+  appointment_date: string | null;
+  email_sent: boolean;
   created_at: string;
 };
 
@@ -23,7 +26,9 @@ export default async function AdminDashboardPage() {
   const supabase = getSupabaseClient();
   const { data: contracts, error } = await supabase
     .from("contracts")
-    .select("id, template_type, client_name, client_email, signed, signed_at, created_at")
+    .select(
+      "id, template_type, client_name, client_email, signed, signed_at, appointment_date, email_sent, created_at",
+    )
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -61,8 +66,9 @@ export default async function AdminDashboardPage() {
                 <th className="py-3 pr-4 font-normal">Client</th>
                 <th className="py-3 pr-4 font-normal">Email</th>
                 <th className="py-3 pr-4 font-normal">Template</th>
-                <th className="py-3 pr-4 font-normal">Created</th>
-                <th className="py-3 pr-4 font-normal">Status</th>
+                <th className="py-3 pr-4 font-normal">Session</th>
+                <th className="py-3 pr-4 font-normal">Contract</th>
+                <th className="py-3 pr-4 font-normal">Email</th>
                 <th className="py-3 font-normal">Link</th>
               </tr>
             </thead>
@@ -79,7 +85,9 @@ export default async function AdminDashboardPage() {
                     {formatTemplateType(contract.template_type)}
                   </td>
                   <td className="whitespace-nowrap py-3 pr-4 text-muted">
-                    {formatDate(contract.created_at)}
+                    {contract.appointment_date
+                      ? formatDate(contract.appointment_date)
+                      : `— (created ${formatDate(contract.created_at)})`}
                   </td>
                   <td className="py-3 pr-4">
                     {contract.signed ? (
@@ -92,6 +100,9 @@ export default async function AdminDashboardPage() {
                     ) : (
                       <span className="text-muted">Pending</span>
                     )}
+                  </td>
+                  <td className="py-3 pr-4">
+                    <EmailAction id={contract.id} emailSent={contract.email_sent} />
                   </td>
                   <td className="py-3">
                     <Link

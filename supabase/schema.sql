@@ -60,6 +60,11 @@ alter table templates enable row level security;
 -- already-created contract. signer_name is the typed name captured at
 -- signing — added beyond the originally listed columns since nothing
 -- else in this schema stores it, and item 5 requires capturing it.
+-- appointment_id traces a contract back to its Acuity booking (see
+-- app/api/webhooks/acuity/route.ts). The partial unique index makes
+-- appointment_id -> contract idempotent (one contract per booking) while
+-- still allowing unlimited manually-created contracts, which have no
+-- appointment_id.
 create table if not exists contracts (
   id uuid primary key default gen_random_uuid(),
   template_type text not null,
@@ -70,11 +75,17 @@ create table if not exists contracts (
   signed_at timestamptz,
   signer_name text,
   signer_ip text,
+  appointment_id text,
+  appointment_date timestamptz,
+  email_sent boolean not null default false,
+  email_sent_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 create index if not exists contracts_created_at_idx on contracts (created_at desc);
 create index if not exists contracts_signed_idx on contracts (signed);
+create unique index if not exists contracts_appointment_id_idx
+  on contracts (appointment_id) where appointment_id is not null;
 
 alter table contracts enable row level security;
 

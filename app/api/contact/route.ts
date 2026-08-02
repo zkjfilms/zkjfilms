@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { BUSINESS } from "@/lib/seo";
 import { getSupabaseClient } from "@/lib/supabase";
+import { escapeHtml } from "@/lib/email";
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
 
@@ -12,15 +13,6 @@ type ContactPayload = {
   sessionType: string;
   message: string;
 };
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 function parsePayload(body: unknown): ContactPayload | null {
   if (typeof body !== "object" || body === null) return null;
