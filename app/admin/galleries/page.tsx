@@ -1,18 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { getSupabaseClient } from "@/lib/supabase";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
-import AdminGate from "./AdminGate";
 
+// robots noindex is inherited from app/admin/layout.tsx.
 export function generateMetadata(): Metadata {
-  return {
-    title: "Admin — Galleries",
-    robots: {
-      index: false,
-      follow: false,
-    },
-  };
+  return { title: "Admin — Galleries" };
 }
 
 type GalleryRow = {
@@ -57,15 +49,6 @@ const TONE_CLASSES = {
 } as const;
 
 export default async function AdminGalleriesPage() {
-  const cookieStore = await cookies();
-  const hasAccess = isValidAccessToken(
-    cookieStore.get(ADMIN_ACCESS_COOKIE)?.value,
-  );
-
-  if (!hasAccess) {
-    return <AdminGate />;
-  }
-
   const supabase = getSupabaseClient();
   const { data: galleries, error } = await supabase
     .from("galleries")

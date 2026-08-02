@@ -34,7 +34,7 @@ export default function AdminGate() {
       }
 
       // The server has set the access cookie; re-render this route so the
-      // server component picks it up and swaps in the gallery list.
+      // admin layout picks it up and swaps in the actual page content.
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
