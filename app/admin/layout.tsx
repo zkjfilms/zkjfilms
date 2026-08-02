@@ -5,6 +5,8 @@ import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import AdminGate from "./AdminGate";
 
 const NAV_LINKS = [
+  { href: "/admin/dashboard", label: "Contracts" },
+  { href: "/admin/templates", label: "Templates" },
   { href: "/admin/galleries", label: "Galleries" },
   { href: "/admin/leads", label: "Leads" },
 ];

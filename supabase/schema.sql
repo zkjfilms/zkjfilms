@@ -42,3 +42,71 @@ create index if not exists leads_status_idx on leads (status);
 create index if not exists leads_created_at_idx on leads (created_at desc);
 
 alter table leads enable row level security;
+
+-- Templates: one row per contract type, edited in /admin/templates.
+-- Content uses {{token}} placeholders (client_name, client_email,
+-- session_type, session_date, today) filled in at contract creation.
+create table if not exists templates (
+  id uuid primary key default gen_random_uuid(),
+  template_type text not null unique,
+  content text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table templates enable row level security;
+
+-- Contracts: a full snapshot of the filled-in template text at creation
+-- time (contract_text), so later edits to the template never change an
+-- already-created contract. signer_name is the typed name captured at
+-- signing — added beyond the originally listed columns since nothing
+-- else in this schema stores it, and item 5 requires capturing it.
+create table if not exists contracts (
+  id uuid primary key default gen_random_uuid(),
+  template_type text not null,
+  client_name text not null,
+  client_email text not null,
+  contract_text text not null,
+  signed boolean not null default false,
+  signed_at timestamptz,
+  signer_name text,
+  signer_ip text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists contracts_created_at_idx on contracts (created_at desc);
+create index if not exists contracts_signed_idx on contracts (signed);
+
+alter table contracts enable row level security;
+
+-- Seed placeholder content — replace via /admin/templates before real use.
+insert into templates (template_type, content)
+values
+  (
+    'model_release',
+    'MODEL RELEASE AGREEMENT
+
+This Model Release Agreement ("Agreement") is entered into between {{client_name}} ("Model") and Zach K. Johnson ("Photographer") on {{today}}.
+
+For good and valuable consideration, Model grants Photographer the irrevocable right to use, reproduce, and publish photographs taken during the {{session_type}} session on {{session_date}} for portfolio, marketing, and promotional purposes.
+
+Model releases Photographer from any claims arising from the use of these images, provided such use does not portray Model in a defamatory or unlawful manner.
+
+[PLACEHOLDER TEXT — replace with your actual model release language before use.]
+
+By signing below, Model confirms they are 18 years of age or older (or have parental/guardian consent) and agree to the terms above.'
+  ),
+  (
+    'booking_agreement',
+    'PHOTOGRAPHY BOOKING AGREEMENT
+
+This Booking Agreement ("Agreement") is entered into between {{client_name}} ("Client") and Zach K. Johnson ("Photographer") on {{today}}, for a {{session_type}} session scheduled on {{session_date}}.
+
+Client agrees to the session terms, including scheduling, payment, and delivery timelines as discussed. A non-refundable deposit may be required to secure the booking date.
+
+Photographer retains copyright to all images produced during the session. Client is granted a personal-use license unless otherwise agreed in writing.
+
+[PLACEHOLDER TEXT — replace with your actual booking agreement language before use.]
+
+By signing below, Client agrees to the terms outlined above.'
+  )
+on conflict (template_type) do nothing;
