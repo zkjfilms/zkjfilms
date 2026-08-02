@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { SESSION_TYPES } from "@/lib/leads";
 
 type Status = "idle" | "loading" | "submitted" | "error";
 
@@ -12,8 +13,6 @@ type FormValues = {
 };
 
 type FormErrors = Partial<Record<keyof FormValues, string>>;
-
-const SESSION_TYPES = ["Headshots", "Creative Portrait", "Boudoir", "Other"];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

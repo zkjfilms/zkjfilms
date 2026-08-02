@@ -17,3 +17,28 @@ create table if not exists galleries (
 create index if not exists galleries_slug_idx on galleries (slug);
 
 alter table galleries enable row level security;
+
+-- Leads: one record per inquiry, moving through a single status pipeline
+-- (new -> contacted -> booked -> completed, or lost at any point) rather
+-- than separate leads/bookings tables. Created automatically from the
+-- contact form (see app/api/contact/route.ts) or manually in
+-- /admin/leads.
+create table if not exists leads (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null,
+  session_type text not null,
+  message text not null,
+  status text not null default 'new'
+    check (status in ('new', 'contacted', 'booked', 'completed', 'lost')),
+  source text not null default 'contact_form'
+    check (source in ('contact_form', 'manual')),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists leads_status_idx on leads (status);
+create index if not exists leads_created_at_idx on leads (created_at desc);
+
+alter table leads enable row level security;

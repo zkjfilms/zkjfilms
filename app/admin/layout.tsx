@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import AdminGate from "./AdminGate";
+
+const NAV_LINKS = [
+  { href: "/admin/galleries", label: "Galleries" },
+  { href: "/admin/leads", label: "Leads" },
+];
 
 // Applies to every /admin/* route — noindex here, plus the disallow rule
 // in robots.ts, as defense in depth. Pages can still override the title.
@@ -31,5 +37,22 @@ export default async function AdminLayout({
     return <AdminGate />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <div className="border-b border-border">
+        <nav className="mx-auto flex max-w-6xl gap-6 px-6 py-4 sm:px-10">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-xs uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+      {children}
+    </>
+  );
 }

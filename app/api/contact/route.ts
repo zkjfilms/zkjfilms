@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { BUSINESS } from "@/lib/seo";
+import { getSupabaseClient } from "@/lib/supabase";
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
 
@@ -113,6 +114,23 @@ export async function POST(request: Request) {
         { error: "Failed to send message." },
         { status: 502 },
       );
+    }
+
+    // Best-effort — the email is the primary notification, so a lead
+    // logging failure shouldn't fail the whole submission.
+    try {
+      const supabase = getSupabaseClient();
+      const { error: leadError } = await supabase.from("leads").insert({
+        name: payload.name,
+        email: payload.email,
+        session_type: payload.sessionType,
+        message: payload.message,
+      });
+      if (leadError) {
+        console.error("Failed to record lead:", leadError);
+      }
+    } catch (err) {
+      console.error("Failed to record lead:", err);
     }
 
     return Response.json({ ok: true });
