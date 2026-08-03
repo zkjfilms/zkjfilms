@@ -219,6 +219,40 @@ export async function handleRescheduleFeeCheckoutCompleted(
     // locked until the sweep gets to it. Same pattern as the claim
     // failure paths in app/api/manage/[token]/reschedule/route.ts.
     console.error("Failed to claim target slot for paid reschedule:", claimError);
+
+    // If the swap already completed on another row under this token,
+    // restoring this one would leave two booked rows sharing one
+    // booking_token — release it instead.
+    const { data: conflict } = await supabase
+      .from("booking_slots")
+      .select("id")
+      .eq("booking_token", bookingToken)
+      .eq("status", "booked")
+      .maybeSingle();
+
+    if (conflict) {
+      const { error: releaseDuplicateError } = await supabase
+        .from("booking_slots")
+        .update({
+          status: "open",
+          client_name: null,
+          client_email: null,
+          client_notes: null,
+          booking_token: null,
+          deposit_payment_intent_id: null,
+          pending_expires_at: null,
+        })
+        .eq("id", current.id)
+        .eq("status", "pending");
+      if (releaseDuplicateError) {
+        console.error(
+          "Failed to release stale duplicate original booking:",
+          releaseDuplicateError,
+        );
+      }
+      return { retry: false };
+    }
+
     const { error: restoreError } = await supabase
       .from("booking_slots")
       .update({ status: "booked", pending_expires_at: null })
@@ -238,6 +272,39 @@ export async function handleRescheduleFeeCheckoutCompleted(
       "Reschedule-fee checkout completed but target slot wasn't pending (likely a duplicate webhook delivery):",
       targetSlotId,
     );
+
+    // Same guard as above: a duplicate delivery can arrive after the
+    // first one already swapped and then failed to release this row.
+    const { data: conflict } = await supabase
+      .from("booking_slots")
+      .select("id")
+      .eq("booking_token", bookingToken)
+      .eq("status", "booked")
+      .maybeSingle();
+
+    if (conflict) {
+      const { error: releaseDuplicateError } = await supabase
+        .from("booking_slots")
+        .update({
+          status: "open",
+          client_name: null,
+          client_email: null,
+          client_notes: null,
+          booking_token: null,
+          deposit_payment_intent_id: null,
+          pending_expires_at: null,
+        })
+        .eq("id", current.id)
+        .eq("status", "pending");
+      if (releaseDuplicateError) {
+        console.error(
+          "Failed to release stale duplicate original booking:",
+          releaseDuplicateError,
+        );
+      }
+      return { retry: false };
+    }
+
     const { error: restoreError } = await supabase
       .from("booking_slots")
       .update({ status: "booked", pending_expires_at: null })

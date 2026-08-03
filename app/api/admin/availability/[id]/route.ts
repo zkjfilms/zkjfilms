@@ -71,6 +71,43 @@ export async function PATCH(
 
   if (pendingRow) {
     if (pendingRow.booking_token) {
+      const { data: conflict } = await supabase
+        .from("booking_slots")
+        .select("id")
+        .eq("booking_token", pendingRow.booking_token)
+        .eq("status", "booked")
+        .maybeSingle();
+
+      if (conflict) {
+        // Already booked elsewhere under this token — the swap already
+        // completed and this is a stale duplicate. Release it instead
+        // of restoring, to avoid two booked rows sharing one token.
+        const { data, error } = await supabase
+          .from("booking_slots")
+          .update({
+            status: "open",
+            client_name: null,
+            client_email: null,
+            client_notes: null,
+            booking_token: null,
+            deposit_payment_intent_id: null,
+            pending_expires_at: null,
+          })
+          .eq("id", id)
+          .eq("status", "pending")
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.error("Failed to release stale duplicate booking:", error);
+          return Response.json(
+            { error: "Failed to release duplicate booking." },
+            { status: 500 },
+          );
+        }
+        return Response.json({ ok: true, slot: data });
+      }
+
       const { data, error } = await supabase
         .from("booking_slots")
         .update({ status: "booked", pending_expires_at: null })
