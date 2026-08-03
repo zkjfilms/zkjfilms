@@ -24,15 +24,24 @@ export async function POST(request: Request) {
     return new Response("Invalid signature.", { status: 400 });
   }
 
+  let retry = false;
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.metadata?.purpose === "booking_deposit") {
-      await handleDepositCheckoutCompleted(session);
+      ({ retry } = await handleDepositCheckoutCompleted(session));
     } else if (session.metadata?.purpose === "reschedule_fee") {
-      await handleRescheduleFeeCheckoutCompleted(session);
+      ({ retry } = await handleRescheduleFeeCheckoutCompleted(session));
     }
   } else if (event.type === "checkout.session.expired") {
     await handleCheckoutExpired(event.data.object as Stripe.Checkout.Session);
+  }
+
+  // A non-2xx tells Stripe to redeliver this event. Only transient
+  // failures before anything was finalized set this — see
+  // lib/bookingWebhooks.ts.
+  if (retry) {
+    return new Response("Transient error, please retry.", { status: 500 });
   }
 
   return Response.json({ received: true });

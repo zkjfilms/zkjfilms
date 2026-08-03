@@ -27,6 +27,23 @@ function BookingNotFound() {
   );
 }
 
+function BookingFinalizing() {
+  return (
+    <div className="mx-auto flex min-h-[70vh] w-full max-w-md flex-col items-center justify-center px-6 py-24 text-center sm:px-10">
+      <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">
+        Booking
+      </p>
+      <h1 className="font-serif text-3xl italic text-foreground sm:text-4xl">
+        Finalizing…
+      </h1>
+      <p className="mt-4 text-muted">
+        We&rsquo;re confirming your payment. This usually takes a few
+        seconds — refresh in a moment.
+      </p>
+    </div>
+  );
+}
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -51,6 +68,19 @@ export default async function ManagePage({
   }
 
   if (!booking) {
+    // Might be mid-reschedule/cancel (locked to 'pending' while Stripe
+    // confirms) — check before showing "not found".
+    const { data: pendingBooking } = await supabase
+      .from("booking_slots")
+      .select("id")
+      .eq("booking_token", token)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (pendingBooking) {
+      return <BookingFinalizing />;
+    }
+
     return <BookingNotFound />;
   }
 

@@ -10,9 +10,14 @@ import { sendBookingConfirmedEmail, sendRescheduleConfirmedEmail } from "@/lib/e
 
 const DEFAULT_TEMPLATE_TYPE = "booking_agreement";
 
+// Returns { retry: true } only for transient failures Stripe should
+// redeliver — specifically a DB error on the initial claim, where the
+// client has paid but nothing has been finalized yet. Failures after a
+// successful claim are deliberately not retried: the booking already
+// exists, and a redelivery would only repeat the no-op claim.
 export async function handleDepositCheckoutCompleted(
   session: Stripe.Checkout.Session,
-) {
+): Promise<{ retry: boolean }> {
   const slotId = session.metadata?.slotId;
   const paymentIntentId =
     typeof session.payment_intent === "string"
@@ -24,7 +29,7 @@ export async function handleDepositCheckoutCompleted(
       "Deposit checkout completed with missing metadata:",
       session.id,
     );
-    return;
+    return { retry: false };
   }
 
   const supabase = getSupabaseClient();
@@ -49,8 +54,10 @@ export async function handleDepositCheckoutCompleted(
     .maybeSingle();
 
   if (claimError) {
+    // The client has paid but nothing was finalized — ask Stripe to
+    // redeliver so a transient Supabase error can recover.
     console.error("Failed to finalize deposit booking:", claimError);
-    return;
+    return { retry: true };
   }
 
   if (!slot) {
@@ -58,7 +65,7 @@ export async function handleDepositCheckoutCompleted(
       "Deposit checkout completed but slot wasn't pending (likely a duplicate webhook delivery):",
       slotId,
     );
-    return;
+    return { retry: false };
   }
 
   // Best-effort — the booking itself already succeeded above, so a lead
@@ -87,7 +94,7 @@ export async function handleDepositCheckoutCompleted(
 
   if (templateError || !template) {
     console.error("Failed to load booking_agreement template:", templateError);
-    return;
+    return { retry: false };
   }
 
   const sessionDate = new Date(slot.start_time).toLocaleDateString("en-US", {
@@ -118,7 +125,7 @@ export async function handleDepositCheckoutCompleted(
 
   if (insertError) {
     console.error("Failed to create contract for booking:", insertError);
-    return;
+    return { retry: false };
   }
 
   const emailResult = await sendBookingConfirmedEmail({
@@ -139,11 +146,16 @@ export async function handleDepositCheckoutCompleted(
       console.error("Email sent but failed to record email_sent flag:", updateError);
     }
   }
+
+  return { retry: false };
 }
 
+// Same retry contract as handleDepositCheckoutCompleted: only the two
+// pre-swap DB failures (the current-slot lookup and the target claim)
+// are worth a Stripe redelivery.
 export async function handleRescheduleFeeCheckoutCompleted(
   session: Stripe.Checkout.Session,
-) {
+): Promise<{ retry: boolean }> {
   const bookingToken = session.metadata?.bookingToken;
   const currentSlotId = session.metadata?.currentSlotId;
   const targetSlotId = session.metadata?.targetSlotId;
@@ -153,7 +165,7 @@ export async function handleRescheduleFeeCheckoutCompleted(
       "Reschedule-fee checkout completed with missing metadata:",
       session.id,
     );
-    return;
+    return { retry: false };
   }
 
   const supabase = getSupabaseClient();
@@ -166,8 +178,9 @@ export async function handleRescheduleFeeCheckoutCompleted(
     .maybeSingle();
 
   if (currentError) {
+    // Fee already charged and nothing swapped yet — let Stripe retry.
     console.error("Failed to load current slot for reschedule swap:", currentError);
-    return;
+    return { retry: true };
   }
 
   if (!current) {
@@ -175,7 +188,7 @@ export async function handleRescheduleFeeCheckoutCompleted(
       "Reschedule-fee checkout completed but current slot is no longer booked:",
       currentSlotId,
     );
-    return;
+    return { retry: false };
   }
 
   // Idempotency: only claim a target that's still held for this
@@ -201,8 +214,23 @@ export async function handleRescheduleFeeCheckoutCompleted(
     .maybeSingle();
 
   if (claimError) {
+    // Compensate: the fee was charged but the swap didn't happen, so
+    // put the client's original booking back rather than leaving it
+    // locked until the sweep gets to it. Same pattern as the claim
+    // failure paths in app/api/manage/[token]/reschedule/route.ts.
     console.error("Failed to claim target slot for paid reschedule:", claimError);
-    return;
+    const { error: restoreError } = await supabase
+      .from("booking_slots")
+      .update({ status: "booked", pending_expires_at: null })
+      .eq("id", current.id)
+      .eq("status", "pending");
+    if (restoreError) {
+      console.error(
+        "Failed to restore original booking after target claim failure:",
+        restoreError,
+      );
+    }
+    return { retry: true };
   }
 
   if (!claimed) {
@@ -210,7 +238,18 @@ export async function handleRescheduleFeeCheckoutCompleted(
       "Reschedule-fee checkout completed but target slot wasn't pending (likely a duplicate webhook delivery):",
       targetSlotId,
     );
-    return;
+    const { error: restoreError } = await supabase
+      .from("booking_slots")
+      .update({ status: "booked", pending_expires_at: null })
+      .eq("id", current.id)
+      .eq("status", "pending");
+    if (restoreError) {
+      console.error(
+        "Failed to restore original booking after unavailable target:",
+        restoreError,
+      );
+    }
+    return { retry: false };
   }
 
   const { error: releaseError } = await supabase
@@ -223,6 +262,7 @@ export async function handleRescheduleFeeCheckoutCompleted(
       booked_at: null,
       booking_token: null,
       deposit_payment_intent_id: null,
+      pending_expires_at: null,
     })
     .eq("id", current.id)
     .eq("status", "pending");
@@ -235,6 +275,8 @@ export async function handleRescheduleFeeCheckoutCompleted(
   if (!emailResult.ok) {
     console.error("Failed to send reschedule confirmation email:", emailResult.error);
   }
+
+  return { retry: false };
 }
 
 export async function handleCheckoutExpired(session: Stripe.Checkout.Session) {

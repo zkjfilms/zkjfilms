@@ -8,6 +8,9 @@
 export const RESCHEDULE_NOTICE_HOURS = 72;
 export const RESCHEDULE_FEE_CENTS = 5000;
 export const PENDING_HOLD_MINUTES = 30;
+// Buffer beyond PENDING_HOLD_MINUTES so a locked "current" booking
+// outlives its paired target/checkout hold — see scripts/bookings.mjs.
+export const LOCK_HOLD_MINUTES = 35;
 
 export function hoursUntil(iso: string): number {
   return (new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60);

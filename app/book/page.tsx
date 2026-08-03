@@ -22,7 +22,7 @@ export default async function BookPage() {
   const supabase = getSupabaseClient();
   const { data: slots, error } = await supabase
     .from("booking_slots")
-    .select("id, start_time, end_time, session_type")
+    .select("id, start_time, end_time, session_type, deposit_cents")
     .eq("status", "open")
     .gte("start_time", nowIso())
     .order("start_time", { ascending: true });

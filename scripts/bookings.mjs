@@ -3,6 +3,11 @@
 // (see lib/bookingWebhooks.ts), this covers the case where that webhook
 // delivery was ever missed.
 //
+// Two kinds of stuck row, told apart by booking_token: a locked real
+// booking (mid-reschedule or mid-cancel) has one and is restored to
+// 'booked'; an abandoned new-booking/target hold has none and is
+// released back to 'open'.
+//
 // Usage (via the npm script — already loads .env.local):
 //   npm run bookings:sweep-pending
 
@@ -26,7 +31,29 @@ const supabase = createClient(
 );
 
 async function sweepPending() {
-  const { data, error } = await supabase
+  const now = new Date().toISOString();
+
+  // Locked bookings (mid-reschedule or mid-cancel) — restore to booked.
+  // Client info is still intact on these rows; never release them.
+  const { data: restored, error: restoreError } = await supabase
+    .from("booking_slots")
+    .update({ status: "booked", pending_expires_at: null })
+    .eq("status", "pending")
+    .not("booking_token", "is", null)
+    .lt("pending_expires_at", now)
+    .select("id, session_type, start_time");
+
+  if (restoreError) {
+    console.error("Failed to restore stuck locked bookings:", restoreError.message);
+    process.exit(1);
+  }
+
+  for (const slot of restored ?? []) {
+    console.log(`Restored ${slot.id} (${slot.session_type}, ${slot.start_time}) to booked`);
+  }
+
+  // Abandoned new-booking/target holds — release back to open.
+  const { data: released, error: releaseError } = await supabase
     .from("booking_slots")
     .update({
       status: "open",
@@ -36,23 +63,25 @@ async function sweepPending() {
       pending_expires_at: null,
     })
     .eq("status", "pending")
-    .lt("pending_expires_at", new Date().toISOString())
+    .is("booking_token", null)
+    .lt("pending_expires_at", now)
     .select("id, session_type, start_time");
 
-  if (error) {
-    console.error("Failed to sweep pending slots:", error.message);
+  if (releaseError) {
+    console.error("Failed to sweep pending slots:", releaseError.message);
     process.exit(1);
   }
 
-  if (!data.length) {
+  for (const slot of released ?? []) {
+    console.log(`Released ${slot.id} (${slot.session_type}, ${slot.start_time})`);
+  }
+
+  const total = (restored?.length ?? 0) + (released?.length ?? 0);
+  if (total === 0) {
     console.log("No stuck pending slots found.");
     return;
   }
-
-  for (const slot of data) {
-    console.log(`Released ${slot.id} (${slot.session_type}, ${slot.start_time})`);
-  }
-  console.log(`Released ${data.length} slot(s).`);
+  console.log(`Restored ${restored?.length ?? 0}, released ${released?.length ?? 0}.`);
 }
 
 const [, , command] = process.argv;

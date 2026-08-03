@@ -1,6 +1,10 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import { getStripeClient } from "@/lib/stripe";
-import { daysUntil, refundTierForCancellation } from "@/lib/booking";
+import {
+  daysUntil,
+  refundTierForCancellation,
+  LOCK_HOLD_MINUTES,
+} from "@/lib/booking";
 import { sendCancellationConfirmedEmail } from "@/lib/email";
 
 export async function POST(
@@ -21,7 +25,12 @@ export async function POST(
   // bails out below before ever touching Stripe.
   const { data: booking, error } = await supabase
     .from("booking_slots")
-    .update({ status: "pending", pending_expires_at: null })
+    .update({
+      status: "pending",
+      pending_expires_at: new Date(
+        Date.now() + LOCK_HOLD_MINUTES * 60 * 1000,
+      ).toISOString(),
+    })
     .eq("booking_token", token)
     .eq("status", "booked")
     .select(
@@ -41,14 +50,16 @@ export async function POST(
     );
   }
 
+  // Refund off the actual PaymentIntent's amount_received, not this
+  // row's deposit_cents — after a free reschedule the booking_token
+  // points at a different row whose deposit_cents is whatever the admin
+  // set for it, which is not what the client actually paid.
   const tier = refundTierForCancellation(daysUntil(booking.start_time));
-  const refundAmountCents = Math.round(
-    (booking.deposit_cents * tier.percent) / 100,
-  );
 
   let refundStatus: "refunded" | "partial_refund" | "no_refund" | "failed";
+  let refundAmountCents = 0;
 
-  if (tier.percent === 0 || refundAmountCents === 0) {
+  if (tier.percent === 0) {
     refundStatus = "no_refund";
   } else if (!booking.deposit_payment_intent_id) {
     console.error(
@@ -59,10 +70,18 @@ export async function POST(
   } else {
     try {
       const stripe = getStripeClient();
-      await stripe.refunds.create({
-        payment_intent: booking.deposit_payment_intent_id,
-        amount: refundAmountCents,
-      });
+      const paymentIntent = await stripe.paymentIntents.retrieve(
+        booking.deposit_payment_intent_id,
+      );
+      const paidAmountCents = paymentIntent.amount_received;
+      refundAmountCents = Math.round((paidAmountCents * tier.percent) / 100);
+
+      if (refundAmountCents > 0) {
+        await stripe.refunds.create({
+          payment_intent: booking.deposit_payment_intent_id,
+          amount: refundAmountCents,
+        });
+      }
       refundStatus = tier.percent === 100 ? "refunded" : "partial_refund";
     } catch (err) {
       console.error("Stripe refund failed during cancellation:", err);
@@ -77,19 +96,37 @@ export async function POST(
   // stays visible while this exact row remains 'open' — if it gets
   // rebooked before you notice, the flag clears with it. Stripe's own
   // dashboard is the durable fallback record of the failed attempt).
+  const releaseFields =
+    refundStatus === "failed"
+      ? {
+          status: "open" as const,
+          client_notes: null,
+          booked_at: null,
+          booking_token: null,
+          pending_expires_at: null,
+          refund_status: refundStatus,
+          refund_amount_cents: refundAmountCents,
+          // Deliberately keep client_name, client_email, and
+          // deposit_payment_intent_id — the admin needs these to find
+          // and manually refund this booking. Cleared automatically
+          // once this row is claimed by a future booking.
+        }
+      : {
+          status: "open" as const,
+          client_name: null,
+          client_email: null,
+          client_notes: null,
+          booked_at: null,
+          booking_token: null,
+          deposit_payment_intent_id: null,
+          pending_expires_at: null,
+          refund_status: refundStatus,
+          refund_amount_cents: refundAmountCents,
+        };
+
   const { error: releaseError } = await supabase
     .from("booking_slots")
-    .update({
-      status: "open",
-      client_name: null,
-      client_email: null,
-      client_notes: null,
-      booked_at: null,
-      booking_token: null,
-      deposit_payment_intent_id: null,
-      refund_status: refundStatus,
-      refund_amount_cents: refundStatus === "failed" ? 0 : refundAmountCents,
-    })
+    .update(releaseFields)
     .eq("id", booking.id)
     .eq("status", "pending");
 
@@ -102,7 +139,7 @@ export async function POST(
     // went wrong rather than claim success.
     const { error: rollbackError } = await supabase
       .from("booking_slots")
-      .update({ status: "booked" })
+      .update({ status: "booked", pending_expires_at: null })
       .eq("id", booking.id)
       .eq("status", "pending");
     if (rollbackError) {

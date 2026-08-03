@@ -2,13 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { SESSION_TYPES } from "@/lib/leads";
-import { formatTimeRange } from "@/lib/format";
+import { formatTimeRange, formatCents } from "@/lib/format";
 
 type Slot = {
   id: string;
   start_time: string;
   end_time: string;
   session_type: string;
+  deposit_cents: number;
 };
 
 type Status = "idle" | "loading";
@@ -119,7 +120,8 @@ export default function BookingFlow({ slots }: { slots: Slot[] }) {
                   {formatTimeRange(slot.start_time, slot.end_time)}
                 </span>
                 <span className="ml-3 text-xs uppercase tracking-[0.15em] text-muted">
-                  {slot.session_type}
+                  {slot.session_type} · {formatCents(slot.deposit_cents)}{" "}
+                  deposit
                 </span>
               </button>
             ))
@@ -130,7 +132,8 @@ export default function BookingFlow({ slots }: { slots: Slot[] }) {
           <div className="border border-border p-4">
             <p className="text-sm text-foreground">
               {formatTimeRange(selectedSlot.start_time, selectedSlot.end_time)}{" "}
-              — {selectedSlot.session_type}
+              — {selectedSlot.session_type} ·{" "}
+              {formatCents(selectedSlot.deposit_cents)} deposit
             </p>
             <button
               type="button"
@@ -205,7 +208,9 @@ export default function BookingFlow({ slots }: { slots: Slot[] }) {
             disabled={status === "loading"}
             className="w-full border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {status === "loading" ? "Starting checkout…" : "Continue to payment"}
+            {status === "loading"
+              ? "Starting checkout…"
+              : `Continue to payment (${formatCents(selectedSlot.deposit_cents)} deposit)`}
           </button>
         </form>
       )}

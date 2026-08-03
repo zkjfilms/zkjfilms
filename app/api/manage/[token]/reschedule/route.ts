@@ -5,6 +5,7 @@ import {
   RESCHEDULE_NOTICE_HOURS,
   RESCHEDULE_FEE_CENTS,
   PENDING_HOLD_MINUTES,
+  LOCK_HOLD_MINUTES,
 } from "@/lib/booking";
 import { sendRescheduleConfirmedEmail } from "@/lib/email";
 
@@ -95,7 +96,12 @@ export async function POST(
   // different target under the same token.
   const { data: locked, error: lockError } = await supabase
     .from("booking_slots")
-    .update({ status: "pending", pending_expires_at: null })
+    .update({
+      status: "pending",
+      pending_expires_at: new Date(
+        Date.now() + LOCK_HOLD_MINUTES * 60 * 1000,
+      ).toISOString(),
+    })
     .eq("id", current.id)
     .eq("status", "booked")
     .select()
@@ -166,6 +172,7 @@ export async function POST(
         booked_at: null,
         booking_token: null,
         deposit_payment_intent_id: null,
+        pending_expires_at: null,
       })
       .eq("id", current.id)
       .eq("status", "pending");
