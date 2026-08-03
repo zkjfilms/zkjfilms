@@ -15,6 +15,10 @@ type Status = "idle" | "loading";
 
 const EMPTY_FORM = { clientName: "", clientEmail: "", notes: "" };
 
+function redirectTo(url: string) {
+  window.location.href = url;
+}
+
 export default function BookingFlow({ slots }: { slots: Slot[] }) {
   const [sessionTypeFilter, setSessionTypeFilter] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -53,8 +57,7 @@ export default function BookingFlow({ slots }: { slots: Slot[] }) {
 
       // Full navigation to an external domain (Stripe Checkout) — next/navigation's
       // router is for internal routes only, so this is the correct API.
-      // eslint-disable-next-line react-hooks/immutability -- external redirect, not React state
-      window.location.href = data.checkoutUrl;
+      redirectTo(data.checkoutUrl);
     } catch {
       setError("Something went wrong. Please try again.");
       setStatus("idle");
