@@ -136,6 +136,11 @@ export async function POST(
 
     if (claimError) {
       console.error("Failed to claim target slot for reschedule:", claimError);
+      await supabase
+        .from("booking_slots")
+        .update({ status: "booked", pending_expires_at: null })
+        .eq("id", current.id)
+        .eq("status", "pending");
       return Response.json({ error: "Something went wrong." }, { status: 500 });
     }
 
