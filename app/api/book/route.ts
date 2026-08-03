@@ -1,9 +1,8 @@
 import { getSupabaseClient } from "@/lib/supabase";
-import { fillTemplate } from "@/lib/contracts";
-import { sendSigningLinkEmail } from "@/lib/email";
+import { createDepositCheckoutSession } from "@/lib/stripe";
+import { PENDING_HOLD_MINUTES } from "@/lib/booking";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DEFAULT_TEMPLATE_TYPE = "booking_agreement";
 
 type Payload = {
   slotId: string;
@@ -64,24 +63,27 @@ export async function POST(request: Request) {
 
   const supabase = getSupabaseClient();
 
-  // Race-safe claim: only succeeds if the slot is still open, so two
-  // clients hitting the same slot at once can't both win it.
-  const { data: slot, error: claimError } = await supabase
+  // Race-safe hold: only succeeds if the slot is still open, so two
+  // clients hitting the same slot at once can't both start checkout for
+  // it.
+  const { data: slot, error: holdError } = await supabase
     .from("booking_slots")
     .update({
-      status: "booked",
+      status: "pending",
       client_name: payload.clientName,
       client_email: payload.clientEmail,
       client_notes: payload.notes || null,
-      booked_at: new Date().toISOString(),
+      pending_expires_at: new Date(
+        Date.now() + PENDING_HOLD_MINUTES * 60 * 1000,
+      ).toISOString(),
     })
     .eq("id", payload.slotId)
     .eq("status", "open")
-    .select()
+    .select("id, deposit_cents, session_type")
     .maybeSingle();
 
-  if (claimError) {
-    console.error("Failed to claim booking slot:", claimError);
+  if (holdError) {
+    console.error("Failed to hold booking slot:", holdError);
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
 
@@ -92,83 +94,34 @@ export async function POST(request: Request) {
     );
   }
 
-  // Best-effort — the booking itself already succeeded above, so a lead
-  // logging failure shouldn't fail the whole request.
   try {
-    const { error: leadError } = await supabase.from("leads").insert({
-      name: payload.clientName,
-      email: payload.clientEmail,
-      session_type: slot.session_type,
-      message: payload.notes || `Booked via /book for ${slot.session_type}.`,
-      source: "booking",
-      status: "booked",
+    const session = await createDepositCheckoutSession({
+      slotId: slot.id,
+      amountCents: slot.deposit_cents,
+      sessionType: slot.session_type,
+      clientEmail: payload.clientEmail,
     });
-    if (leadError) {
-      console.error("Failed to record lead from booking:", leadError);
-    }
+
+    return Response.json({ ok: true, checkoutUrl: session.url });
   } catch (err) {
-    console.error("Failed to record lead from booking:", err);
-  }
+    console.error("Failed to create deposit checkout session:", err);
+    // Release the hold — no point leaving the slot stuck pending if we
+    // couldn't even start checkout.
+    await supabase
+      .from("booking_slots")
+      .update({
+        status: "open",
+        client_name: null,
+        client_email: null,
+        client_notes: null,
+        pending_expires_at: null,
+      })
+      .eq("id", slot.id)
+      .eq("status", "pending");
 
-  const { data: template, error: templateError } = await supabase
-    .from("templates")
-    .select("content")
-    .eq("template_type", DEFAULT_TEMPLATE_TYPE)
-    .maybeSingle();
-
-  if (templateError || !template) {
-    console.error("Failed to load booking_agreement template:", templateError);
-    // The booking itself already succeeded — don't fail the client-facing
-    // request over a missing contract template.
-    return Response.json({ ok: true, slot, contract: null });
-  }
-
-  const sessionDate = new Date(slot.start_time).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  const contractText = fillTemplate(template.content, {
-    clientName: payload.clientName,
-    clientEmail: payload.clientEmail,
-    sessionType: slot.session_type,
-    sessionDate,
-  });
-
-  const { data: contract, error: insertError } = await supabase
-    .from("contracts")
-    .insert({
-      template_type: DEFAULT_TEMPLATE_TYPE,
-      client_name: payload.clientName,
-      client_email: payload.clientEmail,
-      contract_text: contractText,
-      appointment_id: slot.id,
-      appointment_date: slot.start_time,
-    })
-    .select()
-    .single();
-
-  if (insertError) {
-    console.error("Failed to create contract for booking:", insertError);
-    return Response.json({ ok: true, slot, contract: null });
-  }
-
-  const emailResult = await sendSigningLinkEmail(contract);
-  if (!emailResult.ok) {
-    console.error(
-      "Failed to send signing-link email for booking:",
-      emailResult.error,
+    return Response.json(
+      { error: "Something went wrong starting checkout." },
+      { status: 500 },
     );
-  } else {
-    const { error: updateError } = await supabase
-      .from("contracts")
-      .update({ email_sent: true, email_sent_at: new Date().toISOString() })
-      .eq("id", contract.id);
-    if (updateError) {
-      console.error("Email sent but failed to record email_sent flag:", updateError);
-    }
   }
-
-  return Response.json({ ok: true, slot, contract });
 }

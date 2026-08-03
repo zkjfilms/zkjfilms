@@ -21,7 +21,6 @@ export default function BookingFlow({ slots }: { slots: Slot[] }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
-  const [confirmedSlot, setConfirmedSlot] = useState<Slot | null>(null);
 
   const filteredSlots = sessionTypeFilter
     ? slots.filter((s) => s.session_type === sessionTypeFilter)
@@ -43,39 +42,23 @@ export default function BookingFlow({ slots }: { slots: Slot[] }) {
         body: JSON.stringify({ slotId: selectedSlot.id, ...form }),
       });
 
-      const data: { error?: string } = await response.json();
+      const data: { checkoutUrl?: string; error?: string } =
+        await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.checkoutUrl) {
         setError(data.error ?? "Something went wrong. Please try again.");
         setStatus("idle");
         return;
       }
 
-      setConfirmedSlot(selectedSlot);
+      // Full navigation to an external domain (Stripe Checkout) — next/navigation's
+      // router is for internal routes only, so this is the correct API.
+      // eslint-disable-next-line react-hooks/immutability -- external redirect, not React state
+      window.location.href = data.checkoutUrl;
     } catch {
       setError("Something went wrong. Please try again.");
       setStatus("idle");
     }
-  }
-
-  if (confirmedSlot) {
-    return (
-      <div className="border border-accent/40 bg-surface p-6 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-muted">
-          Booked
-        </p>
-        <h2 className="mt-2 font-serif text-2xl italic text-foreground">
-          You&rsquo;re all set.
-        </h2>
-        <p className="mt-4 text-foreground">
-          {confirmedSlot.session_type} —{" "}
-          {formatTimeRange(confirmedSlot.start_time, confirmedSlot.end_time)}
-        </p>
-        <p className="mt-4 text-sm text-muted">
-          Check your email for your session agreement to sign.
-        </p>
-      </div>
-    );
   }
 
   if (slots.length === 0) {
@@ -219,7 +202,7 @@ export default function BookingFlow({ slots }: { slots: Slot[] }) {
             disabled={status === "loading"}
             className="w-full border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {status === "loading" ? "Booking…" : "Confirm booking"}
+            {status === "loading" ? "Starting checkout…" : "Continue to payment"}
           </button>
         </form>
       )}
