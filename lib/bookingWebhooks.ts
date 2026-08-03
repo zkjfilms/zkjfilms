@@ -6,7 +6,7 @@
 import type Stripe from "stripe";
 import { getSupabaseClient } from "@/lib/supabase";
 import { fillTemplate } from "@/lib/contracts";
-import { sendBookingConfirmedEmail } from "@/lib/email";
+import { sendBookingConfirmedEmail, sendRescheduleConfirmedEmail } from "@/lib/email";
 
 const DEFAULT_TEMPLATE_TYPE = "booking_agreement";
 
@@ -138,6 +138,101 @@ export async function handleDepositCheckoutCompleted(
     if (updateError) {
       console.error("Email sent but failed to record email_sent flag:", updateError);
     }
+  }
+}
+
+export async function handleRescheduleFeeCheckoutCompleted(
+  session: Stripe.Checkout.Session,
+) {
+  const bookingToken = session.metadata?.bookingToken;
+  const currentSlotId = session.metadata?.currentSlotId;
+  const targetSlotId = session.metadata?.targetSlotId;
+
+  if (!bookingToken || !currentSlotId || !targetSlotId) {
+    console.error(
+      "Reschedule-fee checkout completed with missing metadata:",
+      session.id,
+    );
+    return;
+  }
+
+  const supabase = getSupabaseClient();
+
+  const { data: current, error: currentError } = await supabase
+    .from("booking_slots")
+    .select("id, client_name, client_email, client_notes, deposit_payment_intent_id")
+    .eq("id", currentSlotId)
+    .eq("status", "booked")
+    .maybeSingle();
+
+  if (currentError) {
+    console.error("Failed to load current slot for reschedule swap:", currentError);
+    return;
+  }
+
+  if (!current) {
+    console.error(
+      "Reschedule-fee checkout completed but current slot is no longer booked:",
+      currentSlotId,
+    );
+    return;
+  }
+
+  // Idempotency: only claim a target that's still held for this
+  // checkout. A duplicate webhook delivery finds status already
+  // 'booked' and no-ops here.
+  const { data: claimed, error: claimError } = await supabase
+    .from("booking_slots")
+    .update({
+      status: "booked",
+      client_name: current.client_name,
+      client_email: current.client_email,
+      client_notes: current.client_notes,
+      booking_token: bookingToken,
+      deposit_payment_intent_id: current.deposit_payment_intent_id,
+      refund_status: null,
+      refund_amount_cents: null,
+      pending_expires_at: null,
+      booked_at: new Date().toISOString(),
+    })
+    .eq("id", targetSlotId)
+    .eq("status", "pending")
+    .select()
+    .maybeSingle();
+
+  if (claimError) {
+    console.error("Failed to claim target slot for paid reschedule:", claimError);
+    return;
+  }
+
+  if (!claimed) {
+    console.log(
+      "Reschedule-fee checkout completed but target slot wasn't pending (likely a duplicate webhook delivery):",
+      targetSlotId,
+    );
+    return;
+  }
+
+  const { error: releaseError } = await supabase
+    .from("booking_slots")
+    .update({
+      status: "open",
+      client_name: null,
+      client_email: null,
+      client_notes: null,
+      booked_at: null,
+      booking_token: null,
+      deposit_payment_intent_id: null,
+    })
+    .eq("id", current.id);
+
+  if (releaseError) {
+    console.error("Failed to release original slot after paid reschedule:", releaseError);
+  }
+
+  const emailResult = await sendRescheduleConfirmedEmail(claimed);
+  if (!emailResult.ok) {
+    console.error("Failed to send reschedule confirmation email:", emailResult.error);
   }
 }
 

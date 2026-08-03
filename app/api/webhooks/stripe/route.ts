@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { getStripeClient } from "@/lib/stripe";
 import {
   handleDepositCheckoutCompleted,
+  handleRescheduleFeeCheckoutCompleted,
   handleCheckoutExpired,
 } from "@/lib/bookingWebhooks";
 
@@ -27,8 +28,9 @@ export async function POST(request: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.metadata?.purpose === "booking_deposit") {
       await handleDepositCheckoutCompleted(session);
+    } else if (session.metadata?.purpose === "reschedule_fee") {
+      await handleRescheduleFeeCheckoutCompleted(session);
     }
-    // "reschedule_fee" purpose is handled starting in Task 10.
   } else if (event.type === "checkout.session.expired") {
     await handleCheckoutExpired(event.data.object as Stripe.Checkout.Session);
   }
