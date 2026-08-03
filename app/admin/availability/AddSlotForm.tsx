@@ -6,7 +6,13 @@ import { SESSION_TYPES } from "@/lib/leads";
 
 type Status = "idle" | "loading" | "error";
 
-const EMPTY_FORM = { date: "", startTime: "", endTime: "", sessionType: "" };
+const EMPTY_FORM = {
+  date: "",
+  startTime: "",
+  endTime: "",
+  sessionType: "",
+  depositDollars: "",
+};
 
 export default function AddSlotForm() {
   const router = useRouter();
@@ -43,6 +49,13 @@ export default function AddSlotForm() {
       return;
     }
 
+    const depositCents = Math.round(Number(form.depositDollars) * 100);
+    if (!Number.isFinite(depositCents) || depositCents <= 0) {
+      setError("Enter a valid deposit amount.");
+      setStatus("error");
+      return;
+    }
+
     try {
       const response = await fetch("/api/admin/availability", {
         method: "POST",
@@ -51,6 +64,7 @@ export default function AddSlotForm() {
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
           sessionType: form.sessionType,
+          depositCents,
         }),
       });
 
@@ -154,6 +168,26 @@ export default function AddSlotForm() {
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label
+          htmlFor="depositDollars"
+          className="block text-xs uppercase tracking-[0.15em] text-muted"
+        >
+          Deposit ($)
+        </label>
+        <input
+          id="depositDollars"
+          name="depositDollars"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+          value={form.depositDollars}
+          onChange={handleChange}
+          className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+        />
       </div>
 
       {error && <p className="text-xs text-red-700">{error}</p>}

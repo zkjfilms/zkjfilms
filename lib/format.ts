@@ -26,3 +26,10 @@ export function formatTimeRange(startIso: string, endIso: string): string {
   });
   return `${dateStr} · ${startTime}–${endTime}`;
 }
+
+export function formatCents(cents: number): string {
+  return (cents / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+  });
+}

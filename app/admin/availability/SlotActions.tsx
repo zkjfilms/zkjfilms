@@ -8,7 +8,7 @@ export default function SlotActions({
   status,
 }: {
   id: string;
-  status: "open" | "booked";
+  status: "open" | "pending" | "booked";
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);

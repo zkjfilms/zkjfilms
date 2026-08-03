@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getSupabaseClient } from "@/lib/supabase";
-import { formatTimeRange } from "@/lib/format";
+import { formatTimeRange, formatCents } from "@/lib/format";
 import AddSlotForm from "./AddSlotForm";
 import SlotActions from "./SlotActions";
 
@@ -14,9 +14,11 @@ type SlotRow = {
   start_time: string;
   end_time: string;
   session_type: string;
-  status: "open" | "booked";
+  status: "open" | "pending" | "booked";
   client_name: string | null;
   client_email: string | null;
+  deposit_cents: number;
+  refund_status: "refunded" | "partial_refund" | "no_refund" | "failed" | null;
 };
 
 export default async function AdminAvailabilityPage() {
@@ -24,7 +26,7 @@ export default async function AdminAvailabilityPage() {
   const { data: slots, error } = await supabase
     .from("booking_slots")
     .select(
-      "id, start_time, end_time, session_type, status, client_name, client_email",
+      "id, start_time, end_time, session_type, status, client_name, client_email, deposit_cents, refund_status",
     )
     .order("start_time", { ascending: true });
 
@@ -56,6 +58,7 @@ export default async function AdminAvailabilityPage() {
               <tr className="border-b border-border text-left text-xs uppercase tracking-[0.15em] text-muted">
                 <th className="py-3 pr-4 font-normal">When</th>
                 <th className="py-3 pr-4 font-normal">Session</th>
+                <th className="py-3 pr-4 font-normal">Deposit</th>
                 <th className="py-3 pr-4 font-normal">Status</th>
                 <th className="py-3 pr-4 font-normal">Client</th>
                 <th className="py-3 font-normal">Actions</th>
@@ -70,11 +73,17 @@ export default async function AdminAvailabilityPage() {
                   <td className="py-3 pr-4 text-muted">
                     {slot.session_type}
                   </td>
+                  <td className="py-3 pr-4 text-muted">{formatCents(slot.deposit_cents)}</td>
                   <td className="py-3 pr-4">
                     {slot.status === "booked" ? (
                       <span className="text-accent">Booked</span>
+                    ) : slot.status === "pending" ? (
+                      <span className="text-muted">Pending checkout</span>
                     ) : (
                       <span className="text-muted">Open</span>
+                    )}
+                    {slot.refund_status === "failed" && (
+                      <span className="ml-2 text-red-700">— refund needs manual follow-up</span>
                     )}
                   </td>
                   <td className="py-3 pr-4 text-muted">

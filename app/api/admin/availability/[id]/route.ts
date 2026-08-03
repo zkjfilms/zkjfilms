@@ -45,7 +45,8 @@ export async function DELETE(
 }
 
 // "Cancel" reopens the slot rather than deleting it, preserving the
-// original time/session-type row for reuse.
+// original time/session-type row for reuse. Also unsticks a 'pending'
+// row (see the comment inside).
 export async function PATCH(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -56,6 +57,95 @@ export async function PATCH(
 
   const { id } = await params;
   const supabase = getSupabaseClient();
+
+  // A 'pending' row is either a locked real booking (mid-reschedule or
+  // mid-cancel — has a booking_token) or an abandoned hold (doesn't).
+  // Restore the former to 'booked', release the latter to 'open' — same
+  // distinction scripts/bookings.mjs's sweep makes automatically.
+  const { data: pendingRow } = await supabase
+    .from("booking_slots")
+    .select("id, booking_token")
+    .eq("id", id)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (pendingRow) {
+    if (pendingRow.booking_token) {
+      const { data: conflict } = await supabase
+        .from("booking_slots")
+        .select("id")
+        .eq("booking_token", pendingRow.booking_token)
+        .eq("status", "booked")
+        .maybeSingle();
+
+      if (conflict) {
+        // Already booked elsewhere under this token — the swap already
+        // completed and this is a stale duplicate. Release it instead
+        // of restoring, to avoid two booked rows sharing one token.
+        const { data, error } = await supabase
+          .from("booking_slots")
+          .update({
+            status: "open",
+            client_name: null,
+            client_email: null,
+            client_notes: null,
+            booking_token: null,
+            deposit_payment_intent_id: null,
+            pending_expires_at: null,
+          })
+          .eq("id", id)
+          .eq("status", "pending")
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.error("Failed to release stale duplicate booking:", error);
+          return Response.json(
+            { error: "Failed to release duplicate booking." },
+            { status: 500 },
+          );
+        }
+        return Response.json({ ok: true, slot: data });
+      }
+
+      const { data, error } = await supabase
+        .from("booking_slots")
+        .update({ status: "booked", pending_expires_at: null })
+        .eq("id", id)
+        .eq("status", "pending")
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error("Failed to restore locked booking:", error);
+        return Response.json(
+          { error: "Failed to restore booking." },
+          { status: 500 },
+        );
+      }
+      return Response.json({ ok: true, slot: data });
+    }
+
+    const { data, error } = await supabase
+      .from("booking_slots")
+      .update({
+        status: "open",
+        client_name: null,
+        client_email: null,
+        client_notes: null,
+        pending_expires_at: null,
+      })
+      .eq("id", id)
+      .eq("status", "pending")
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to release stuck hold:", error);
+      return Response.json({ error: "Failed to release hold." }, { status: 500 });
+    }
+    return Response.json({ ok: true, slot: data });
+  }
 
   const { data, error } = await supabase
     .from("booking_slots")
