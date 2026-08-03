@@ -162,7 +162,7 @@ export async function handleRescheduleFeeCheckoutCompleted(
     .from("booking_slots")
     .select("id, client_name, client_email, client_notes, deposit_payment_intent_id")
     .eq("id", currentSlotId)
-    .eq("status", "booked")
+    .eq("status", "pending")
     .maybeSingle();
 
   if (currentError) {
@@ -224,7 +224,8 @@ export async function handleRescheduleFeeCheckoutCompleted(
       booking_token: null,
       deposit_payment_intent_id: null,
     })
-    .eq("id", current.id);
+    .eq("id", current.id)
+    .eq("status", "pending");
 
   if (releaseError) {
     console.error("Failed to release original slot after paid reschedule:", releaseError);
@@ -238,17 +239,55 @@ export async function handleRescheduleFeeCheckoutCompleted(
 
 export async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
   const purpose = session.metadata?.purpose;
-  const slotId =
-    purpose === "booking_deposit"
-      ? session.metadata?.slotId
-      : session.metadata?.targetSlotId;
+  const supabase = getSupabaseClient();
 
+  if (purpose === "reschedule_fee") {
+    const targetSlotId = session.metadata?.targetSlotId;
+    const currentSlotId = session.metadata?.currentSlotId;
+
+    if (!targetSlotId || !currentSlotId) {
+      console.error(
+        "Reschedule-fee checkout expired with missing metadata:",
+        session.id,
+      );
+      return;
+    }
+
+    const { error: targetError } = await supabase
+      .from("booking_slots")
+      .update({
+        status: "open",
+        client_name: null,
+        client_email: null,
+        client_notes: null,
+        pending_expires_at: null,
+      })
+      .eq("id", targetSlotId)
+      .eq("status", "pending");
+    if (targetError) {
+      console.error("Failed to release expired reschedule target slot:", targetError);
+    }
+
+    const { error: currentError } = await supabase
+      .from("booking_slots")
+      .update({ status: "booked", pending_expires_at: null })
+      .eq("id", currentSlotId)
+      .eq("status", "pending");
+    if (currentError) {
+      console.error(
+        "Failed to restore original booking after expired reschedule checkout:",
+        currentError,
+      );
+    }
+    return;
+  }
+
+  const slotId = session.metadata?.slotId;
   if (!slotId) {
     console.error("Checkout expired with no slot id in metadata:", session.id);
     return;
   }
 
-  const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("booking_slots")
     .update({

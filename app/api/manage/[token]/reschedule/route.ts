@@ -88,6 +88,31 @@ export async function POST(
 
   const hoursNotice = hoursUntil(current.start_time);
 
+  // Lock the current booking before touching any target slot, so a
+  // second concurrent request against the same booking_token can't
+  // also proceed — its own lock attempt below finds status is no
+  // longer 'booked' and fails fast instead of racing to claim a
+  // different target under the same token.
+  const { data: locked, error: lockError } = await supabase
+    .from("booking_slots")
+    .update({ status: "pending", pending_expires_at: null })
+    .eq("id", current.id)
+    .eq("status", "booked")
+    .select()
+    .maybeSingle();
+
+  if (lockError) {
+    console.error("Failed to lock current booking for reschedule:", lockError);
+    return Response.json({ error: "Something went wrong." }, { status: 500 });
+  }
+
+  if (!locked) {
+    return Response.json(
+      { error: "This booking is already being modified. Please try again in a moment." },
+      { status: 409 },
+    );
+  }
+
   if (hoursNotice >= RESCHEDULE_NOTICE_HOURS) {
     // Free path — swap immediately, race-safe on the target slot's
     // claim (same guard pattern as /api/book's original claim).
@@ -115,6 +140,11 @@ export async function POST(
     }
 
     if (!claimed) {
+      await supabase
+        .from("booking_slots")
+        .update({ status: "booked", pending_expires_at: null })
+        .eq("id", current.id)
+        .eq("status", "pending");
       return Response.json(
         { error: "That time is no longer available." },
         { status: 409 },
@@ -132,7 +162,8 @@ export async function POST(
         booking_token: null,
         deposit_payment_intent_id: null,
       })
-      .eq("id", current.id);
+      .eq("id", current.id)
+      .eq("status", "pending");
 
     if (releaseError) {
       console.error("Failed to release original slot after reschedule:", releaseError);
@@ -163,10 +194,20 @@ export async function POST(
 
   if (holdError) {
     console.error("Failed to hold target slot for reschedule fee checkout:", holdError);
+    await supabase
+      .from("booking_slots")
+      .update({ status: "booked", pending_expires_at: null })
+      .eq("id", current.id)
+      .eq("status", "pending");
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
 
   if (!held) {
+    await supabase
+      .from("booking_slots")
+      .update({ status: "booked", pending_expires_at: null })
+      .eq("id", current.id)
+      .eq("status", "pending");
     return Response.json(
       { error: "That time is no longer available." },
       { status: 409 },
@@ -189,6 +230,11 @@ export async function POST(
       .from("booking_slots")
       .update({ status: "open", pending_expires_at: null })
       .eq("id", target.id)
+      .eq("status", "pending");
+    await supabase
+      .from("booking_slots")
+      .update({ status: "booked", pending_expires_at: null })
+      .eq("id", current.id)
       .eq("status", "pending");
     return Response.json(
       { error: "Something went wrong starting checkout." },
