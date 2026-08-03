@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatTimeRange } from "@/lib/format";
+import { formatTimeRange, formatCents } from "@/lib/format";
 
 type Slot = {
   id: string;
@@ -19,7 +19,7 @@ type Booking = {
   client_email: string | null;
 };
 
-type View = "idle" | "rescheduling" | "cancelling";
+type View = "idle" | "rescheduling" | "cancelling" | "cancelled";
 
 export default function ManageBooking({
   token,
@@ -34,6 +34,10 @@ export default function ManageBooking({
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [cancelResult, setCancelResult] = useState<{
+    refundStatus: "refunded" | "partial_refund" | "no_refund" | "failed";
+    refundAmountCents: number;
+  } | null>(null);
 
   async function handleReschedule() {
     if (!selectedSlotId || pending) return;
@@ -75,6 +79,63 @@ export default function ManageBooking({
       setError("Something went wrong. Please try again.");
       setPending(false);
     }
+  }
+
+  async function handleCancel() {
+    if (pending) return;
+    setPending(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/manage/${token}/cancel`, {
+        method: "POST",
+      });
+
+      const data: {
+        error?: string;
+        refundStatus?: "refunded" | "partial_refund" | "no_refund" | "failed";
+        refundAmountCents?: number;
+      } = await response.json();
+
+      if (!response.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        setPending(false);
+        return;
+      }
+
+      setCancelResult({
+        refundStatus: data.refundStatus ?? "no_refund",
+        refundAmountCents: data.refundAmountCents ?? 0,
+      });
+      setView("cancelled");
+      setPending(false);
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setPending(false);
+    }
+  }
+
+  if (view === "cancelled" && cancelResult) {
+    const refundLine =
+      cancelResult.refundStatus === "refunded"
+        ? `A full refund of ${formatCents(cancelResult.refundAmountCents)} is on its way.`
+        : cancelResult.refundStatus === "partial_refund"
+          ? `A partial refund of ${formatCents(cancelResult.refundAmountCents)} is on its way.`
+          : cancelResult.refundStatus === "no_refund"
+            ? "Per our cancellation policy, this booking wasn't eligible for a refund."
+            : "We're processing your refund and will follow up shortly.";
+
+    return (
+      <div className="border border-accent/40 bg-surface p-6 text-center">
+        <p className="text-xs uppercase tracking-[0.3em] text-muted">
+          Cancelled
+        </p>
+        <h2 className="mt-2 font-serif text-2xl italic text-foreground">
+          Your session has been cancelled.
+        </h2>
+        <p className="mt-4 text-sm text-muted">{refundLine}</p>
+      </div>
+    );
   }
 
   return (
@@ -180,10 +241,11 @@ export default function ManageBooking({
           <div className="mt-6 flex gap-4">
             <button
               type="button"
+              onClick={handleCancel}
               disabled={pending}
               className="border border-red-700 px-6 py-3 text-xs uppercase tracking-[0.2em] text-red-700 transition-colors hover:bg-red-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Confirm cancellation
+              {pending ? "Working…" : "Confirm cancellation"}
             </button>
             <button
               type="button"
