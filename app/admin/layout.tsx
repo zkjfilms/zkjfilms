@@ -7,6 +7,7 @@ import AdminGate from "./AdminGate";
 const NAV_LINKS = [
   { href: "/admin/dashboard", label: "Contracts" },
   { href: "/admin/availability", label: "Availability" },
+  { href: "/admin/appointment-types", label: "Appointment Types" },
   { href: "/admin/templates", label: "Templates" },
   { href: "/admin/galleries", label: "Galleries" },
   { href: "/admin/leads", label: "Leads" },
