@@ -162,8 +162,8 @@ function toBusinessLocalParts(date: Date): { date: string; minutes: number } {
 // Minutes from "now" (business-local) to the start of `targetDate` at
 // local midnight — can be negative if targetDate is today or in the past.
 function minutesBetween(now: { date: string; minutes: number }, targetDate: string): number {
-  const nowDate = new Date(`${now.date}T00:00:00`);
-  const target = new Date(`${targetDate}T00:00:00`);
+  const nowDate = new Date(`${now.date}T00:00:00Z`);
+  const target = new Date(`${targetDate}T00:00:00Z`);
   const dayDiffMinutes = Math.round((target.getTime() - nowDate.getTime()) / 60000);
   return dayDiffMinutes - now.minutes;
 }
@@ -173,7 +173,7 @@ export function formatSlotForDisplay(
   time: string,
   timeZone: string,
 ): string {
-  const utcGuess = new Date(`${date}T${time}:00`);
+  const utcGuess = new Date(`${date}T${time}:00Z`);
   // The business-local wall-clock time interpreted in BUSINESS_TIME_ZONE,
   // then rendered in the caller's timeZone.
   const businessOffsetMs = getTimeZoneOffsetMs(utcGuess, BUSINESS_TIME_ZONE);
