@@ -187,6 +187,7 @@ export default function MonthlyOverrideCalendar() {
       {selectedDate && (
         <div className="mt-8">
           <DayOverrideEditor
+            key={selectedDate}
             date={selectedDate}
             initialHours={selectedDay?.hours ?? null}
             hasOverride={selectedDay?.hasOverride ?? false}
