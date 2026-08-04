@@ -179,6 +179,17 @@ create table scheduling_limits (
   daily_cap integer,  -- null = no cap
   start_time_interval_minutes integer not null default 30
 );
+
+-- Replaced wholesale on every cron poll (delete + reinsert), not
+-- incrementally updated — the cron job's output is always "here is
+-- everything currently busy," so a full replace can't leave a stale row
+-- behind from an event that was since deleted on the calendar.
+create table google_busy_blocks_cache (
+  id uuid primary key default gen_random_uuid(),
+  start_time timestamptz not null,
+  end_time timestamptz not null check (end_time > start_time),
+  synced_at timestamptz not null default now()
+);
 ```
 
 - **`bookings.time_range` + the exclusion constraint** is what makes
@@ -229,8 +240,9 @@ Given a date `D` and appointment type `T`:
    booking's appointment type's buffers).
 4. **Exclude candidates overlapping `blocked_times`** for `D`.
 5. **Exclude candidates overlapping Google Calendar busy blocks** for `D`,
-   from the most recent poll (see "Google Calendar integration" — computed
-   at request time from the last-synced busy list, not persisted).
+   read from the `google_busy_blocks_cache` table (see "Google Calendar
+   integration") — the cron poll's most recent result, not the live
+   calendar, so this can lag the calendar by up to the poll interval.
 6. **Apply guardrails**: drop candidates starting before `now +
    min_notice_hours`, after `now + max_advance_days`, or — if
    `daily_cap` is set — drop the entire day once `D` already has that many
@@ -308,10 +320,14 @@ Supabase Realtime subscriptions, client-side, on:
 
 OAuth2, single user (the admin). A Vercel Cron job runs every 5 minutes,
 pulls busy blocks from the connected calendar via the Calendar API's
-`freebusy` query, and the slot computation (step 5 above) treats them as
-transient blocks — computed at request time from the last poll's result,
-not written into `blocked_times`, so they can't go stale if the admin
-removes a calendar event between polls.
+`freebusy` query, and **replaces the entire contents** of
+`google_busy_blocks_cache` (delete all rows, insert the fresh result) in
+one transaction — never an incremental update, so a calendar event the
+admin deleted between polls can't leave a stale row behind. Slot
+computation (step 5 above) reads this cache table, not `blocked_times` —
+keeping "admin manually blocked this" and "Google Calendar says this is
+busy" as two distinct, separately-sourced concerns even though they have
+the same effect on availability.
 
 On every new `confirmed` booking, immediately create a Calendar event
 (client name + notes in the description) via a direct API call — not
