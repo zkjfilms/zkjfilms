@@ -7,6 +7,12 @@ const TITLE = "Book a Session";
 const DESCRIPTION =
   "Book a portrait, headshot, or boudoir photography session with a Columbia, Missouri photographer serving Mid-Missouri.";
 
+// Slot availability changes whenever a booking, cancellation, or admin
+// edit happens — this page has no cookies/params to force dynamic
+// rendering on its own, so without this it gets statically cached at
+// build time and never reflects live availability.
+export const dynamic = "force-dynamic";
+
 export function generateMetadata(): Metadata {
   return buildPageMetadata({ title: TITLE, description: DESCRIPTION, path: "/book" });
 }
