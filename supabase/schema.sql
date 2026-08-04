@@ -176,3 +176,95 @@ alter table booking_slots add constraint booking_slots_status_check
 
 create index if not exists booking_slots_booking_token_idx
   on booking_slots (booking_token);
+
+-- Self-hosted availability & booking system (replaces booking_slots).
+create table appointment_types (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  duration_minutes integer not null check (duration_minutes > 0),
+  buffer_before_minutes integer not null default 0 check (buffer_before_minutes >= 0),
+  buffer_after_minutes integer not null default 0 check (buffer_after_minutes >= 0),
+  price_cents integer not null default 0 check (price_cents >= 0),
+  requires_payment boolean not null default false,
+  color text not null default '#6b7280',
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table availability_rules (
+  id uuid primary key default gen_random_uuid(),
+  day_of_week integer not null check (day_of_week between 0 and 6),
+  start_time time not null,
+  end_time time not null check (end_time > start_time)
+);
+
+create table availability_overrides (
+  id uuid primary key default gen_random_uuid(),
+  date date not null unique,
+  start_time time,
+  end_time time,
+  is_closed boolean not null default false,
+  check (is_closed or (start_time is not null and end_time is not null and end_time > start_time))
+);
+
+create table blocked_times (
+  id uuid primary key default gen_random_uuid(),
+  date date not null,
+  start_time time not null,
+  end_time time not null check (end_time > start_time),
+  reason text
+);
+
+create table bookings (
+  id uuid primary key default gen_random_uuid(),
+  appointment_type_id uuid not null references appointment_types(id),
+  client_name text not null,
+  client_email text not null,
+  client_phone text,
+  start_time timestamptz not null,
+  end_time timestamptz not null check (end_time > start_time),
+  time_range tstzrange generated always as
+    (tstzrange(start_time, end_time, '[)')) stored,
+  status text not null default 'pending'
+    check (status in ('pending', 'confirmed', 'canceled')),
+  notes text,
+  booking_token uuid not null default gen_random_uuid(),
+  payment_intent_id text,
+  amount_paid_cents integer,
+  google_event_id text,
+  pending_expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  exclude using gist (time_range with &&)
+    where (status in ('pending', 'confirmed'))
+);
+
+create index bookings_booking_token_idx on bookings (booking_token);
+create index bookings_start_time_idx on bookings (start_time);
+
+create table google_calendar_sync (
+  id boolean primary key default true check (id),
+  access_token text,
+  refresh_token text,
+  token_expires_at timestamptz,
+  last_synced_at timestamptz,
+  connected boolean not null default false
+);
+
+create table scheduling_limits (
+  id boolean primary key default true check (id),
+  min_notice_hours integer not null default 24,
+  max_advance_days integer not null default 365,
+  cancel_reschedule_notice_hours integer not null default 24,
+  daily_cap integer,
+  start_time_interval_minutes integer not null default 30
+);
+insert into scheduling_limits (id) values (true);
+
+-- Replaced wholesale on every cron poll, never incrementally updated.
+create table google_busy_blocks_cache (
+  id uuid primary key default gen_random_uuid(),
+  start_time timestamptz not null,
+  end_time timestamptz not null check (end_time > start_time),
+  synced_at timestamptz not null default now()
+);
