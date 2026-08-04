@@ -157,8 +157,16 @@ export default function SchedulingLimitsForm() {
     }
   }
 
-  if (status === "loading" || !form) {
+  if (status === "loading") {
     return <p className="text-muted">Loading scheduling limits…</p>;
+  }
+
+  if (!form) {
+    // The initial GET failed (401 from an expired session, a Supabase
+    // error, or a network blip) — status is "error" and there's nothing
+    // to build a form from. Surface the message instead of falling
+    // through to an infinite "Loading…".
+    return <p className="text-xs text-red-700">{error || "Couldn't load scheduling limits."}</p>;
   }
 
   return (
