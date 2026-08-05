@@ -1,218 +1,148 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { SESSION_TYPES } from "@/lib/leads";
-import { formatTimeRange, formatCents } from "@/lib/format";
+import { useState } from "react";
+import AppointmentTypePicker, {
+  type AppointmentType,
+} from "./AppointmentTypePicker";
+import BookingCalendar from "./BookingCalendar";
+import SlotList, { type Slot } from "./SlotList";
+import { formatCents } from "@/lib/format";
+import { formatSlotForDisplay, BUSINESS_TIME_ZONE } from "@/lib/scheduling";
 
-type Slot = {
-  id: string;
-  start_time: string;
-  end_time: string;
-  session_type: string;
-  deposit_cents: number;
-};
+type Step = "type" | "date" | "slot" | "form";
 
-type Status = "idle" | "loading";
+const CHANGE_LINK_CLASS =
+  "text-xs uppercase tracking-[0.15em] text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline";
 
-const EMPTY_FORM = { clientName: "", clientEmail: "", notes: "" };
-
-function redirectTo(url: string) {
-  window.location.href = url;
+function formatDateLong(date: string): string {
+  // Parsed as a local wall-clock date (not UTC midnight) so the weekday
+  // shown matches the business-local calendar day the slots belong to.
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
-export default function BookingFlow({ slots }: { slots: Slot[] }) {
-  const [sessionTypeFilter, setSessionTypeFilter] = useState("");
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [status, setStatus] = useState<Status>("idle");
-  const [error, setError] = useState("");
+export default function BookingFlow() {
+  const [step, setStep] = useState<Step>("type");
+  const [appointmentType, setAppointmentType] =
+    useState<AppointmentType | null>(null);
+  const [date, setDate] = useState<string | null>(null);
+  const [slot, setSlot] = useState<Slot | null>(null);
 
-  const filteredSlots = sessionTypeFilter
-    ? slots.filter((s) => s.session_type === sessionTypeFilter)
-    : slots;
-
-  const selectedSlot = slots.find((s) => s.id === selectedSlotId) ?? null;
-
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!selectedSlot || status === "loading") return;
-
-    setStatus("loading");
-    setError("");
-
-    try {
-      const response = await fetch("/api/book", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId: selectedSlot.id, ...form }),
-      });
-
-      const data: { checkoutUrl?: string; error?: string } =
-        await response.json();
-
-      if (!response.ok || !data.checkoutUrl) {
-        setError(data.error ?? "Something went wrong. Please try again.");
-        setStatus("idle");
-        return;
-      }
-
-      // Full navigation to an external domain (Stripe Checkout) — next/navigation's
-      // router is for internal routes only, so this is the correct API.
-      redirectTo(data.checkoutUrl);
-    } catch {
-      setError("Something went wrong. Please try again.");
-      setStatus("idle");
-    }
+  function handleSelectType(type: AppointmentType) {
+    setAppointmentType(type);
+    setDate(null);
+    setSlot(null);
+    setStep("date");
   }
 
-  if (slots.length === 0) {
-    return (
-      <p className="text-center text-muted">
-        No open times right now — check back soon, or{" "}
-        <a href="/contact" className="text-accent underline-offset-4 hover:underline">
-          reach out directly
-        </a>
-        .
-      </p>
-    );
+  function handleSelectDate(selectedDate: string) {
+    setDate(selectedDate);
+    setSlot(null);
+    setStep("slot");
+  }
+
+  function handleSelectSlot(selectedSlot: Slot) {
+    setSlot(selectedSlot);
+    setStep("form");
+  }
+
+  // Going back to an earlier step clears every selection that depended on
+  // it — the calendar's open dates and the slot list are both scoped to
+  // the appointment type, and the slot list is scoped to the date, so a
+  // stale downstream selection would no longer be valid.
+  function changeType() {
+    setAppointmentType(null);
+    setDate(null);
+    setSlot(null);
+    setStep("type");
+  }
+
+  function changeDate() {
+    setDate(null);
+    setSlot(null);
+    setStep("date");
+  }
+
+  function changeSlot() {
+    setSlot(null);
+    setStep("slot");
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <label
-          htmlFor="sessionTypeFilter"
-          className="block text-xs uppercase tracking-[0.15em] text-muted"
-        >
-          Session type
-        </label>
-        <select
-          id="sessionTypeFilter"
-          value={sessionTypeFilter}
-          onChange={(e) => {
-            setSessionTypeFilter(e.target.value);
-            setSelectedSlotId(null);
-          }}
-          className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-        >
-          <option value="">All types</option>
-          {SESSION_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {!selectedSlot ? (
-        <div className="space-y-2">
-          {filteredSlots.length === 0 ? (
-            <p className="text-muted">No open times for that session type.</p>
-          ) : (
-            filteredSlots.map((slot) => (
-              <button
-                key={slot.id}
-                type="button"
-                onClick={() => setSelectedSlotId(slot.id)}
-                className="block w-full border border-border px-4 py-3 text-left transition-colors hover:border-accent"
-              >
-                <span className="text-foreground">
-                  {formatTimeRange(slot.start_time, slot.end_time)}
-                </span>
-                <span className="ml-3 text-xs uppercase tracking-[0.15em] text-muted">
-                  {slot.session_type} · {formatCents(slot.deposit_cents)}{" "}
-                  deposit
-                </span>
-              </button>
-            ))
-          )}
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="border border-border p-4">
-            <p className="text-sm text-foreground">
-              {formatTimeRange(selectedSlot.start_time, selectedSlot.end_time)}{" "}
-              — {selectedSlot.session_type} ·{" "}
-              {formatCents(selectedSlot.deposit_cents)} deposit
-            </p>
-            <button
-              type="button"
-              onClick={() => setSelectedSlotId(null)}
-              className="mt-2 text-xs uppercase tracking-[0.15em] text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline"
-            >
-              Choose a different time
-            </button>
-          </div>
-
-          <div>
-            <label
-              htmlFor="clientName"
-              className="block text-xs uppercase tracking-[0.15em] text-muted"
-            >
-              Name
-            </label>
-            <input
-              id="clientName"
-              required
-              value={form.clientName}
-              onChange={(e) => {
-                setForm((prev) => ({ ...prev, clientName: e.target.value }));
-                setError("");
-              }}
-              className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+    <div className="space-y-8">
+      {appointmentType && step !== "type" && (
+        <div className="flex items-center justify-between gap-4 border border-border px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className="h-3 w-3 shrink-0 rounded-full border border-border"
+              style={{ backgroundColor: appointmentType.color }}
             />
+            <span className="text-sm text-foreground">
+              {appointmentType.name} &middot;{" "}
+              {appointmentType.duration_minutes} min
+              {appointmentType.requires_payment
+                ? ` · ${formatCents(appointmentType.price_cents)}`
+                : ""}
+            </span>
           </div>
-
-          <div>
-            <label
-              htmlFor="clientEmail"
-              className="block text-xs uppercase tracking-[0.15em] text-muted"
-            >
-              Email
-            </label>
-            <input
-              id="clientEmail"
-              type="email"
-              required
-              value={form.clientEmail}
-              onChange={(e) => {
-                setForm((prev) => ({ ...prev, clientEmail: e.target.value }));
-                setError("");
-              }}
-              className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="notes"
-              className="block text-xs uppercase tracking-[0.15em] text-muted"
-            >
-              Notes (optional)
-            </label>
-            <textarea
-              id="notes"
-              rows={3}
-              value={form.notes}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, notes: e.target.value }))
-              }
-              className="mt-2 w-full resize-none border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-700">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className="w-full border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {status === "loading"
-              ? "Starting checkout…"
-              : `Continue to payment (${formatCents(selectedSlot.deposit_cents)} deposit)`}
+          <button type="button" onClick={changeType} className={CHANGE_LINK_CLASS}>
+            Change
           </button>
-        </form>
+        </div>
+      )}
+
+      {step === "type" && (
+        <AppointmentTypePicker onSelect={handleSelectType} />
+      )}
+
+      {date && (step === "slot" || step === "form") && (
+        <div className="flex items-center justify-between gap-4 border border-border px-4 py-3">
+          <span className="text-sm text-foreground">
+            {formatDateLong(date)}
+          </span>
+          <button type="button" onClick={changeDate} className={CHANGE_LINK_CLASS}>
+            Change
+          </button>
+        </div>
+      )}
+
+      {step === "date" && appointmentType && (
+        <BookingCalendar
+          appointmentTypeId={appointmentType.id}
+          onSelectDate={handleSelectDate}
+        />
+      )}
+
+      {step === "slot" && appointmentType && date && (
+        <SlotList
+          appointmentTypeId={appointmentType.id}
+          date={date}
+          onSelectSlot={handleSelectSlot}
+        />
+      )}
+
+      {step === "form" && slot && date && (
+        <div className="border border-border p-4">
+          <p className="text-sm text-foreground">
+            {formatSlotForDisplay(date, slot.startTime, BUSINESS_TIME_ZONE)}
+          </p>
+          <button
+            type="button"
+            onClick={changeSlot}
+            className={`mt-2 ${CHANGE_LINK_CLASS}`}
+          >
+            Choose a different time
+          </button>
+          <p className="mt-6 text-muted">
+            Booking details go here next &mdash; hang tight.
+          </p>
+        </div>
       )}
     </div>
   );
