@@ -119,3 +119,36 @@ export async function deleteGoogleCalendarEvent(eventId: string): Promise<void> 
     console.error("Failed to delete Google Calendar event (continuing):", err);
   }
 }
+
+export async function pullBusyBlocks(): Promise<{ synced: boolean; count: number }> {
+  const client = await getAuthenticatedGoogleClient();
+  if (!client) return { synced: false, count: 0 };
+
+  const calendar = google.calendar({ version: "v3", auth: client });
+  const timeMin = new Date().toISOString();
+  const timeMax = new Date(Date.now() + 400 * 24 * 60 * 60 * 1000).toISOString(); // ~13 months out, comfortably past any realistic max-advance-days setting
+
+  const response = await calendar.freebusy.query({
+    requestBody: { timeMin, timeMax, items: [{ id: "primary" }] },
+  });
+  const busy = response.data.calendars?.primary?.busy ?? [];
+
+  const supabase = getSupabaseClient();
+  // Wholesale replace, never incremental — see the spec's rationale
+  // (a deleted calendar event must not leave a stale row behind).
+  const { error: deleteError } = await supabase.from("google_busy_blocks_cache").delete().gte("synced_at", "1970-01-01");
+  if (deleteError) throw deleteError;
+
+  if (busy.length > 0) {
+    const { error: insertError } = await supabase.from("google_busy_blocks_cache").insert(
+      busy
+        .filter((b): b is { start: string; end: string } => Boolean(b.start && b.end))
+        .map((b) => ({ start_time: b.start, end_time: b.end })),
+    );
+    if (insertError) throw insertError;
+  }
+
+  await supabase.from("google_calendar_sync").update({ last_synced_at: new Date().toISOString() }).eq("id", true);
+
+  return { synced: true, count: busy.length };
+}
