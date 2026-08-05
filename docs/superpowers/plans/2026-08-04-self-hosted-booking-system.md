@@ -2423,7 +2423,7 @@ git commit -m "Add full-payment Stripe checkout and webhook for the new booking 
 ## Task 14: Confirmation emails
 
 **Files:**
-- Modify: `lib/email.ts` (add `sendBookingConfirmedEmail` for free bookings, `sendBookingPaymentConfirmedEmail` for paid ones)
+- Modify: `lib/email.ts` (add `sendFreeBookingConfirmedEmail` for free bookings, `sendBookingPaymentConfirmedEmail` for paid ones)
 - Modify: `app/api/bookings/route.ts` (call the free-path email directly)
 - Modify: `lib/bookingsWebhook.ts` (replace the email stub with the real import)
 
@@ -2450,7 +2450,7 @@ function appointmentTypeName(booking: BookingForEmail): string {
   return Array.isArray(rel) ? (rel[0]?.name ?? "your appointment") : rel.name;
 }
 
-export async function sendBookingConfirmedEmail(
+export async function sendFreeBookingConfirmedEmail(
   booking: BookingForEmail,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -2548,13 +2548,13 @@ In `app/api/bookings/route.ts`, replace the comment `// Confirmation email, Goog
 
 ```typescript
 try {
-  await sendBookingConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
+  await sendFreeBookingConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
 } catch (err) {
   console.error("Confirmation email failed (booking still confirmed):", err);
 }
 ```
 
-Add the import: `import { sendBookingConfirmedEmail } from "@/lib/email";`.
+Add the import: `import { sendFreeBookingConfirmedEmail } from "@/lib/email";`.
 
 - [ ] **Step 3: Replace the webhook's email stub**
 
@@ -2941,7 +2941,7 @@ Update the call site from `pushBookingToGoogleCalendarStub(booking)` to `pushBoo
 
 - [ ] **Step 3: Wire into the free-confirm path**
 
-In `app/api/bookings/route.ts`, after the `sendBookingConfirmedEmail` call in the `!type.requires_payment` branch, add:
+In `app/api/bookings/route.ts`, after the `sendFreeBookingConfirmedEmail` call in the `!type.requires_payment` branch, add:
 
 ```typescript
 try {
@@ -3493,7 +3493,7 @@ Apply via the Supabase SQL Editor; verify with `select proname from pg_proc wher
 
 - [ ] **Step 2: Reschedule confirmation email**
 
-Append to `lib/email.ts` (same shape as `sendBookingConfirmedEmail` from Task 14, different subject/copy):
+Append to `lib/email.ts` (same shape as `sendFreeBookingConfirmedEmail` from Task 14, different subject/copy):
 
 ```typescript
 export async function sendBookingRescheduledEmail(
