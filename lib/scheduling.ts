@@ -186,6 +186,20 @@ export function formatSlotForDisplay(
   }).format(actualUtc);
 }
 
+// The UTC instants that bound a business-local calendar day (e.g. "2026-08-11"
+// means 00:00 through 24:00 America/Chicago, not UTC). Callers filtering
+// timestamptz columns by "this business day" must use these bounds, not
+// `${date}T00:00:00Z`/`${date}T23:59:59Z` literals — the latter is the wrong
+// window whenever the business timezone isn't UTC, and additionally has an
+// off-by-one gap in the last second of the day.
+export function businessDayUtcBounds(date: string): { startUtc: string; endUtc: string } {
+  const anchor = new Date(`${date}T00:00:00Z`);
+  const offsetMs = getTimeZoneOffsetMs(anchor, BUSINESS_TIME_ZONE);
+  const startUtc = new Date(anchor.getTime() - offsetMs);
+  const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60 * 1000);
+  return { startUtc: startUtc.toISOString(), endUtc: endUtc.toISOString() };
+}
+
 function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
