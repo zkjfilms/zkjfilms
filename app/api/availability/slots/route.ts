@@ -9,18 +9,23 @@ export async function GET(request: Request) {
     return Response.json({ error: "appointmentTypeId and date (YYYY-MM-DD) are required." }, { status: 400 });
   }
 
-  const supabase = getSupabaseClient();
-  const { data: type, error } = await supabase
-    .from("appointment_types")
-    .select("id, name, duration_minutes, buffer_before_minutes, buffer_after_minutes, price_cents, requires_payment, color")
-    .eq("id", appointmentTypeId)
-    .eq("active", true)
-    .maybeSingle();
+  try {
+    const supabase = getSupabaseClient();
+    const { data: type, error } = await supabase
+      .from("appointment_types")
+      .select("id, name, duration_minutes, buffer_before_minutes, buffer_after_minutes, price_cents, requires_payment, color")
+      .eq("id", appointmentTypeId)
+      .eq("active", true)
+      .maybeSingle();
 
-  if (error || !type) {
-    return Response.json({ error: "Appointment type not found." }, { status: 404 });
+    if (error || !type) {
+      return Response.json({ error: "Appointment type not found." }, { status: 404 });
+    }
+
+    const slots = await fetchOpenSlotsForDate({ date, appointmentType: type as AppointmentTypeRow });
+    return Response.json({ slots });
+  } catch (err) {
+    console.error("Failed to fetch open slots:", err);
+    return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
-
-  const slots = await fetchOpenSlotsForDate({ date, appointmentType: type as AppointmentTypeRow });
-  return Response.json({ slots });
 }
