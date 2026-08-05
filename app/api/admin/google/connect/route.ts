@@ -18,7 +18,15 @@ export async function GET() {
   const state = randomBytes(32).toString("base64url");
   cookieStore.set("google_oauth_state", state, {
     httpOnly: true,
-    secure: true,
+    // Secure only in production, same as ADMIN_ACCESS_COOKIE in
+    // app/api/admin-access/route.ts — a hardcoded `true` here would
+    // silently break on any non-HTTPS origin (the browser just drops
+    // the cookie, and the callback returns an unhelpful generic
+    // "Invalid or expired OAuth state." with no hint it was a cookie
+    // attribute at fault). Chrome/Firefox special-case http://localhost
+    // to accept Secure anyway, so plain local testing won't catch this
+    // — but a LAN IP or tunnel during real setup would.
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 600, // 10 minutes — the OAuth flow should complete well within this
     path: "/",
