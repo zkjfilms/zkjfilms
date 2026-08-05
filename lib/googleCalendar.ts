@@ -17,12 +17,13 @@ export function getGoogleOAuthClient() {
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar"];
 
-export function getGoogleAuthUrl(): string {
+export function getGoogleAuthUrl(state: string): string {
   const client = getGoogleOAuthClient();
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent", // forces a refresh_token even on a re-connect
     scope: SCOPES,
+    state,
   });
 }
 
