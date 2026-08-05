@@ -25,12 +25,25 @@ type BlockedTimeRow = {
 
 type OpenSlot = { startTime: string; endTime: string }; // "HH:MM"
 
+// The API route (app/api/admin/day-view/route.ts) doesn't error-check its
+// four Supabase queries individually — a single failed query still returns
+// HTTP 200, just with that field destructured to `null` instead of `[]`.
+// The response is typed loosely here (nullable arrays) to reflect what the
+// route can actually send; `load()` below normalizes it into
+// DayViewResponse before it ever reaches state/render.
+type RawDayViewResponse = {
+  hours: ResolvedHours;
+  bookings: BookingRow[] | null;
+  blockedTimes: BlockedTimeRow[] | null;
+  openSlots: OpenSlot[] | null;
+  error?: string;
+};
+
 type DayViewResponse = {
   hours: ResolvedHours;
   bookings: BookingRow[];
   blockedTimes: BlockedTimeRow[];
   openSlots: OpenSlot[];
-  error?: string;
 };
 
 type AppointmentType = { id: string; name: string; active: boolean };
@@ -118,7 +131,7 @@ export default function DayView({
         const params = new URLSearchParams({ date });
         if (appointmentTypeId) params.set("appointmentTypeId", appointmentTypeId);
         const response = await fetch(`/api/admin/day-view?${params.toString()}`);
-        const result: DayViewResponse = await response.json();
+        const result: RawDayViewResponse = await response.json();
         if (cancelled) return;
 
         if (!response.ok) {
@@ -127,7 +140,15 @@ export default function DayView({
           return;
         }
 
-        setData(result);
+        // The route can return HTTP 200 with individual fields null'd out
+        // if one of its underlying Supabase queries failed — normalize to
+        // empty arrays so render code can rely on .length/.map existing.
+        setData({
+          hours: result.hours,
+          bookings: result.bookings ?? [],
+          blockedTimes: result.blockedTimes ?? [],
+          openSlots: result.openSlots ?? [],
+        });
         setStatus("idle");
       } catch {
         if (!cancelled) {
