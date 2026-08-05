@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { computeOpenSlots, resolveHoursForDate } from "@/lib/scheduling";
+import { fetchOpenSlotsForDate, type AppointmentTypeRow } from "@/lib/availabilityQuery";
 
 async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -56,35 +57,11 @@ export async function GET(request: Request) {
   if (appointmentTypeId && hours) {
     const { data: type } = await supabase
       .from("appointment_types")
-      .select("duration_minutes, buffer_before_minutes, buffer_after_minutes")
+      .select("id, name, duration_minutes, buffer_before_minutes, buffer_after_minutes, price_cents, requires_payment, color")
       .eq("id", appointmentTypeId)
       .single();
-    const { data: limitsRow } = await supabase.from("scheduling_limits").select("*").single();
-    if (type && limitsRow) {
-      openSlots = computeOpenSlots({
-        date,
-        now: new Date(),
-        durationMinutes: type.duration_minutes,
-        bufferBeforeMinutes: type.buffer_before_minutes,
-        bufferAfterMinutes: type.buffer_after_minutes,
-        rules: (rules ?? []).map((r) => ({ dayOfWeek: r.day_of_week, startTime: r.start_time, endTime: r.end_time })),
-        overrides: (overrides ?? []).map((o) => ({
-          date: o.date,
-          startTime: o.start_time,
-          endTime: o.end_time,
-          isClosed: o.is_closed,
-        })),
-        blockedTimes: (blockedTimes ?? []).map((b) => ({ startTime: b.start_time, endTime: b.end_time })),
-        existingBookings: [],
-        busyBlocks: [],
-        confirmedBookingsCountForDay: (bookings ?? []).filter((b) => b.status === "confirmed").length,
-        limits: {
-          minNoticeHours: limitsRow.min_notice_hours,
-          maxAdvanceDays: limitsRow.max_advance_days,
-          dailyCap: limitsRow.daily_cap,
-          startTimeIntervalMinutes: limitsRow.start_time_interval_minutes,
-        },
-      });
+    if (type) {
+      openSlots = await fetchOpenSlotsForDate({ date, appointmentType: type as AppointmentTypeRow });
     }
   }
 
