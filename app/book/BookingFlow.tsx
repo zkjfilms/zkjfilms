@@ -5,6 +5,7 @@ import AppointmentTypePicker, {
   type AppointmentType,
 } from "./AppointmentTypePicker";
 import BookingCalendar from "./BookingCalendar";
+import BookingForm from "./BookingForm";
 import SlotList, { type Slot } from "./SlotList";
 import { formatCents } from "@/lib/format";
 import { formatSlotForDisplay, BUSINESS_TIME_ZONE } from "@/lib/scheduling";
@@ -127,21 +128,17 @@ export default function BookingFlow() {
         />
       )}
 
-      {step === "form" && slot && date && (
+      {step === "form" && slot && date && appointmentType && (
         <div className="border border-border p-4">
-          <p className="text-sm text-foreground">
+          <p className="mb-6 text-sm text-foreground">
             {formatSlotForDisplay(date, slot.startTime, BUSINESS_TIME_ZONE)}
           </p>
-          <button
-            type="button"
-            onClick={changeSlot}
-            className={`mt-2 ${CHANGE_LINK_CLASS}`}
-          >
-            Choose a different time
-          </button>
-          <p className="mt-6 text-muted">
-            Booking details go here next &mdash; hang tight.
-          </p>
+          <BookingForm
+            appointmentTypeId={appointmentType.id}
+            date={date}
+            startTime={slot.startTime}
+            onBack={changeSlot}
+          />
         </div>
       )}
     </div>

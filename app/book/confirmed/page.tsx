@@ -21,9 +21,8 @@ export default function BookingConfirmedPage() {
         You&rsquo;re all set.
       </h1>
       <p className="mt-4 text-muted">
-        Check your email for your session agreement and your private
-        booking link, where you can reschedule or cancel later if you
-        need to.
+        Check your email for your booking confirmation, including a private
+        link where you can reschedule or cancel later if you need to.
       </p>
     </div>
   );
