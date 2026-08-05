@@ -74,3 +74,48 @@ export async function getAuthenticatedGoogleClient() {
 
   return client;
 }
+
+type BookingForCalendar = {
+  client_name: string;
+  notes: string | null;
+  start_time: string;
+  end_time: string;
+  appointment_types: { name: string } | { name: string }[] | null;
+};
+
+function typeNameFor(booking: BookingForCalendar): string {
+  const rel = booking.appointment_types;
+  if (!rel) return "Appointment";
+  return Array.isArray(rel) ? (rel[0]?.name ?? "Appointment") : rel.name;
+}
+
+export async function pushBookingToGoogleCalendar(booking: BookingForCalendar): Promise<string | null> {
+  const client = await getAuthenticatedGoogleClient();
+  if (!client) return null; // not connected — not an error, just nothing to do
+
+  const calendar = google.calendar({ version: "v3", auth: client });
+  const response = await calendar.events.insert({
+    calendarId: "primary",
+    requestBody: {
+      summary: `${typeNameFor(booking)} — ${booking.client_name}`,
+      description: booking.notes ?? undefined,
+      start: { dateTime: booking.start_time },
+      end: { dateTime: booking.end_time },
+    },
+  });
+  return response.data.id ?? null;
+}
+
+export async function deleteGoogleCalendarEvent(eventId: string): Promise<void> {
+  const client = await getAuthenticatedGoogleClient();
+  if (!client) return;
+  const calendar = google.calendar({ version: "v3", auth: client });
+  try {
+    await calendar.events.delete({ calendarId: "primary", eventId });
+  } catch (err) {
+    // Event already gone (manually deleted from Calendar, or never
+    // created because Calendar wasn't connected at booking time) — not
+    // fatal, cancellation must still succeed.
+    console.error("Failed to delete Google Calendar event (continuing):", err);
+  }
+}

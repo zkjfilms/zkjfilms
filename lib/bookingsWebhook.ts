@@ -6,15 +6,7 @@
 import type Stripe from "stripe";
 import { getSupabaseClient } from "@/lib/supabase";
 import { sendBookingPaymentConfirmedEmail } from "@/lib/email";
-
-// STUB — pushBookingToGoogleCalendar is built in Task 17
-// (lib/googleCalendar.ts). Kept here only so tsc/eslint pass and this
-// task's own verification (webhook flips pending -> confirmed) doesn't
-// depend on that later task. Task 17 replaces this stub with the real
-// import.
-async function pushBookingToGoogleCalendarStub(..._args: unknown[]): Promise<string | null> {
-  return null;
-}
+import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 
 export async function handleBookingCheckoutCompleted(
   session: Stripe.Checkout.Session,
@@ -57,7 +49,7 @@ export async function handleBookingCheckoutCompleted(
   }
 
   try {
-    const eventId = await pushBookingToGoogleCalendarStub(booking);
+    const eventId = await pushBookingToGoogleCalendar(booking);
     if (eventId) {
       await supabase.from("bookings").update({ google_event_id: eventId }).eq("id", bookingId);
     }

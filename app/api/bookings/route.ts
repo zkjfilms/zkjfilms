@@ -3,6 +3,7 @@ import { fetchOpenSlotsForDate } from "@/lib/availabilityQuery";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { createFullPaymentCheckoutSession } from "@/lib/stripe";
 import { sendFreeBookingConfirmedEmail } from "@/lib/email";
+import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -123,6 +124,16 @@ export async function POST(request: Request) {
     } catch (err) {
       console.error("Confirmation email failed (booking still confirmed):", err);
     }
+
+    try {
+      const eventId = await pushBookingToGoogleCalendar({ ...booking, appointment_types: { name: type.name } });
+      if (eventId) {
+        await supabase.from("bookings").update({ google_event_id: eventId }).eq("id", booking.id);
+      }
+    } catch (err) {
+      console.error("Google Calendar push failed (booking still confirmed):", err);
+    }
+
     return Response.json({ ok: true, checkoutUrl: null, bookingToken: booking.booking_token });
   }
 
