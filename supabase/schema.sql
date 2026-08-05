@@ -250,6 +250,7 @@ create table google_calendar_sync (
   last_synced_at timestamptz,
   connected boolean not null default false
 );
+insert into google_calendar_sync (id) values (true);
 
 create table scheduling_limits (
   id boolean primary key default true check (id),

@@ -16,6 +16,8 @@ type DayData = {
 
 type WeekStatus = "loading" | "idle" | "error";
 
+type GoogleStatus = "loading" | "connected" | "disconnected" | "error";
+
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function todayIsoDate(): string {
@@ -54,6 +56,15 @@ function formatClockTime(time: string): string {
 function formatHours(hours: DayHours): string {
   if (!hours) return "Closed";
   return `${formatClockTime(hours.startTime)}–${formatClockTime(hours.endTime)}`;
+}
+
+function formatSyncedAt(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function formatWeekLabel(dates: string[]): string {
@@ -105,6 +116,8 @@ export default function AvailabilityOverviewClient() {
   const [blockOffOpen, setBlockOffOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [googleStatus, setGoogleStatus] = useState<GoogleStatus>("loading");
+  const [googleLastSynced, setGoogleLastSynced] = useState<string | null>(null);
 
   const dates = weekDatesFor(weekOffset);
   const datesKey = dates.join(",");
@@ -134,12 +147,67 @@ export default function AvailabilityOverviewClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datesKey, refreshKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadGoogleStatus() {
+      try {
+        const res = await fetch("/api/admin/google/status");
+        if (!res.ok) throw new Error("Failed to load Google Calendar status.");
+        const data = (await res.json()) as { connected: boolean; lastSyncedAt: string | null };
+        if (cancelled) return;
+        setGoogleStatus(data.connected ? "connected" : "disconnected");
+        setGoogleLastSynced(data.lastSyncedAt);
+      } catch {
+        if (!cancelled) setGoogleStatus("error");
+      }
+    }
+
+    loadGoogleStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   function handleDateInputChange(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.value) setSelectedDate(e.target.value);
   }
 
   return (
     <div>
+      <section className="mb-10 flex flex-wrap items-center justify-between gap-4 border border-border bg-background p-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted">Google Calendar</p>
+          {googleStatus === "loading" && (
+            <p className="mt-1 text-sm text-muted">Checking connection…</p>
+          )}
+          {googleStatus === "error" && (
+            <p className="mt-1 text-sm text-red-700">Couldn&rsquo;t check connection.</p>
+          )}
+          {googleStatus === "disconnected" && (
+            <p className="mt-1 text-sm text-muted">Not connected</p>
+          )}
+          {googleStatus === "connected" && (
+            <p className="mt-1 text-sm text-foreground">
+              Connected
+              {googleLastSynced && (
+                <span className="ml-2 text-xs text-muted">
+                  Last synced {formatSyncedAt(googleLastSynced)}
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+        {googleStatus === "disconnected" && (
+          <a
+            href="/api/admin/google/connect"
+            className="border border-foreground px-6 py-2 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+          >
+            Connect Google Calendar
+          </a>
+        )}
+      </section>
+
       <div className="mb-10 flex flex-wrap items-center gap-4">
         <button
           type="button"
