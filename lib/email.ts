@@ -123,6 +123,119 @@ export async function sendBookingConfirmedEmail(params: {
   }
 }
 
+// --- NEW self-hosted `bookings` system (see lib/bookingsWebhook.ts and
+// app/api/bookings/route.ts) ---------------------------------------------
+
+type BookingForEmail = {
+  client_name: string;
+  client_email: string;
+  start_time: string;
+  end_time: string;
+  booking_token: string;
+  appointment_types: { name: string } | { name: string }[] | null;
+};
+
+function appointmentTypeName(booking: BookingForEmail): string {
+  const rel = booking.appointment_types;
+  if (!rel) return "your appointment";
+  return Array.isArray(rel) ? (rel[0]?.name ?? "your appointment") : rel.name;
+}
+
+// Sent directly from app/api/bookings/route.ts when a free appointment
+// type is booked (no payment required, so the booking is confirmed
+// immediately — no Stripe webhook round trip).
+export async function sendFreeBookingConfirmedEmail(
+  booking: BookingForEmail,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const when = formatTimeRange(booking.start_time, booking.end_time);
+  const typeName = appointmentTypeName(booking);
+  const manageUrl = `${SITE_URL}/manage/${booking.booking_token}`;
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [booking.client_email],
+      subject: "You're booked!",
+      text: [
+        `Hi ${booking.client_name},`,
+        "",
+        `You're confirmed for ${typeName} on ${when}.`,
+        "",
+        "Need to reschedule or cancel? Use your private booking link:",
+        manageUrl,
+        "",
+        "See you soon,",
+        BUSINESS.name,
+      ].join("\n"),
+      html: `
+        <p>Hi ${escapeHtml(booking.client_name)},</p>
+        <p>You're confirmed for ${escapeHtml(typeName)} on ${escapeHtml(when)}.</p>
+        <p>Need to reschedule or cancel? Use your private booking link:</p>
+        <p><a href="${manageUrl}">${manageUrl}</a></p>
+        <p>See you soon,<br />${escapeHtml(BUSINESS.name)}</p>
+      `,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
+
+// Sent from the Stripe webhook (lib/bookingsWebhook.ts) once a paid
+// appointment type's checkout session completes and the booking flips
+// from 'pending' to 'confirmed'.
+export async function sendBookingPaymentConfirmedEmail(
+  booking: BookingForEmail & { amount_paid_cents: number | null },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const when = formatTimeRange(booking.start_time, booking.end_time);
+  const typeName = appointmentTypeName(booking);
+  const manageUrl = `${SITE_URL}/manage/${booking.booking_token}`;
+  const paidLine = booking.amount_paid_cents
+    ? `Payment of ${formatCents(booking.amount_paid_cents)} received — you're all set.`
+    : "You're all set.";
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [booking.client_email],
+      subject: "You're booked!",
+      text: [
+        `Hi ${booking.client_name},`,
+        "",
+        `You're confirmed for ${typeName} on ${when}.`,
+        paidLine,
+        "",
+        "Need to reschedule or cancel? Use your private booking link:",
+        manageUrl,
+        "",
+        "See you soon,",
+        BUSINESS.name,
+      ].join("\n"),
+      html: `
+        <p>Hi ${escapeHtml(booking.client_name)},</p>
+        <p>You're confirmed for ${escapeHtml(typeName)} on ${escapeHtml(when)}.</p>
+        <p>${escapeHtml(paidLine)}</p>
+        <p>Need to reschedule or cancel? Use your private booking link:</p>
+        <p><a href="${manageUrl}">${manageUrl}</a></p>
+        <p>See you soon,<br />${escapeHtml(BUSINESS.name)}</p>
+      `,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
+
 // Sent after a reschedule (free or paid) actually swaps the client onto
 // their new slot.
 export async function sendRescheduleConfirmedEmail(slot: {

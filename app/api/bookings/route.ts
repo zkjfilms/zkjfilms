@@ -2,6 +2,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { fetchOpenSlotsForDate } from "@/lib/availabilityQuery";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { createFullPaymentCheckoutSession } from "@/lib/stripe";
+import { sendFreeBookingConfirmedEmail } from "@/lib/email";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -117,7 +118,11 @@ export async function POST(request: Request) {
   }
 
   if (!type.requires_payment) {
-    // Confirmation email, Google Calendar push: wired in Tasks 14 and 17.
+    try {
+      await sendFreeBookingConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
+    } catch (err) {
+      console.error("Confirmation email failed (booking still confirmed):", err);
+    }
     return Response.json({ ok: true, checkoutUrl: null, bookingToken: booking.booking_token });
   }
 

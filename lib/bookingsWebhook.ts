@@ -5,15 +5,13 @@
 
 import type Stripe from "stripe";
 import { getSupabaseClient } from "@/lib/supabase";
+import { sendBookingPaymentConfirmedEmail } from "@/lib/email";
 
-// STUBS — sendBookingPaymentConfirmedEmail is built in Task 14
-// (lib/email.ts), pushBookingToGoogleCalendar is built in Task 17
+// STUB — pushBookingToGoogleCalendar is built in Task 17
 // (lib/googleCalendar.ts). Kept here only so tsc/eslint pass and this
 // task's own verification (webhook flips pending -> confirmed) doesn't
-// depend on either later task. Task 14 and Task 17 each replace one
-// stub with the real import (never both at once, so git blame stays
-// meaningful).
-async function sendBookingPaymentConfirmedEmailStub(..._args: unknown[]) {}
+// depend on that later task. Task 17 replaces this stub with the real
+// import.
 async function pushBookingToGoogleCalendarStub(..._args: unknown[]): Promise<string | null> {
   return null;
 }
@@ -53,7 +51,7 @@ export async function handleBookingCheckoutCompleted(
   }
 
   try {
-    await sendBookingPaymentConfirmedEmailStub(booking);
+    await sendBookingPaymentConfirmedEmail(booking);
   } catch (err) {
     console.error("Confirmation email failed (booking still confirmed):", err);
   }
