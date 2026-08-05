@@ -1,24 +1,7 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import { fetchOpenSlotsForDate } from "@/lib/availabilityQuery";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
-
-// STUB — createFullPaymentCheckoutSession is built in Task 13
-// (lib/stripe.ts). Task 13 removes this stub and switches the import
-// above to `import { createFullPaymentCheckoutSession } from
-// "@/lib/stripe";`. Kept here only so tsc/eslint pass and the
-// non-payment (`requires_payment: false`) path can be fully exercised
-// before Task 13 lands. Parameter shape matches the call site below so
-// tsc accepts the call; the real Task 13 implementation is expected to
-// use the same shape.
-async function createFullPaymentCheckoutSession(params: {
-  bookingId: string;
-  amountCents: number;
-  appointmentTypeName: string;
-  clientEmail: string;
-}): Promise<{ url: string }> {
-  void params;
-  throw new Error("not implemented until Task 13");
-}
+import { createFullPaymentCheckoutSession } from "@/lib/stripe";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
