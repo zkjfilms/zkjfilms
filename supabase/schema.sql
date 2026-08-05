@@ -268,3 +268,15 @@ create table google_busy_blocks_cache (
   end_time timestamptz not null check (end_time > start_time),
   synced_at timestamptz not null default now()
 );
+
+-- Postgres-backed rate limiting for public API routes (see
+-- lib/rateLimit.ts) — a serverless function's in-memory state isn't
+-- shared across invocations/regions, so counting hits here is what
+-- actually throttles anything in production.
+create table rate_limit_hits (
+  id uuid primary key default gen_random_uuid(),
+  ip text not null,
+  endpoint text not null,
+  created_at timestamptz not null default now()
+);
+create index rate_limit_hits_ip_endpoint_idx on rate_limit_hits (ip, endpoint, created_at);
