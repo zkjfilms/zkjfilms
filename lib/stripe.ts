@@ -19,68 +19,6 @@ export function getStripeClient(): Stripe {
 
 const HOLD_SECONDS = 30 * 60;
 
-export async function createDepositCheckoutSession(params: {
-  slotId: string;
-  amountCents: number;
-  sessionType: string;
-  clientEmail: string;
-}): Promise<Stripe.Checkout.Session> {
-  const stripe = getStripeClient();
-  return stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
-    customer_email: params.clientEmail,
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          unit_amount: params.amountCents,
-          product_data: { name: `${params.sessionType} session deposit` },
-        },
-        quantity: 1,
-      },
-    ],
-    metadata: { purpose: "booking_deposit", slotId: params.slotId },
-    success_url: `${SITE_URL}/book/confirmed`,
-    cancel_url: `${SITE_URL}/book`,
-    expires_at: Math.floor(Date.now() / 1000) + HOLD_SECONDS,
-  });
-}
-
-export async function createRescheduleFeeCheckoutSession(params: {
-  bookingToken: string;
-  currentSlotId: string;
-  targetSlotId: string;
-  clientEmail: string;
-  amountCents: number;
-}): Promise<Stripe.Checkout.Session> {
-  const stripe = getStripeClient();
-  return stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
-    customer_email: params.clientEmail,
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          unit_amount: params.amountCents,
-          product_data: { name: "Short-notice reschedule fee" },
-        },
-        quantity: 1,
-      },
-    ],
-    metadata: {
-      purpose: "reschedule_fee",
-      bookingToken: params.bookingToken,
-      currentSlotId: params.currentSlotId,
-      targetSlotId: params.targetSlotId,
-    },
-    success_url: `${SITE_URL}/manage/${params.bookingToken}?paid=1`,
-    cancel_url: `${SITE_URL}/manage/${params.bookingToken}`,
-    expires_at: Math.floor(Date.now() / 1000) + HOLD_SECONDS,
-  });
-}
-
 export async function createFullPaymentCheckoutSession(params: {
   bookingId: string;
   amountCents: number;
