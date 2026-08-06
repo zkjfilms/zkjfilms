@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { formatTimeRange } from "@/lib/format";
 import { BUSINESS } from "@/lib/seo";
+import BookingCalendar from "@/app/book/BookingCalendar";
+import SlotList, { type Slot } from "@/app/book/SlotList";
 
 type Booking = {
   id: string;
   booking_token: string;
+  appointment_type_id: string;
   start_time: string;
   end_time: string;
   notes: string | null;
@@ -26,6 +29,54 @@ export default function ManageBooking({
   const [canceled, setCanceled] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+
+  // Reschedule stays within the booking's existing appointment type (no
+  // type picker), so this only needs a date -> slot flow, same shape as
+  // BookingFlow's later steps but scoped to one type from the start.
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState<string | null>(null);
+  const [reschedulingSubmit, setReschedulingSubmit] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+
+  function startReschedule() {
+    setRescheduling(true);
+    setRescheduleDate(null);
+    setRescheduleError(null);
+  }
+
+  function cancelReschedule() {
+    setRescheduling(false);
+    setRescheduleDate(null);
+    setRescheduleError(null);
+  }
+
+  function changeRescheduleDate() {
+    setRescheduleDate(null);
+    setRescheduleError(null);
+  }
+
+  async function handleSelectRescheduleSlot(slot: Slot) {
+    setReschedulingSubmit(true);
+    setRescheduleError(null);
+    try {
+      const response = await fetch(`/api/manage/${booking.booking_token}/reschedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: rescheduleDate, startTime: slot.startTime }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setRescheduleError(data.error ?? "Something went wrong.");
+        return;
+      }
+      // The token is unchanged, so /manage/[token] now shows the new time.
+      window.location.reload();
+    } catch {
+      setRescheduleError("Something went wrong. Please try again.");
+    } finally {
+      setReschedulingSubmit(false);
+    }
+  }
 
   async function handleCancel() {
     setCanceling(true);
@@ -86,13 +137,48 @@ export default function ManageBooking({
           )}
         </div>
 
-        {withinWindow ? (
+        {withinWindow ? rescheduling ? (
+          <div className="space-y-6 border border-border p-6">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs uppercase tracking-[0.3em] text-muted">
+                {rescheduleDate ? "Pick a new time" : "Pick a new date"}
+              </p>
+              <button type="button" onClick={cancelReschedule} className="text-xs uppercase tracking-[0.15em] text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline">
+                Cancel
+              </button>
+            </div>
+
+            {rescheduleDate && (
+              <div className="flex items-center justify-between gap-4 border border-border px-4 py-3">
+                <span className="text-sm text-foreground">{rescheduleDate}</span>
+                <button type="button" onClick={changeRescheduleDate} className="text-xs uppercase tracking-[0.15em] text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline">
+                  Change
+                </button>
+              </div>
+            )}
+
+            {!rescheduleDate ? (
+              <BookingCalendar
+                appointmentTypeId={booking.appointment_type_id}
+                onSelectDate={setRescheduleDate}
+              />
+            ) : (
+              <SlotList
+                appointmentTypeId={booking.appointment_type_id}
+                date={rescheduleDate}
+                onSelectSlot={handleSelectRescheduleSlot}
+              />
+            )}
+
+            {reschedulingSubmit && <p className="text-xs text-muted">Rescheduling…</p>}
+            {rescheduleError && <p className="text-xs text-red-700">{rescheduleError}</p>}
+          </div>
+        ) : (
           <div className="flex flex-wrap gap-4">
             <button
               type="button"
-              disabled
-              title="Coming soon"
-              className="border border-foreground px-6 py-3 text-xs uppercase tracking-[0.2em] text-foreground opacity-50 disabled:cursor-not-allowed"
+              onClick={startReschedule}
+              className="border border-foreground px-6 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
             >
               Reschedule
             </button>
@@ -104,10 +190,6 @@ export default function ManageBooking({
             >
               {canceling ? "Canceling…" : "Cancel"}
             </button>
-            <p className="w-full text-xs text-muted">
-              Online rescheduling is coming soon. In the meantime, contact us using the details
-              below to make changes.
-            </p>
             {cancelError && <p className="w-full text-xs text-red-700">{cancelError}</p>}
           </div>
         ) : (

@@ -1,256 +1,136 @@
 import { getSupabaseClient } from "@/lib/supabase";
-import { createRescheduleFeeCheckoutSession } from "@/lib/stripe";
-import {
-  hoursUntil,
-  RESCHEDULE_NOTICE_HOURS,
-  RESCHEDULE_FEE_CENTS,
-  PENDING_HOLD_MINUTES,
-  LOCK_HOLD_MINUTES,
-} from "@/lib/booking";
-import { sendRescheduleConfirmedEmail } from "@/lib/email";
+import { fetchOpenSlotsForDate } from "@/lib/availabilityQuery";
+import { deleteGoogleCalendarEvent, pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
+import { sendBookingRescheduledEmail } from "@/lib/email";
+import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
+import { utcIsoToBusinessDate } from "@/lib/scheduling";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ token: string }> },
-) {
-  const { token } = await params;
+type Payload = { date: string; startTime: string };
 
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid request body." }, { status: 400 });
+function parsePayload(body: unknown): Payload | null {
+  if (typeof body !== "object" || body === null) return null;
+  const b = body as Record<string, unknown>;
+  if (
+    typeof b.date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(b.date) ||
+    typeof b.startTime !== "string"
+  ) {
+    return null;
   }
+  return { date: b.date, startTime: b.startTime };
+}
 
-  const targetSlotId =
-    typeof rawBody === "object" &&
-    rawBody !== null &&
-    "targetSlotId" in rawBody
-      ? (rawBody as { targetSlotId: unknown }).targetSlotId
-      : null;
-
-  if (typeof targetSlotId !== "string" || !targetSlotId) {
-    return Response.json(
-      { error: "A target slot is required." },
-      { status: 400 },
-    );
+export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const payload = parsePayload(await request.json().catch(() => null));
+  if (!payload) {
+    return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
   const supabase = getSupabaseClient();
-
-  const { data: current, error: currentError } = await supabase
-    .from("booking_slots")
-    .select(
-      "id, start_time, session_type, client_name, client_email, client_notes, deposit_payment_intent_id",
-    )
+  const { data: current, error } = await supabase
+    .from("bookings")
+    .select("*, appointment_types(name, duration_minutes, buffer_before_minutes, buffer_after_minutes, price_cents, requires_payment, color)")
     .eq("booking_token", token)
-    .eq("status", "booked")
+    .eq("status", "confirmed")
     .maybeSingle();
 
-  if (currentError) {
-    console.error("Supabase current-booking lookup failed:", currentError);
+  if (error || !current) {
+    return Response.json({ error: "Booking not found." }, { status: 404 });
+  }
+
+  const { data: limits } = await supabase.from("scheduling_limits").select("cancel_reschedule_notice_hours").single();
+  const noticeHours = limits?.cancel_reschedule_notice_hours ?? 24;
+  const hoursUntil = (new Date(current.start_time).getTime() - Date.now()) / (1000 * 60 * 60);
+  if (hoursUntil < noticeHours) {
+    return Response.json({ error: "This booking is too close to reschedule online — please contact us directly." }, { status: 403 });
+  }
+
+  const type = Array.isArray(current.appointment_types) ? current.appointment_types[0] : current.appointment_types;
+  const openSlots = await fetchOpenSlotsForDate({ date: payload.date, appointmentType: { ...type, id: current.appointment_type_id } });
+  if (!openSlots.some((s) => s.startTime === payload.startTime)) {
+    return Response.json({ error: "That time is no longer available. Please pick another." }, { status: 409 });
+  }
+
+  const startIso = combineDateTimeInBusinessTz(payload.date, payload.startTime);
+  const endIso = combineDateTimeInBusinessTz(
+    payload.date,
+    addMinutes(payload.startTime, type.duration_minutes),
+  );
+
+  const { data: newBooking, error: rpcError } = await supabase.rpc("reschedule_booking", {
+    p_booking_token: token,
+    p_new_start: startIso,
+    p_new_end: endIso,
+  });
+
+  if (rpcError) {
+    if (rpcError.code === "23P01") {
+      return Response.json({ error: "That time is no longer available. Please pick another." }, { status: 409 });
+    }
+    console.error("reschedule_booking RPC failed:", rpcError);
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
 
-  if (!current) {
-    return Response.json(
-      { error: "This link doesn't match an active booking." },
-      { status: 404 },
-    );
+  if (current.google_event_id) {
+    await deleteGoogleCalendarEvent(current.google_event_id);
   }
-
-  const { data: target, error: targetError } = await supabase
-    .from("booking_slots")
-    .select("id, session_type")
-    .eq("id", targetSlotId)
-    .eq("status", "open")
-    .maybeSingle();
-
-  if (targetError) {
-    console.error("Supabase target-slot lookup failed:", targetError);
-    return Response.json({ error: "Something went wrong." }, { status: 500 });
-  }
-
-  if (!target) {
-    return Response.json(
-      { error: "That time is no longer available." },
-      { status: 409 },
-    );
-  }
-
-  if (target.session_type !== current.session_type) {
-    return Response.json(
-      {
-        error: `You can only reschedule into another ${current.session_type} slot.`,
-      },
-      { status: 400 },
-    );
-  }
-
-  const hoursNotice = hoursUntil(current.start_time);
-
-  // Lock the current booking before touching any target slot, so a
-  // second concurrent request against the same booking_token can't
-  // also proceed — its own lock attempt below finds status is no
-  // longer 'booked' and fails fast instead of racing to claim a
-  // different target under the same token.
-  const { data: locked, error: lockError } = await supabase
-    .from("booking_slots")
-    .update({
-      status: "pending",
-      pending_expires_at: new Date(
-        Date.now() + LOCK_HOLD_MINUTES * 60 * 1000,
-      ).toISOString(),
-    })
-    .eq("id", current.id)
-    .eq("status", "booked")
-    .select()
-    .maybeSingle();
-
-  if (lockError) {
-    console.error("Failed to lock current booking for reschedule:", lockError);
-    return Response.json({ error: "Something went wrong." }, { status: 500 });
-  }
-
-  if (!locked) {
-    return Response.json(
-      { error: "This booking is already being modified. Please try again in a moment." },
-      { status: 409 },
-    );
-  }
-
-  if (hoursNotice >= RESCHEDULE_NOTICE_HOURS) {
-    // Free path — swap immediately, race-safe on the target slot's
-    // claim (same guard pattern as /api/book's original claim).
-    const { data: claimed, error: claimError } = await supabase
-      .from("booking_slots")
-      .update({
-        status: "booked",
-        client_name: current.client_name,
-        client_email: current.client_email,
-        client_notes: current.client_notes,
-        booking_token: token,
-        deposit_payment_intent_id: current.deposit_payment_intent_id,
-        refund_status: null,
-        refund_amount_cents: null,
-        booked_at: new Date().toISOString(),
-      })
-      .eq("id", target.id)
-      .eq("status", "open")
-      .select()
-      .maybeSingle();
-
-    if (claimError) {
-      console.error("Failed to claim target slot for reschedule:", claimError);
-      await supabase
-        .from("booking_slots")
-        .update({ status: "booked", pending_expires_at: null })
-        .eq("id", current.id)
-        .eq("status", "pending");
-      return Response.json({ error: "Something went wrong." }, { status: 500 });
+  try {
+    const eventId = await pushBookingToGoogleCalendar({ ...newBooking, appointment_types: type });
+    if (eventId) {
+      await supabase.from("bookings").update({ google_event_id: eventId }).eq("id", newBooking.id);
     }
-
-    if (!claimed) {
-      await supabase
-        .from("booking_slots")
-        .update({ status: "booked", pending_expires_at: null })
-        .eq("id", current.id)
-        .eq("status", "pending");
-      return Response.json(
-        { error: "That time is no longer available." },
-        { status: 409 },
-      );
-    }
-
-    const { error: releaseError } = await supabase
-      .from("booking_slots")
-      .update({
-        status: "open",
-        client_name: null,
-        client_email: null,
-        client_notes: null,
-        booked_at: null,
-        booking_token: null,
-        deposit_payment_intent_id: null,
-        pending_expires_at: null,
-      })
-      .eq("id", current.id)
-      .eq("status", "pending");
-
-    if (releaseError) {
-      console.error("Failed to release original slot after reschedule:", releaseError);
-    }
-
-    const emailResult = await sendRescheduleConfirmedEmail(claimed);
-    if (!emailResult.ok) {
-      console.error("Failed to send reschedule confirmation email:", emailResult.error);
-    }
-
-    return Response.json({ ok: true, freeSwap: true, slot: claimed });
-  }
-
-  // <72h — hold the target slot and charge the $50 fee via Stripe
-  // Checkout before the swap takes effect (finished by the webhook).
-  const { data: held, error: holdError } = await supabase
-    .from("booking_slots")
-    .update({
-      status: "pending",
-      pending_expires_at: new Date(
-        Date.now() + PENDING_HOLD_MINUTES * 60 * 1000,
-      ).toISOString(),
-    })
-    .eq("id", target.id)
-    .eq("status", "open")
-    .select()
-    .maybeSingle();
-
-  if (holdError) {
-    console.error("Failed to hold target slot for reschedule fee checkout:", holdError);
-    await supabase
-      .from("booking_slots")
-      .update({ status: "booked", pending_expires_at: null })
-      .eq("id", current.id)
-      .eq("status", "pending");
-    return Response.json({ error: "Something went wrong." }, { status: 500 });
-  }
-
-  if (!held) {
-    await supabase
-      .from("booking_slots")
-      .update({ status: "booked", pending_expires_at: null })
-      .eq("id", current.id)
-      .eq("status", "pending");
-    return Response.json(
-      { error: "That time is no longer available." },
-      { status: 409 },
-    );
+  } catch (err) {
+    console.error("Google Calendar push failed after reschedule:", err);
   }
 
   try {
-    const session = await createRescheduleFeeCheckoutSession({
-      bookingToken: token,
-      currentSlotId: current.id,
-      targetSlotId: target.id,
-      clientEmail: current.client_email!,
-      amountCents: RESCHEDULE_FEE_CENTS,
-    });
-
-    return Response.json({ ok: true, freeSwap: false, checkoutUrl: session.url });
+    await sendBookingRescheduledEmail({ ...newBooking, appointment_types: type });
   } catch (err) {
-    console.error("Failed to create reschedule-fee checkout session:", err);
-    await supabase
-      .from("booking_slots")
-      .update({ status: "open", pending_expires_at: null })
-      .eq("id", target.id)
-      .eq("status", "pending");
-    await supabase
-      .from("booking_slots")
-      .update({ status: "booked", pending_expires_at: null })
-      .eq("id", current.id)
-      .eq("status", "pending");
-    return Response.json(
-      { error: "Something went wrong starting checkout." },
-      { status: 500 },
-    );
+    console.error("Reschedule confirmation email failed:", err);
   }
+
+  await broadcastBookingChange({ date: utcIsoToBusinessDate(current.start_time) });
+  await broadcastBookingChange({ date: payload.date });
+
+  return Response.json({ ok: true });
+}
+
+// Same conversion helper as app/api/bookings/route.ts — duplicated
+// rather than shared to avoid a premature cross-route dependency for
+// two call sites; extract to lib/scheduling.ts if a third appears.
+function combineDateTimeInBusinessTz(date: string, time: string): string {
+  // Anchored with "Z" so this parses as a UTC instant regardless of the
+  // host process's own timezone — without it, `new Date(...)` parses the
+  // string as local time in the *host's* timezone, which silently
+  // corrupts the result whenever the host isn't UTC (e.g. `next dev` on
+  // a laptop set to America/Chicago). Mirrors businessLocalToUtcIso in
+  // app/api/bookings/route.ts.
+  const naive = new Date(`${date}T${time}:00Z`);
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(naive).map((p) => [p.type, p.value]));
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return new Date(naive.getTime() - (asUtc - naive.getTime())).toISOString();
+}
+
+function addMinutes(time: string, minutes: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + minutes;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }

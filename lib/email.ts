@@ -288,6 +288,50 @@ export async function sendRescheduleConfirmedEmail(slot: {
   }
 }
 
+// Sent from app/api/manage/[token]/reschedule/route.ts once the
+// reschedule_booking RPC swaps the client onto their new slot.
+export async function sendBookingRescheduledEmail(
+  booking: BookingForEmail,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const when = formatTimeRange(booking.start_time, booking.end_time);
+  const typeName = appointmentTypeName(booking);
+  const manageUrl = `${SITE_URL}/manage/${booking.booking_token}`;
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [booking.client_email],
+      subject: "Your appointment has been rescheduled",
+      text: [
+        `Hi ${booking.client_name},`,
+        "",
+        `Your ${typeName} appointment is now scheduled for ${when}.`,
+        "",
+        "Need to make another change? Use your private booking link:",
+        manageUrl,
+        "",
+        "See you then,",
+        BUSINESS.name,
+      ].join("\n"),
+      html: `
+        <p>Hi ${escapeHtml(booking.client_name)},</p>
+        <p>Your ${escapeHtml(typeName)} appointment is now scheduled for ${escapeHtml(when)}.</p>
+        <p>Need to make another change? Use your private booking link:</p>
+        <p><a href="${manageUrl}">${manageUrl}</a></p>
+        <p>See you then,<br />${escapeHtml(BUSINESS.name)}</p>
+      `,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
+
 // Sent after a cancellation, regardless of whether the Stripe refund
 // call itself succeeded — refundStatus === "failed" still confirms the
 // cancellation to the client, just without promising a refund amount.

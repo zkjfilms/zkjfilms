@@ -281,3 +281,43 @@ create table rate_limit_hits (
   created_at timestamptz not null default now()
 );
 create index rate_limit_hits_ip_endpoint_idx on rate_limit_hits (ip, endpoint, created_at);
+
+-- Atomic reschedule: cancels the current confirmed booking and inserts a
+-- replacement in one transaction. If the new insert violates the
+-- exclusion constraint (someone else just took that time), the whole
+-- transaction — including the cancellation — rolls back, so the client
+-- never ends up with neither booking.
+create or replace function reschedule_booking(
+  p_booking_token uuid,
+  p_new_start timestamptz,
+  p_new_end timestamptz
+) returns bookings
+language plpgsql
+as $$
+declare
+  v_old bookings;
+  v_new bookings;
+begin
+  select * into v_old from bookings
+    where booking_token = p_booking_token and status = 'confirmed'
+    for update;
+
+  if not found then
+    raise exception 'booking_not_found_or_not_confirmed';
+  end if;
+
+  update bookings set status = 'canceled' where id = v_old.id;
+
+  insert into bookings (
+    appointment_type_id, client_name, client_email, client_phone,
+    start_time, end_time, status, notes, booking_token,
+    payment_intent_id, amount_paid_cents
+  ) values (
+    v_old.appointment_type_id, v_old.client_name, v_old.client_email, v_old.client_phone,
+    p_new_start, p_new_end, 'confirmed', v_old.notes, v_old.booking_token,
+    v_old.payment_intent_id, v_old.amount_paid_cents
+  ) returning * into v_new;
+
+  return v_new;
+end;
+$$;
