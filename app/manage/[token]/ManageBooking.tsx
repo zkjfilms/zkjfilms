@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { formatTimeRange } from "@/lib/format";
 import { BUSINESS } from "@/lib/seo";
 
 type Booking = {
   id: string;
+  booking_token: string;
   start_time: string;
   end_time: string;
   notes: string | null;
@@ -21,6 +23,46 @@ export default function ManageBooking({
   booking: Booking;
   withinWindow: boolean;
 }) {
+  const [canceled, setCanceled] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  async function handleCancel() {
+    setCanceling(true);
+    setCancelError(null);
+    try {
+      const response = await fetch(`/api/manage/${booking.booking_token}/cancel`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setCancelError(data.error ?? "Something went wrong.");
+        return;
+      }
+      setCanceled(true);
+    } catch {
+      setCancelError("Something went wrong. Please try again.");
+    } finally {
+      setCanceling(false);
+    }
+  }
+
+  if (canceled) {
+    return (
+      <div className="mx-auto w-full max-w-2xl px-6 py-20 sm:px-10">
+        <header className="mb-12 text-center">
+          <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">Manage Booking</p>
+          <h1 className="font-serif text-4xl italic leading-tight text-foreground sm:text-5xl">
+            Booking <span className="text-accent">canceled</span>.
+          </h1>
+        </header>
+        <div className="border border-border p-6 text-center">
+          <p className="text-sm text-foreground">Your booking has been canceled.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20 sm:px-10">
       <header className="mb-12 text-center">
@@ -56,16 +98,17 @@ export default function ManageBooking({
             </button>
             <button
               type="button"
-              disabled
-              title="Coming soon"
-              className="border border-border px-6 py-3 text-xs uppercase tracking-[0.2em] text-muted opacity-50 disabled:cursor-not-allowed"
+              onClick={handleCancel}
+              disabled={canceling}
+              className="border border-border px-6 py-3 text-xs uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Cancel
+              {canceling ? "Canceling…" : "Cancel"}
             </button>
             <p className="w-full text-xs text-muted">
-              Online cancellation and rescheduling are coming soon. In the meantime, contact us
-              using the details below to make changes.
+              Online rescheduling is coming soon. In the meantime, contact us using the details
+              below to make changes.
             </p>
+            {cancelError && <p className="w-full text-xs text-red-700">{cancelError}</p>}
           </div>
         ) : (
           <div className="border border-border p-6 text-center">
