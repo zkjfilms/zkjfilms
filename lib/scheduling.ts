@@ -200,6 +200,20 @@ export function businessDayUtcBounds(date: string): { startUtc: string; endUtc: 
   return { startUtc: startUtc.toISOString(), endUtc: endUtc.toISOString() };
 }
 
+// The inverse direction from businessDayUtcBounds: given a UTC ISO instant
+// (e.g. a `timestamptz` column value like `bookings.start_time`), returns
+// the "YYYY-MM-DD" business-local calendar date it falls on. Plain
+// `.slice(0, 10)` on the ISO string gives the *UTC* date instead, which is
+// wrong whenever the business-local time is late enough to cross into the
+// next UTC day (e.g. a 7pm America/Chicago booking is already the next day
+// in UTC) — callers broadcasting or displaying "which day is this booking
+// on" must use this, not a raw slice.
+export function utcIsoToBusinessDate(utcIso: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZONE }).format(
+    new Date(utcIso),
+  );
+}
+
 function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
