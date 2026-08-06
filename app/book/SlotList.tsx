@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatSlotForDisplay, BUSINESS_TIME_ZONE } from "@/lib/scheduling";
+import { subscribeToSchedulingChannel } from "@/lib/supabaseBrowser";
 
 export type Slot = {
   startTime: string; // "HH:MM", business-local
@@ -21,6 +22,7 @@ export default function SlotList({
 }) {
   const [status, setStatus] = useState<Status>("loading");
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [liveKey, setLiveKey] = useState(0);
 
   // Only render the "(your time)" conversion when it would actually say
   // something different from the business-local time.
@@ -56,7 +58,18 @@ export default function SlotList({
     return () => {
       cancelled = true;
     };
-  }, [appointmentTypeId, date]);
+  }, [appointmentTypeId, date, liveKey]);
+
+  // Only this date's slot list is displayed here, so ignore broadcasts
+  // for other dates rather than refetching unnecessarily.
+  useEffect(() => {
+    const unsubscribe = subscribeToSchedulingChannel((_event, payload) => {
+      if (payload.date === date) {
+        setLiveKey((k) => k + 1);
+      }
+    });
+    return unsubscribe;
+  }, [date]);
 
   if (status === "loading") {
     return <p className="text-muted">Loading open times…</p>;

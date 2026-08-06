@@ -4,6 +4,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import BlockOffTimePanel from "./BlockOffTimePanel";
 import AvailabilityEditor from "./AvailabilityEditor";
 import DayView from "./DayView";
+import { subscribeToSchedulingChannel } from "@/lib/supabaseBrowser";
 
 type DayHours = { startTime: string; endTime: string } | null;
 
@@ -167,6 +168,16 @@ export default function AvailabilityOverviewClient() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Any booking or availability change elsewhere (client bookings, other
+  // admin tabs) should refresh both the week strip and the day view below
+  // — refreshKey already drives both, same as after a Block Off Time save.
+  useEffect(() => {
+    const unsubscribe = subscribeToSchedulingChannel(() => {
+      setRefreshKey((k) => k + 1);
+    });
+    return unsubscribe;
   }, []);
 
   function handleDateInputChange(e: ChangeEvent<HTMLInputElement>) {

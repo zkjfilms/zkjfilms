@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { subscribeToSchedulingChannel } from "@/lib/supabaseBrowser";
 
 type Status = "loading" | "ready" | "error";
 
@@ -35,6 +36,7 @@ export default function BookingCalendar({
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1); // 1-indexed
   const [openDates, setOpenDates] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<Status>("loading");
+  const [liveKey, setLiveKey] = useState(0);
 
   const monthKey = `${viewYear}-${pad(viewMonth)}`;
   const isCurrentMonth =
@@ -66,7 +68,17 @@ export default function BookingCalendar({
     return () => {
       cancelled = true;
     };
-  }, [appointmentTypeId, monthKey]);
+  }, [appointmentTypeId, monthKey, liveKey]);
+
+  // Any availability or booking change could affect which dates in this
+  // month are open, so refetch on any broadcast rather than trying to
+  // filter by date.
+  useEffect(() => {
+    const unsubscribe = subscribeToSchedulingChannel(() => {
+      setLiveKey((k) => k + 1);
+    });
+    return unsubscribe;
+  }, []);
 
   function goToPrevMonth() {
     if (isCurrentMonth) return;

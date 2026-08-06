@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
+import { broadcastAvailabilityChange } from "@/lib/realtimeBroadcast";
 
 async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -16,10 +17,22 @@ export async function DELETE(
   }
   const { id } = await params;
   const supabase = getSupabaseClient();
+
+  // Fetch the date before deleting — once the row is gone there's no
+  // other way to know which day's view needs to refetch.
+  const { data: blockedTime } = await supabase
+    .from("blocked_times")
+    .select("date")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("blocked_times").delete().eq("id", id);
   if (error) {
     console.error("blocked_times delete failed:", error);
     return Response.json({ error: "Something went wrong." }, { status: 500 });
+  }
+  if (blockedTime) {
+    await broadcastAvailabilityChange({ date: blockedTime.date });
   }
   return Response.json({ ok: true });
 }

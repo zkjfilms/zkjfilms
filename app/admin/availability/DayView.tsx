@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BUSINESS_TIME_ZONE } from "@/lib/scheduling";
+import { subscribeToSchedulingChannel } from "@/lib/supabaseBrowser";
 
 type Status = "loading" | "idle" | "error";
 
@@ -94,6 +95,7 @@ export default function DayView({
   const [data, setData] = useState<DayViewResponse | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState("");
+  const [liveKey, setLiveKey] = useState(0);
 
   // Load appointment types once, used to pick which duration/buffers drive
   // the open-slot computation.
@@ -162,7 +164,17 @@ export default function DayView({
     return () => {
       cancelled = true;
     };
-  }, [date, appointmentTypeId, refreshKey]);
+  }, [date, appointmentTypeId, refreshKey, liveKey]);
+
+  // This view shows bookings, blocked times, and open slots for a single
+  // date all at once, so any change is worth refetching for rather than
+  // filtering by the broadcast's date.
+  useEffect(() => {
+    const unsubscribe = subscribeToSchedulingChannel(() => {
+      setLiveKey((k) => k + 1);
+    });
+    return unsubscribe;
+  }, []);
 
   return (
     <div>

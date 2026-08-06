@@ -4,6 +4,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { createFullPaymentCheckoutSession } from "@/lib/stripe";
 import { sendFreeBookingConfirmedEmail } from "@/lib/email";
 import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
+import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
       console.error("Google Calendar push failed (booking still confirmed):", err);
     }
 
+    await broadcastBookingChange({ date: payload.date });
     return Response.json({ ok: true, checkoutUrl: null, bookingToken: booking.booking_token });
   }
 
@@ -144,6 +146,9 @@ export async function POST(request: Request) {
       appointmentTypeName: type.name,
       clientEmail: payload.clientEmail,
     });
+    // A `pending` row already removes this slot from other clients' view,
+    // same as a confirmed booking would.
+    await broadcastBookingChange({ date: payload.date });
     return Response.json({ ok: true, checkoutUrl: session.url });
   } catch (err) {
     console.error("Failed to create booking checkout session:", err);

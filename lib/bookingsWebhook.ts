@@ -7,6 +7,7 @@ import type Stripe from "stripe";
 import { getSupabaseClient } from "@/lib/supabase";
 import { sendBookingPaymentConfirmedEmail } from "@/lib/email";
 import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
+import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
 
 export async function handleBookingCheckoutCompleted(
   session: Stripe.Checkout.Session,
@@ -57,6 +58,8 @@ export async function handleBookingCheckoutCompleted(
     console.error("Google Calendar push failed (booking still confirmed):", err);
   }
 
+  await broadcastBookingChange({ date: booking.start_time.slice(0, 10) });
+
   return { retry: false };
 }
 
@@ -65,5 +68,17 @@ export async function handleBookingCheckoutExpired(session: Stripe.Checkout.Sess
   if (!bookingId) return;
 
   const supabase = getSupabaseClient();
-  await supabase.from("bookings").update({ status: "canceled" }).eq("id", bookingId).eq("status", "pending");
+  const { data: booking } = await supabase
+    .from("bookings")
+    .update({ status: "canceled" })
+    .eq("id", bookingId)
+    .eq("status", "pending")
+    .select("start_time")
+    .maybeSingle();
+
+  // An expired hold frees the slot back up — other clients should see it
+  // become available again.
+  if (booking) {
+    await broadcastBookingChange({ date: booking.start_time.slice(0, 10) });
+  }
 }

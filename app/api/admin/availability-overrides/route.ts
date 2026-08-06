@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { resolveHoursForDate } from "@/lib/scheduling";
+import { broadcastAvailabilityChange } from "@/lib/realtimeBroadcast";
 
 async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -119,6 +120,7 @@ export async function POST(request: Request) {
       console.error("availability_overrides delete failed:", error);
       return Response.json({ error: "Something went wrong." }, { status: 500 });
     }
+    await broadcastAvailabilityChange({ date });
     return Response.json({ ok: true });
   }
 
@@ -137,5 +139,6 @@ export async function POST(request: Request) {
     console.error("availability_overrides upsert failed:", error);
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
+  await broadcastAvailabilityChange({ date });
   return Response.json({ ok: true });
 }

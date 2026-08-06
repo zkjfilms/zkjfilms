@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
+import { broadcastAvailabilityChange } from "@/lib/realtimeBroadcast";
 
 async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -71,5 +72,6 @@ export async function POST(request: Request) {
     console.error("blocked_times insert failed:", error);
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
+  await broadcastAvailabilityChange({ date: payload.date });
   return Response.json({ blockedTime: data }, { status: 201 });
 }
