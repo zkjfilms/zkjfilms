@@ -120,18 +120,37 @@ export async function deleteGoogleCalendarEvent(eventId: string): Promise<void> 
   }
 }
 
+// Google's freebusy.query rejects any single request spanning more than
+// ~92-95 days ("The requested time range is too long") — discovered via
+// live testing against a real connected Calendar, since this was
+// previously untestable (Google Calendar was disconnected in every
+// environment through Task 24). 90 days keeps a safety margin under that
+// undocumented boundary.
+const FREEBUSY_CHUNK_DAYS = 90;
+const FREEBUSY_TOTAL_DAYS = 400; // ~13 months out, comfortably past any realistic max-advance-days setting
+
 export async function pullBusyBlocks(): Promise<{ synced: boolean; count: number }> {
   const client = await getAuthenticatedGoogleClient();
   if (!client) return { synced: false, count: 0 };
 
   const calendar = google.calendar({ version: "v3", auth: client });
-  const timeMin = new Date().toISOString();
-  const timeMax = new Date(Date.now() + 400 * 24 * 60 * 60 * 1000).toISOString(); // ~13 months out, comfortably past any realistic max-advance-days setting
+  const rangeStart = Date.now();
 
-  const response = await calendar.freebusy.query({
-    requestBody: { timeMin, timeMax, items: [{ id: "primary" }] },
-  });
-  const busy = response.data.calendars?.primary?.busy ?? [];
+  const busy: { start?: string | null; end?: string | null }[] = [];
+  for (let offsetDays = 0; offsetDays < FREEBUSY_TOTAL_DAYS; offsetDays += FREEBUSY_CHUNK_DAYS) {
+    const chunkStart = new Date(rangeStart + offsetDays * 24 * 60 * 60 * 1000);
+    const chunkEndDays = Math.min(offsetDays + FREEBUSY_CHUNK_DAYS, FREEBUSY_TOTAL_DAYS);
+    const chunkEnd = new Date(rangeStart + chunkEndDays * 24 * 60 * 60 * 1000);
+
+    const response = await calendar.freebusy.query({
+      requestBody: {
+        timeMin: chunkStart.toISOString(),
+        timeMax: chunkEnd.toISOString(),
+        items: [{ id: "primary" }],
+      },
+    });
+    busy.push(...(response.data.calendars?.primary?.busy ?? []));
+  }
 
   const supabase = getSupabaseClient();
   // Wholesale replace, never incremental — see the spec's rationale
