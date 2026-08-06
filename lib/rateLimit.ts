@@ -33,7 +33,20 @@ export async function checkRateLimit(params: {
 }
 
 export function getClientIp(request: Request): string {
+  // x-vercel-forwarded-for is set by Vercel's edge network itself and
+  // can't be spoofed by the client. x-forwarded-for, by contrast, can
+  // arrive from the client with attacker-controlled entries prepended —
+  // the trustworthy value is always the *last* entry (the one Vercel's
+  // proxy appended), not the first, or a client could rotate through
+  // fake IPs to defeat this rate limiter entirely.
+  const vercelForwarded = request.headers.get("x-vercel-forwarded-for");
+  if (vercelForwarded) return vercelForwarded.split(",")[0].trim();
+
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  if (forwarded) {
+    const parts = forwarded.split(",").map((p) => p.trim());
+    return parts[parts.length - 1];
+  }
+
   return "unknown";
 }
