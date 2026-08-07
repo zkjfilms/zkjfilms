@@ -1,0 +1,30 @@
+name: Sync Google Calendar
+
+# Replaces Vercel's own Cron (Hobby plan only allows once-daily crons;
+# this endpoint needs to run every few minutes to keep the booking
+# system's view of the owner's Google Calendar busy times fresh). The
+# endpoint itself is platform-agnostic — it just checks the
+# Authorization header — so any scheduler that can make an authenticated
+# HTTP request works, and GitHub Actions' free tier covers this easily.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call sync endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          status=$(curl -s -o /tmp/response.txt -w "%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://zkjfilms.com/api/cron/sync-google-calendar)
+          echo "HTTP status: $status"
+          cat /tmp/response.txt
+          if [ "$status" -ge 400 ]; then
+            echo "Sync endpoint returned an error status."
+            exit 1
+          fi
