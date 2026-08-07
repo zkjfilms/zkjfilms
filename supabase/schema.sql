@@ -250,7 +250,10 @@ create table google_calendar_sync (
   last_synced_at timestamptz,
   connected boolean not null default false
 );
-insert into google_calendar_sync (id) values (true);
+-- Singleton row (id is a boolean pinned to true), so a re-run of this
+-- file must not error on the duplicate key — same `on conflict do nothing`
+-- shape the templates seed above uses.
+insert into google_calendar_sync (id) values (true) on conflict (id) do nothing;
 
 create table scheduling_limits (
   id boolean primary key default true check (id),
@@ -260,7 +263,8 @@ create table scheduling_limits (
   daily_cap integer,
   start_time_interval_minutes integer not null default 30
 );
-insert into scheduling_limits (id) values (true);
+-- Singleton row, same as google_calendar_sync above — re-runnable.
+insert into scheduling_limits (id) values (true) on conflict (id) do nothing;
 
 -- Replaced wholesale on every cron poll, never incrementally updated.
 create table google_busy_blocks_cache (
@@ -321,3 +325,56 @@ begin
   return v_new;
 end;
 $$;
+
+-- --------------------------------------------------------------------
+-- Row Level Security for the self-hosted booking tables.
+--
+-- Since NEXT_PUBLIC_SUPABASE_ANON_KEY is inlined into the browser bundle
+-- (lib/supabaseBrowser.ts, for Realtime Broadcast), anyone can read it out
+-- of the page source. Supabase's default project setup grants `all` on
+-- public-schema tables to the `anon` role, so *RLS is the only thing*
+-- standing between that key and these tables — including bookings (client
+-- name/email/phone/notes) and google_calendar_sync (the owner's Google
+-- OAuth access + refresh tokens). The tables above this block have had RLS
+-- since they were created; these nine were missed.
+--
+-- Deliberately zero policies: deny-by-default. Every legitimate access
+-- path in this codebase goes through getSupabaseClient() (the service-role
+-- key), which bypasses RLS entirely, and Realtime Broadcast subscriptions
+-- don't depend on table grants. A permissive policy here would be strictly
+-- worse than none.
+alter table appointment_types        enable row level security;
+alter table availability_rules       enable row level security;
+alter table availability_overrides   enable row level security;
+alter table blocked_times            enable row level security;
+alter table bookings                 enable row level security;
+alter table google_calendar_sync     enable row level security;
+alter table scheduling_limits        enable row level security;
+alter table google_busy_blocks_cache enable row level security;
+alter table rate_limit_hits          enable row level security;
+
+-- Postgres grants `execute` on new functions to PUBLIC by default, and
+-- Supabase exposes every public-schema function at
+-- POST /rest/v1/rpc/<name>. reschedule_booking does zero validation of its
+-- own — the notice window, business hours, blocked times and daily cap all
+-- live in app/api/manage/[token]/reschedule/route.ts, which calls the RPC
+-- only after checking them — so leaving it callable by anon would let
+-- anyone holding a booking token bypass all of it. The app's own call path
+-- uses the service-role key and is unaffected by this revoke.
+revoke execute on function reschedule_booking(uuid, timestamptz, timestamptz)
+  from public, anon, authenticated;
+
+-- The old booking_slots system was retired in Task 25; the table was
+-- dropped directly in the live database. Dropping it here too keeps a
+-- fresh provision from this file consistent with production (nothing in
+-- the codebase references it any more).
+drop table if exists booking_slots;
+
+-- Known limitation: the `create table` statements for the nine tables
+-- above are plain `create table`, not `create table if not exists`, so
+-- re-running this whole file against an already-provisioned database
+-- errors on the first of them. This file's convention is append-only —
+-- historical statements aren't edited — so the fix is left as a
+-- documented rough edge rather than a rewrite of those lines. In practice
+-- this file is applied statement-block-by-statement via the Supabase SQL
+-- Editor, not run end to end.

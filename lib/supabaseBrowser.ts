@@ -1,7 +1,15 @@
 // lib/supabaseBrowser.ts
 // Anon key, browser-only. This client is used exclusively for Realtime
-// channel subscriptions — it is never used to query a table directly,
-// and the anon key has no table grants, so it couldn't even if asked to.
+// channel subscriptions (.channel()/.on('broadcast')) — it never calls
+// .from() and must never start to.
+//
+// The anon key itself grants no protection: it's inlined into the client
+// bundle by Next.js, and Supabase's default project setup grants `all` on
+// public-schema tables to the `anon` role. What actually denies table
+// access is Row Level Security — every table in supabase/schema.sql has
+// RLS enabled with zero policies, so anon reads/writes are refused while
+// server-side code (getSupabaseClient(), service-role key) bypasses RLS.
+// Realtime Broadcast doesn't depend on table grants, so it keeps working.
 "use client";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
