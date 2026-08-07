@@ -19,12 +19,20 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          status=$(curl -s -o /tmp/response.txt -w "%{http_code}" \
+          # `if ! status=$(curl ...)` catches curl's own exit status (DNS/
+          # network/TLS/timeout failures) in addition to the HTTP status
+          # check below — without this, a connection failure produces
+          # status="000", which passes the `-ge 400` check and the run
+          # would be silently reported as successful.
+          if ! status=$(curl -s -o /tmp/response.txt -w "%{http_code}" \
             -H "Authorization: Bearer $CRON_SECRET" \
-            https://zkjfilms.com/api/cron/sync-google-calendar)
+            https://zkjfilms.com/api/cron/sync-google-calendar); then
+            echo "curl failed to reach the endpoint (network/DNS/TLS error)."
+            exit 1
+          fi
           echo "HTTP status: $status"
-          cat /tmp/response.txt
           if [ "$status" -ge 400 ]; then
-            echo "Sync endpoint returned an error status."
+            echo "Sync endpoint returned an error status:"
+            cat /tmp/response.txt
             exit 1
           fi
