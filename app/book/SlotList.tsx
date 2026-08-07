@@ -60,16 +60,18 @@ export default function SlotList({
     };
   }, [appointmentTypeId, date, liveKey]);
 
-  // Only this date's slot list is displayed here, so ignore broadcasts
-  // for other dates rather than refetching unnecessarily.
+  // Refetch on any scheduling broadcast, not just ones whose payload date
+  // matches this list's date. Global changes — the weekly hours template,
+  // the scheduling limits — alter availability for every future date at
+  // once and can only carry one date in their payload, so a date-equality
+  // filter would silently drop exactly the changes that matter most.
+  // BookingCalendar and the admin DayView already refetch unconditionally.
   useEffect(() => {
-    const unsubscribe = subscribeToSchedulingChannel((_event, payload) => {
-      if (payload.date === date) {
-        setLiveKey((k) => k + 1);
-      }
+    const unsubscribe = subscribeToSchedulingChannel(() => {
+      setLiveKey((k) => k + 1);
     });
     return unsubscribe;
-  }, [date]);
+  }, []);
 
   if (status === "loading") {
     return <p className="text-muted">Loading open times…</p>;

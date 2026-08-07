@@ -29,6 +29,12 @@ export default function ManageBooking({
   const [canceled, setCanceled] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // Canceling is irreversible — the refund is issued and the slot released
+  // immediately — so the button reveals an explicit confirm/back-out pair
+  // rather than firing on the first click. Two-click rather than
+  // window.confirm() because nothing else in this codebase uses native
+  // browser dialogs.
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   // Reschedule stays within the booking's existing appointment type (no
   // type picker), so this only needs a date -> slot flow, same shape as
@@ -37,6 +43,16 @@ export default function ManageBooking({
   const [rescheduleDate, setRescheduleDate] = useState<string | null>(null);
   const [reschedulingSubmit, setReschedulingSubmit] = useState(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+
+  function startCancel() {
+    setConfirmingCancel(true);
+    setCancelError(null);
+  }
+
+  function abortCancel() {
+    setConfirmingCancel(false);
+    setCancelError(null);
+  }
 
   function startReschedule() {
     setRescheduling(true);
@@ -173,6 +189,32 @@ export default function ManageBooking({
             {reschedulingSubmit && <p className="text-xs text-muted">Rescheduling…</p>}
             {rescheduleError && <p className="text-xs text-red-700">{rescheduleError}</p>}
           </div>
+        ) : confirmingCancel ? (
+          <div className="space-y-4 border border-border p-6">
+            <p className="text-sm text-foreground">
+              Cancel this booking? Your session time is released and your payment is
+              refunded. This can&rsquo;t be undone.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={canceling}
+                className="border border-foreground px-6 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {canceling ? "Canceling…" : "Yes, cancel booking"}
+              </button>
+              <button
+                type="button"
+                onClick={abortCancel}
+                disabled={canceling}
+                className="border border-border px-6 py-3 text-xs uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Never mind
+              </button>
+            </div>
+            {cancelError && <p className="text-xs text-red-700">{cancelError}</p>}
+          </div>
         ) : (
           <div className="flex flex-wrap gap-4">
             <button
@@ -184,13 +226,11 @@ export default function ManageBooking({
             </button>
             <button
               type="button"
-              onClick={handleCancel}
-              disabled={canceling}
-              className="border border-border px-6 py-3 text-xs uppercase tracking-[0.2em] text-muted disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={startCancel}
+              className="border border-border px-6 py-3 text-xs uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
             >
-              {canceling ? "Canceling…" : "Cancel"}
+              Cancel
             </button>
-            {cancelError && <p className="w-full text-xs text-red-700">{cancelError}</p>}
           </div>
         ) : (
           <div className="border border-border p-6 text-center">

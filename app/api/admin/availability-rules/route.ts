@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
+import { broadcastAvailabilityChange } from "@/lib/realtimeBroadcast";
+import { utcIsoToBusinessDate } from "@/lib/scheduling";
 
 async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -82,6 +84,13 @@ export async function PUT(request: Request) {
       return Response.json({ error: "Something went wrong." }, { status: 500 });
     }
   }
+
+  // Replacing the weekly template changes availability on every future
+  // date at once, so there's no single date to scope this to. The payload
+  // still has to carry one (subscribers type it as {date: string}), so send
+  // business-local today — clients treat any availability_changed message
+  // as "refetch", the date is just a signal, not a filter.
+  await broadcastAvailabilityChange({ date: utcIsoToBusinessDate(new Date().toISOString()) });
 
   return Response.json({ ok: true });
 }

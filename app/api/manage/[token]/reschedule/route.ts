@@ -72,8 +72,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
 
+  // Past this point the reschedule has already committed via the RPC, so
+  // nothing below may fail the response — same log-and-continue treatment
+  // the Calendar push and the email get. deleteGoogleCalendarEvent catches
+  // its own events.delete call but not getAuthenticatedGoogleClient(),
+  // which does a Supabase read and throws on missing/invalid OAuth config.
   if (current.google_event_id) {
-    await deleteGoogleCalendarEvent(current.google_event_id);
+    try {
+      await deleteGoogleCalendarEvent(current.google_event_id);
+    } catch (err) {
+      console.error("Google Calendar delete failed after reschedule:", err);
+    }
   }
   try {
     const eventId = await pushBookingToGoogleCalendar({ ...newBooking, appointment_types: type });

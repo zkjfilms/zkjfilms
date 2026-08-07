@@ -1,7 +1,6 @@
-// Domain logic for Stripe webhook events touching the new `bookings`
-// table — kept out of app/api/webhooks/stripe-bookings/route.ts so that
-// route stays a thin, signature-verified dispatcher (same split as
-// lib/bookingWebhooks.ts versus the old webhook route).
+// Domain logic for Stripe webhook events touching the `bookings` table —
+// kept out of app/api/webhooks/stripe-bookings/route.ts so that route
+// stays a thin, signature-verified dispatcher.
 
 import type Stripe from "stripe";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -18,9 +17,9 @@ export async function handleBookingCheckoutCompleted(
 
   const supabase = getSupabaseClient();
 
-  // Idempotent: only the first delivery of this event actually flips
-  // status, matching the existing bookingWebhooks.ts pattern for the old
-  // system. A retried delivery finds status already 'confirmed' and no-ops.
+  // Idempotent: the `.eq("status", "pending")` guard means only the first
+  // delivery of this event actually flips status. A retried delivery finds
+  // status already 'confirmed', matches no row, and no-ops.
   const { data: booking, error } = await supabase
     .from("bookings")
     .update({

@@ -49,8 +49,8 @@ export async function fetchOpenSlotsForDate(params: {
     { data: rules, error: rulesError },
     { data: overrides },
     { data: blocked },
-    { data: bookings },
-    { data: busy },
+    { data: bookings, error: bookingsError },
+    { data: busy, error: busyError },
     { data: limitsRow, error: limitsError },
   ] = await Promise.all([
     supabase.from("availability_rules").select("day_of_week, start_time, end_time"),
@@ -61,7 +61,7 @@ export async function fetchOpenSlotsForDate(params: {
     supabase.from("blocked_times").select("start_time, end_time").eq("date", date),
     supabase
       .from("bookings")
-      .select("start_time, end_time, appointment_type_id, status")
+      .select("start_time, end_time, appointment_type_id, status, pending_expires_at")
       .gte("start_time", startUtc)
       .lt("start_time", endUtc)
       .in("status", ["confirmed", "pending"]),
@@ -82,9 +82,33 @@ export async function fetchOpenSlotsForDate(params: {
   if (limitsError) throw limitsError;
   if (!limitsRow) throw new Error("scheduling_limits row not found.");
 
+  // Same reasoning, inverted and worse: `bookings` and `busy` are the
+  // obstacles. Defaulting them to [] on a failed read doesn't say "fully
+  // booked," it says "everything is free" — already-booked times would be
+  // offered to the next client and only the database's exclusion
+  // constraint would stop the double-booking, after they'd paid.
+  if (bookingsError) throw bookingsError;
+  if (busyError) throw busyError;
+
+  // A 'pending' booking is an unpaid hold; it only blocks its slot until
+  // pending_expires_at. The Stripe checkout.session.expired webhook and the
+  // sweep script (scripts/scheduling.mjs) both flip expired holds to
+  // 'canceled', but neither is guaranteed to have run — a missed webhook
+  // with no sweep scheduled would otherwise keep a dead hold blocking its
+  // slot forever. Enforcing the expiry at read time makes availability
+  // correct immediately, independent of any cleanup job.
+  const now = Date.now();
+  const activeBookings = (bookings ?? []).filter(
+    (b) =>
+      b.status !== "pending" ||
+      b.pending_expires_at === null ||
+      b.pending_expires_at === undefined ||
+      new Date(b.pending_expires_at).getTime() > now,
+  );
+
   // Bookings' own appointment type's buffers matter for exclusion, so
   // fetch the small set of distinct types referenced that day.
-  const typeIds = Array.from(new Set((bookings ?? []).map((b) => b.appointment_type_id)));
+  const typeIds = Array.from(new Set(activeBookings.map((b) => b.appointment_type_id)));
   const { data: bookingTypes } = typeIds.length
     ? await supabase
         .from("appointment_types")
@@ -145,7 +169,7 @@ export async function fetchOpenSlotsForDate(params: {
     rules: rulesShaped,
     overrides: overridesShaped,
     blockedTimes: (blocked ?? []).map((b) => ({ startTime: b.start_time, endTime: b.end_time })),
-    existingBookings: (bookings ?? []).map((b) => {
+    existingBookings: activeBookings.map((b) => {
       const type = bufferById.get(b.appointment_type_id);
       const startMinutes = toMinutesSinceMidnightLocal(b.start_time);
       const endMinutes = clampEndOfDay(startMinutes, toMinutesSinceMidnightLocal(b.end_time));
@@ -161,7 +185,7 @@ export async function fetchOpenSlotsForDate(params: {
       const endMinutes = clampEndOfDay(startMinutes, toMinutesSinceMidnightLocal(b.end_time));
       return { startMinutes, endMinutes };
     }),
-    confirmedBookingsCountForDay: (bookings ?? []).filter((b) => b.status === "confirmed").length,
+    confirmedBookingsCountForDay: activeBookings.filter((b) => b.status === "confirmed").length,
     limits,
   });
 }

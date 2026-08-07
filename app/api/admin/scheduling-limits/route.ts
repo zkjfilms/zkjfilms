@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
+import { broadcastAvailabilityChange } from "@/lib/realtimeBroadcast";
+import { utcIsoToBusinessDate } from "@/lib/scheduling";
 
 async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -79,5 +81,12 @@ export async function PUT(request: Request) {
     console.error("scheduling_limits update failed:", error);
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
+
+  // Notice window / advance window / daily cap / slot interval all feed
+  // computeOpenSlots for every date, so like the weekly template this isn't
+  // scoped to one day — business-local today is just the payload's required
+  // signal, not a filter. See the same comment in availability-rules.
+  await broadcastAvailabilityChange({ date: utcIsoToBusinessDate(new Date().toISOString()) });
+
   return Response.json({ limits: data });
 }
