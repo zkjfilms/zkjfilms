@@ -1,8 +1,8 @@
 // Central place for site-wide SEO/business constants used by metadata,
 // JSON-LD structured data, robots.ts, and sitemap.ts.
 //
-// TODO: every value marked PLACEHOLDER below is fake and must be replaced
-// with real business details before launch.
+// TODO: DEFAULT_OG_IMAGE below is still a placeholder — see
+// app/opengraph-image.tsx once it exists.
 
 import type { Metadata } from "next";
 
@@ -29,7 +29,7 @@ export const BUSINESS = {
   name: SITE_NAME,
   description:
     "Zach K. Johnson is a portrait, boudoir, and fine art photographer based in Columbia, Missouri, serving clients throughout Mid-Missouri.",
-  telephone: "+1-573-000-0000", // PLACEHOLDER
+  telephone: "+1-901-483-2391",
   email: "zach@zkjfilms.com",
   address: {
     streetAddress: "2101 W Broadway Ave, Suite 208",
@@ -39,8 +39,8 @@ export const BUSINESS = {
     addressCountry: "US",
   },
   geo: {
-    latitude: 38.9517, // PLACEHOLDER — approximate Columbia, MO coordinates
-    longitude: -92.3341, // PLACEHOLDER
+    latitude: 38.9549265,
+    longitude: -92.3733838,
   },
   areaServed: [
     "Columbia, MO",
@@ -51,7 +51,6 @@ export const BUSINESS = {
     "Mid-Missouri",
   ],
   sameAs: Object.values(SOCIALS),
-  priceRange: "$$", // PLACEHOLDER
 };
 
 // Per-page metadata must build its own full `openGraph`/`twitter` objects —

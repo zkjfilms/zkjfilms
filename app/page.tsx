@@ -19,8 +19,6 @@ const sections = [
   { id: "connect", label: "Connect" },
 ];
 
-// Placeholder LocalBusiness structured data — replace the placeholder
-// fields in lib/seo.ts (address, phone, geo, sameAs) with real details.
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": ["LocalBusiness", "ProfessionalService"],
@@ -30,7 +28,6 @@ const jsonLd = {
   url: SITE_URL,
   telephone: BUSINESS.telephone,
   email: BUSINESS.email,
-  priceRange: BUSINESS.priceRange,
   address: {
     "@type": "PostalAddress",
     streetAddress: BUSINESS.address.streetAddress,
