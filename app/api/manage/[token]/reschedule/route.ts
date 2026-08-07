@@ -58,6 +58,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     addMinutes(payload.startTime, type.duration_minutes),
   );
 
+  // Same guard as app/api/bookings/route.ts: an expired pending hold
+  // that was never swept is invisible to fetchOpenSlotsForDate above but
+  // the exclusion constraint the RPC's insert relies on doesn't know
+  // about pending_expires_at, so it would 23P01 this reschedule forever
+  // without this.
+  await supabase
+    .from("bookings")
+    .update({ status: "canceled" })
+    .eq("status", "pending")
+    .lt("pending_expires_at", new Date().toISOString())
+    .lt("start_time", endIso)
+    .gt("end_time", startIso);
+
   const { data: newBooking, error: rpcError } = await supabase.rpc("reschedule_booking", {
     p_booking_token: token,
     p_new_start: startIso,

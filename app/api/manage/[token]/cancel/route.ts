@@ -37,7 +37,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   }
 
   if (booking.google_event_id) {
-    await deleteGoogleCalendarEvent(booking.google_event_id);
+    try {
+      await deleteGoogleCalendarEvent(booking.google_event_id);
+    } catch (err) {
+      // Never let a Calendar failure skip the refund below — the status
+      // flip has already committed, so bailing out here would strand a
+      // paid booking with no refund and no notification to either side.
+      console.error(`Google Calendar delete failed for booking ${booking.id} (cancellation still proceeding):`, err);
+    }
   }
 
   if (booking.payment_intent_id) {

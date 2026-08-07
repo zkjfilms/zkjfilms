@@ -92,6 +92,21 @@ export async function POST(request: Request) {
     addMinutesToTime(payload.startTime, type.duration_minutes),
   );
 
+  // A pending hold whose 30-minute window has already expired but was
+  // never swept (e.g. a missed checkout.session.expired webhook) is
+  // already excluded from fetchOpenSlotsForDate's visibility check
+  // above, but the exclusion constraint below doesn't know about
+  // pending_expires_at — it would still 409 this insert forever without
+  // this. Clearing it here means a genuinely-open slot stays bookable
+  // even if the scheduled sweep never runs.
+  await supabase
+    .from("bookings")
+    .update({ status: "canceled" })
+    .eq("status", "pending")
+    .lt("pending_expires_at", new Date().toISOString())
+    .lt("start_time", endIso)
+    .gt("end_time", startIso);
+
   const status = type.requires_payment ? "pending" : "confirmed";
   const { data: booking, error: insertError } = await supabase
     .from("bookings")
