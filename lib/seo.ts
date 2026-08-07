@@ -1,8 +1,5 @@
 // Central place for site-wide SEO/business constants used by metadata,
 // JSON-LD structured data, robots.ts, and sitemap.ts.
-//
-// TODO: DEFAULT_OG_IMAGE below is still a placeholder — see
-// app/opengraph-image.tsx once it exists.
 
 import type { Metadata } from "next";
 
@@ -11,7 +8,7 @@ export const SITE_URL = "https://zkjfilms.com";
 export const SITE_NAME = "Zach K. Johnson";
 
 export const DEFAULT_OG_IMAGE = {
-  url: "https://picsum.photos/seed/nocturne-og/1200/630", // PLACEHOLDER — swap for a real branded image
+  url: `${SITE_URL}/opengraph-image`,
   width: 1200,
   height: 630,
   alt: "Zach K. Johnson — Columbia, Missouri portrait and boudoir photographer",
