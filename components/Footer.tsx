@@ -79,6 +79,12 @@ export default function Footer() {
               >
                 {BUSINESS.email}
               </a>
+              <a
+                href={`tel:${BUSINESS.telephone.replace(/[^0-9+]/g, "")}`}
+                className="block text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+              >
+                (901) 483-2391
+              </a>
             </div>
           </div>
 
