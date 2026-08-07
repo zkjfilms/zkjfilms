@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
-import { computeOpenSlots, resolveHoursForDate } from "@/lib/scheduling";
+import { businessDayUtcBounds, computeOpenSlots, resolveHoursForDate } from "@/lib/scheduling";
 import { fetchOpenSlotsForDate, type AppointmentTypeRow } from "@/lib/availabilityQuery";
 
 async function requireAdmin(): Promise<boolean> {
@@ -21,13 +21,20 @@ export async function GET(request: Request) {
   }
 
   const supabase = getSupabaseClient();
+  // bookings.start_time is timestamptz — "this day" has to mean the UTC
+  // window of the business-local calendar day, not `${date}T00:00:00Z`..
+  // `${date}T23:59:59Z`, or an evening America/Chicago booking (already the
+  // next day in UTC) shows up on the wrong date in the admin's day view.
+  // The open-slots query below already goes through fetchOpenSlotsForDate,
+  // which uses these same bounds.
+  const { startUtc, endUtc } = businessDayUtcBounds(date);
   const [{ data: bookings }, { data: blockedTimes }, { data: rules }, { data: overrides }] =
     await Promise.all([
       supabase
         .from("bookings")
         .select("id, client_name, start_time, end_time, appointment_type_id, status")
-        .gte("start_time", `${date}T00:00:00Z`)
-        .lt("start_time", `${date}T23:59:59Z`)
+        .gte("start_time", startUtc)
+        .lt("start_time", endUtc)
         .in("status", ["confirmed", "pending"])
         .order("start_time", { ascending: true }),
       supabase

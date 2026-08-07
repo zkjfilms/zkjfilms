@@ -13,8 +13,9 @@ export function escapeHtml(value: string) {
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
 
-// Shared between the /api/book flow (first send) and the admin
-// send/resend action, so both paths produce the same email.
+// Contract signing link. Sent from the admin send/resend action
+// (app/api/admin/contracts/[id]/send-email/route.ts) — its only caller
+// since the old booking_slots flow was retired.
 export async function sendSigningLinkEmail(contract: {
   id: string;
   client_name: string;
@@ -62,8 +63,12 @@ export async function sendSigningLinkEmail(contract: {
   }
 }
 
-// --- NEW self-hosted `bookings` system (see lib/bookingsWebhook.ts and
+// --- Self-hosted `bookings` system (see lib/bookingsWebhook.ts and
 // app/api/bookings/route.ts) ---------------------------------------------
+//
+// `when` in every template below comes from formatTimeRange, which renders
+// in BUSINESS_TIME_ZONE with the timezone abbreviation appended — these run
+// on Vercel, whose runtime timezone is UTC.
 
 type BookingForEmail = {
   client_name: string;
