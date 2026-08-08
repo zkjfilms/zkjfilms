@@ -1,6 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo";
 import BookingFlow from "./BookingFlow";
+import FaqAccordion from "@/components/FaqAccordion";
+import { FAQ_ITEMS, type FaqItem } from "@/lib/faq";
+
+const TEASER_FAQ_IDS = [
+  "session-cost",
+  "what-to-wear",
+  "privacy-boudoir",
+  "booking-window-reschedule",
+];
 
 export function generateMetadata(): Metadata {
   return buildPageMetadata({
@@ -11,6 +21,10 @@ export function generateMetadata(): Metadata {
 }
 
 export default function BookPage() {
+  const teaserItems = TEASER_FAQ_IDS.map((id) =>
+    FAQ_ITEMS.find((item) => item.id === id),
+  ).filter((item): item is FaqItem => item !== undefined);
+
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20 sm:px-10">
       <header className="mb-12 text-center">
@@ -20,6 +34,22 @@ export default function BookPage() {
         </h1>
         <p className="mt-5 text-muted">Pick a session type and an open time below. You&apos;ll get a confirmation by email right after.</p>
       </header>
+
+      <section className="mb-16">
+        <h2 className="mb-4 text-center font-serif text-xl italic text-foreground">
+          Common questions
+        </h2>
+        <FaqAccordion items={teaserItems} />
+        <p className="mt-4 text-center text-sm text-muted">
+          <Link
+            href="/faq"
+            className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+          >
+            See all FAQs →
+          </Link>
+        </p>
+      </section>
+
       <BookingFlow />
     </div>
   );
