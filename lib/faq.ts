@@ -1,0 +1,80 @@
+export type FaqCategory =
+  | "Pricing"
+  | "Session Process"
+  | "What to Wear"
+  | "Privacy & Discretion"
+  | "Logistics";
+
+export type FaqItem = {
+  id: string;
+  category: FaqCategory;
+  question: string;
+  answer: string;
+};
+
+export const FAQ_CATEGORIES: FaqCategory[] = [
+  "Pricing",
+  "Session Process",
+  "What to Wear",
+  "Privacy & Discretion",
+  "Logistics",
+];
+
+export const FAQ_ITEMS: FaqItem[] = [
+  {
+    id: "session-cost",
+    category: "Pricing",
+    question: "How much do sessions cost?",
+    answer:
+      "Creative Portraits sessions start at $250 (2 hours); Fine Art Nude sessions start at $350 (3 hours). Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote.",
+  },
+  {
+    id: "session-length",
+    category: "Session Process",
+    question: "How long does a session take?",
+    answer:
+      "It depends on the style — standard sessions run 30 minutes to a few hours, and full-day rates are available for event or creative video production. Exact durations for each session type are shown when you book.",
+  },
+  {
+    id: "session-what-happens",
+    category: "Session Process",
+    question: "What happens during a session?",
+    answer:
+      "Arrive on time and we'll spend the first few minutes talking through the goals for the shoot, along with anything I should know going in — disabilities, allergies, or posing challenges — so the session is comfortable and works for you.",
+  },
+  {
+    id: "what-to-wear",
+    category: "What to Wear",
+    question: "What should I wear or bring?",
+    answer:
+      "Come in whatever you're comfortable traveling in — you'll change on-site. For the actual session, bring something suited to the style: more formal for professional headshots or portraits, simple pieces or costume looks for creative portraits, and lingerie or kink-style pieces for boudoir and nude sessions.",
+  },
+  {
+    id: "privacy-boudoir",
+    category: "Privacy & Discretion",
+    question: "How is my privacy handled for boudoir/nude images?",
+    answer:
+      "Images are stored privately on a secure drive in my home — never on a public or shared cloud. Whether any images are ever shown publicly is entirely your choice: fully public, public with your face/features cropped out, or completely private and never shared.",
+  },
+  {
+    id: "sign-anything",
+    category: "Privacy & Discretion",
+    question: "Will I need to sign anything?",
+    answer:
+      "Yes — a model release and booking agreement, sent for you to review and sign online before your session.",
+  },
+  {
+    id: "location-parking",
+    category: "Logistics",
+    question: "Where are sessions held? Is there parking?",
+    answer:
+      "The studio is at 2101 W Broadway Ave, Suite 208, Columbia, MO — in the Crossroads plaza. Parking is free on-site; the easiest entrance is up the stairs by Planet Fitness, and there's also a ramp for accessible entry.",
+  },
+  {
+    id: "booking-window-reschedule",
+    category: "Logistics",
+    question: "How far ahead do I need to book, and can I reschedule?",
+    answer:
+      "Sessions can be booked online starting 24 hours out and up to a year in advance. Need to cancel or reschedule? You can do that yourself online up to 48 hours before your session for a full refund — inside that window, just reach out directly.",
+  },
+];
