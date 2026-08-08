@@ -105,6 +105,12 @@ export default function Footer() {
             >
               Click Here to View Availability &amp; Book
             </Link>
+            <Link
+              href="/faq"
+              className="mt-2 block text-sm text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+            >
+              Frequently Asked Questions
+            </Link>
           </div>
         </div>
 
