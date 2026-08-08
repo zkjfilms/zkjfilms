@@ -22,6 +22,10 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
 
 export const FAQ_ITEMS: FaqItem[] = [
   {
+    // Prices/durations here mirror the live, admin-editable appointment_types
+    // table (price_cents/duration_minutes), managed via
+    // app/admin/appointment-types/AppointmentTypeForm.tsx. If those settings
+    // change, update this answer to match.
     id: "session-cost",
     category: "Pricing",
     question: "How much do sessions cost?",
@@ -71,6 +75,10 @@ export const FAQ_ITEMS: FaqItem[] = [
       "The studio is at 2101 W Broadway Ave, Suite 208, Columbia, MO — in the Crossroads plaza. Parking is free on-site; the easiest entrance is up the stairs by Planet Fitness, and there's also a ramp for accessible entry.",
   },
   {
+    // Notice windows here mirror the live, admin-editable scheduling_limits
+    // table (min_notice_hours/max_advance_days/cancel_reschedule_notice_hours),
+    // managed via app/admin/availability/SchedulingLimitsForm.tsx. If those
+    // settings change, update this answer to match.
     id: "booking-window-reschedule",
     category: "Logistics",
     question: "How far ahead do I need to book, and can I reschedule?",

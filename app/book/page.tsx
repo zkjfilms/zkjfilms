@@ -35,7 +35,9 @@ export default function BookPage() {
         <p className="mt-5 text-muted">Pick a session type and an open time below. You&apos;ll get a confirmation by email right after.</p>
       </header>
 
-      <section className="mb-16">
+      <BookingFlow />
+
+      <section className="mt-16">
         <h2 className="mb-4 text-center font-serif text-xl italic text-foreground">
           Common questions
         </h2>
@@ -49,8 +51,6 @@ export default function BookPage() {
           </Link>
         </p>
       </section>
-
-      <BookingFlow />
     </div>
   );
 }
