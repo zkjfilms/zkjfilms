@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
-import { fillTemplate } from "@/lib/contracts";
+import { fillTemplate, formatTemplateType } from "@/lib/contracts";
 
 type Payload = {
   templateType: string;
@@ -86,6 +86,19 @@ export async function POST(request: Request) {
 
   if (!template) {
     return Response.json({ error: "Template not found." }, { status: 404 });
+  }
+
+  // A contract's text is frozen at creation time (see the comment below),
+  // so this is the last point where a still-unedited template can be
+  // caught — after this, the placeholder text would be baked into a real
+  // contract and reachable via its /sign/[id] link.
+  if (template.content.includes("PLACEHOLDER TEXT")) {
+    return Response.json(
+      {
+        error: `The "${formatTemplateType(payload.templateType)}" template still contains placeholder legal text. Edit it in Templates before creating a contract.`,
+      },
+      { status: 400 },
+    );
   }
 
   // Snapshotted into contract_text at creation time — later edits to the
