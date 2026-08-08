@@ -14,9 +14,9 @@ export const contentType = "image/png";
 // modern User-Agents but plain WOFF to old-browser ones that predate
 // woff2 support, which @vercel/og can decode. This generates once at
 // build time (this route is statically optimized), not per request.
-async function loadPlayfairDisplayItalic(): Promise<ArrayBuffer> {
+async function loadGoogleFontWoff(cssFamilyQuery: string): Promise<ArrayBuffer> {
   const css = await fetch(
-    "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,700&display=swap",
+    `https://fonts.googleapis.com/css2?family=${cssFamilyQuery}&display=swap`,
     {
       headers: {
         "User-Agent":
@@ -28,7 +28,7 @@ async function loadPlayfairDisplayItalic(): Promise<ArrayBuffer> {
   const fontUrl = css.match(/src: url\((.+?)\) format\('woff'\)/)?.[1];
   if (!fontUrl) {
     throw new Error(
-      "Could not find a Playfair Display italic .woff URL in the Google Fonts CSS response.",
+      `Could not find a .woff URL in the Google Fonts CSS response for "${cssFamilyQuery}".`,
     );
   }
 
@@ -37,7 +37,10 @@ async function loadPlayfairDisplayItalic(): Promise<ArrayBuffer> {
 }
 
 export default async function Image() {
-  const playfairDisplayItalic = await loadPlayfairDisplayItalic();
+  const [playfairDisplayItalic, jostMedium] = await Promise.all([
+    loadGoogleFontWoff("Playfair+Display:ital,wght@1,700"),
+    loadGoogleFontWoff("Jost:wght@500"),
+  ]);
 
   return new ImageResponse(
     (
@@ -65,6 +68,7 @@ export default async function Image() {
         </div>
         <div
           style={{
+            fontFamily: "Jost",
             marginTop: 28,
             fontSize: 22,
             letterSpacing: 6,
@@ -84,6 +88,12 @@ export default async function Image() {
           data: playfairDisplayItalic,
           style: "italic",
           weight: 700,
+        },
+        {
+          name: "Jost",
+          data: jostMedium,
+          style: "normal",
+          weight: 500,
         },
       ],
     },
