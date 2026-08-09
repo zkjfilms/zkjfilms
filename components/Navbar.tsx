@@ -63,6 +63,10 @@ export default function Navbar() {
   const [scrolledPastHero, setScrolledPastHero] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const scrolled = !hasHero || scrolledPastHero;
+  // The overlay always renders on the light `bg-background`, so the header
+  // content needs the dark/foreground treatment whenever it's open — even
+  // on an unscrolled hero route where the header itself stays transparent.
+  const solidHeader = scrolled || mobileMenuOpen;
 
   useEffect(() => {
     if (!hasHero) return;
@@ -84,13 +88,34 @@ export default function Navbar() {
     closeMenu();
   }, [pathname]);
 
-  // Lock background scroll while the full-screen overlay is open.
+  // Lock background scroll while the full-screen overlay is open, and let
+  // Escape close it as a defense-in-depth affordance.
   useEffect(() => {
     if (!mobileMenuOpen) return;
     document.body.style.overflow = "hidden";
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeyDown);
     };
+  }, [mobileMenuOpen]);
+
+  // The overlay is hidden at md+ purely via CSS (`md:hidden`); if the
+  // viewport crosses that breakpoint while it's open (e.g. rotating a
+  // phone, or resizing a desktop window), reset the state so the scroll
+  // lock above doesn't get stuck on with no visible control left to undo it.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    function onChange() {
+      if (mq.matches) setMobileMenuOpen(false);
+    }
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, [mobileMenuOpen]);
 
   return (
@@ -106,7 +131,7 @@ export default function Navbar() {
           <Link
             href="/"
             className={`font-serif text-xl italic tracking-wide transition-colors duration-500 ${
-              scrolled ? "text-foreground" : "text-white"
+              solidHeader ? "text-foreground" : "text-white"
             }`}
           >
             Zach K. Johnson
@@ -131,8 +156,8 @@ export default function Navbar() {
             onClick={() => setMobileMenuOpen((open) => !open)}
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
-            className={`transition-colors duration-500 md:hidden ${
-              scrolled ? "text-foreground" : "text-white"
+            className={`p-2 -m-2 transition-colors duration-500 md:hidden ${
+              solidHeader ? "text-foreground" : "text-white"
             }`}
           >
             <MenuIcon open={mobileMenuOpen} />
