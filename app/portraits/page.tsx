@@ -6,6 +6,7 @@ import Gallery, {
   type GalleryGroup,
   type GalleryImage,
 } from "@/components/Gallery";
+import { HEADSHOTS_GALLERY, CREATIVE_PORTRAITS_GALLERY } from "@/lib/services";
 
 const TITLE = "Portrait & Boudoir Gallery";
 const DESCRIPTION =
@@ -21,78 +22,33 @@ export function generateMetadata(): Metadata {
 
 // Alt text below is placeholder copy targeting local SEO keywords —
 // replace with real per-image descriptions once final photos are added.
-const images: GalleryImage[] = [
-  {
-    seed: "nocturne-portrait-01",
-    index: 1,
-    alt: "Professional headshot session in Columbia, Missouri",
-  },
-  {
-    seed: "nocturne-portrait-02",
-    index: 2,
-    alt: "Business branding portrait photographed in Mid-Missouri",
-  },
-  {
-    seed: "nocturne-portrait-03",
-    index: 3,
-    alt: "Art-directed creative portrait session in Columbia, MO",
-  },
-  {
-    seed: "nocturne-portrait-04",
-    index: 4,
-    alt: "Styled creative portrait photography in Mid-Missouri",
-  },
-  {
-    seed: "nocturne-portrait-05",
-    index: 5,
-    alt: "Concept-driven portrait session by a Columbia, Missouri photographer",
-  },
+const editorialImages: GalleryImage[] = [
   {
     seed: "nocturne-portrait-06",
-    index: 6,
+    index: 1,
     alt: "Editorial fine art photography shot in Columbia, Missouri",
   },
   {
     seed: "nocturne-portrait-07",
-    index: 7,
+    index: 2,
     alt: "Narrative fine art portrait session in Mid-Missouri",
   },
   {
     seed: "nocturne-portrait-08",
-    index: 8,
+    index: 3,
     alt: "Painterly fine art photography by Zach K. Johnson, Columbia, MO",
   },
 ];
 
-const groups: GalleryGroup[] = [
-  {
-    title: "Headshots & Branding",
-    description:
-      "Professional portraits for people who need to show up polished: LinkedIn, business branding, personal websites, and professional profiles.",
-    blocks: [
-      { type: "single", items: [images[0]] },
-      { type: "single", items: [images[1]] },
-    ],
-  },
-  {
-    title: "Creative Portraits",
-    description:
-      "More personal, more art-directed. Lighting, styling, and concept-driven sessions for people who want something beyond a standard portrait.",
-    blocks: [
-      { type: "pair", items: [images[2], images[3]] },
-      { type: "single", items: [images[4]] },
-    ],
-  },
-  {
-    title: "Editorial & Fine Art",
-    description:
-      "Selected work from ongoing personal and collaborative projects, shot with a narrative or painterly sensibility.",
-    blocks: [
-      { type: "pair", items: [images[5], images[6]] },
-      { type: "single", items: [images[7]] },
-    ],
-  },
-];
+const editorialGroup: GalleryGroup = {
+  title: "Editorial & Fine Art",
+  description:
+    "Selected work from ongoing personal and collaborative projects, shot with a narrative or painterly sensibility.",
+  blocks: [
+    { type: "pair", items: [editorialImages[0], editorialImages[1]] },
+    { type: "single", items: [editorialImages[2]] },
+  ],
+};
 
 export default function PortraitsPage() {
   return (
@@ -129,7 +85,27 @@ export default function PortraitsPage() {
       </p>
 
       {/* Gallery */}
-      <Gallery groups={groups} />
+      <Gallery groups={[HEADSHOTS_GALLERY]} />
+      <div className="mx-auto -mt-12 mb-12 flex w-full max-w-2xl justify-center px-6 sm:px-10">
+        <Link
+          href="/headshots"
+          className="text-xs uppercase tracking-[0.2em] text-muted underline decoration-border underline-offset-4 transition-colors hover:text-foreground"
+        >
+          View Headshots &rarr;
+        </Link>
+      </div>
+
+      <Gallery groups={[CREATIVE_PORTRAITS_GALLERY]} />
+      <div className="mx-auto -mt-12 mb-12 flex w-full max-w-2xl justify-center px-6 sm:px-10">
+        <Link
+          href="/creative-portraits"
+          className="text-xs uppercase tracking-[0.2em] text-muted underline decoration-border underline-offset-4 transition-colors hover:text-foreground"
+        >
+          View Creative Portraits &rarr;
+        </Link>
+      </div>
+
+      <Gallery groups={[editorialGroup]} />
 
       <div className="mx-auto -mt-12 mb-24 flex w-full max-w-2xl justify-center px-6 sm:px-10">
         <Link
