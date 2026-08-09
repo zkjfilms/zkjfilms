@@ -84,7 +84,7 @@ export const HEADSHOTS_SERVICE: Service = {
   heroImageAlt:
     "Professional headshot photography session in Columbia, Missouri.",
   gallery: HEADSHOTS_GALLERY,
-  faqIds: ["session-what-happens", "what-to-wear"],
+  faqIds: ["what-to-wear", "session-length"],
 };
 
 export const CREATIVE_PORTRAITS_SERVICE: Service = {

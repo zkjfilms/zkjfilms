@@ -25,17 +25,17 @@ export function generateMetadata(): Metadata {
 const editorialImages: GalleryImage[] = [
   {
     seed: "nocturne-portrait-06",
-    index: 1,
+    index: 6,
     alt: "Editorial fine art photography shot in Columbia, Missouri",
   },
   {
     seed: "nocturne-portrait-07",
-    index: 2,
+    index: 7,
     alt: "Narrative fine art portrait session in Mid-Missouri",
   },
   {
     seed: "nocturne-portrait-08",
-    index: 3,
+    index: 8,
     alt: "Painterly fine art photography by Zach K. Johnson, Columbia, MO",
   },
 ];
@@ -48,6 +48,40 @@ const editorialGroup: GalleryGroup = {
     { type: "pair", items: [editorialImages[0], editorialImages[1]] },
     { type: "single", items: [editorialImages[2]] },
   ],
+};
+
+// HEADSHOTS_GALLERY/CREATIVE_PORTRAITS_GALLERY are shared with the
+// standalone /headshots and /creative-portraits pages, where each gallery
+// numbers its own captions starting at 1. On this page all three groups
+// share one continuous 1-8 sequence, so their captions are renumbered
+// here at render time — the shared lib/services.ts data itself is never
+// mutated (spread copies only), so the standalone pages are unaffected.
+function renumberGroup(group: GalleryGroup, startIndex: number): GalleryGroup {
+  let counter = startIndex;
+  return {
+    ...group,
+    blocks: group.blocks.map((block) =>
+      block.type === "single"
+        ? { type: "single" as const, items: [{ ...block.items[0], index: counter++ }] as [GalleryImage] }
+        : {
+            type: "pair" as const,
+            items: [
+              { ...block.items[0], index: counter++ },
+              { ...block.items[1], index: counter++ },
+            ] as [GalleryImage, GalleryImage],
+          },
+    ),
+  };
+}
+
+const headshotsGroup: GalleryGroup = {
+  ...renumberGroup(HEADSHOTS_GALLERY, 1),
+  link: { href: "/headshots", label: "View Headshots →" },
+};
+
+const creativePortraitsGroup: GalleryGroup = {
+  ...renumberGroup(CREATIVE_PORTRAITS_GALLERY, 3),
+  link: { href: "/creative-portraits", label: "View Creative Portraits →" },
 };
 
 export default function PortraitsPage() {
@@ -85,27 +119,7 @@ export default function PortraitsPage() {
       </p>
 
       {/* Gallery */}
-      <Gallery groups={[HEADSHOTS_GALLERY]} />
-      <div className="mx-auto -mt-12 mb-12 flex w-full max-w-2xl justify-center px-6 sm:px-10">
-        <Link
-          href="/headshots"
-          className="text-xs uppercase tracking-[0.2em] text-muted underline decoration-border underline-offset-4 transition-colors hover:text-foreground"
-        >
-          View Headshots &rarr;
-        </Link>
-      </div>
-
-      <Gallery groups={[CREATIVE_PORTRAITS_GALLERY]} />
-      <div className="mx-auto -mt-12 mb-12 flex w-full max-w-2xl justify-center px-6 sm:px-10">
-        <Link
-          href="/creative-portraits"
-          className="text-xs uppercase tracking-[0.2em] text-muted underline decoration-border underline-offset-4 transition-colors hover:text-foreground"
-        >
-          View Creative Portraits &rarr;
-        </Link>
-      </div>
-
-      <Gallery groups={[editorialGroup]} />
+      <Gallery groups={[headshotsGroup, creativePortraitsGroup, editorialGroup]} />
 
       <div className="mx-auto -mt-12 mb-24 flex w-full max-w-2xl justify-center px-6 sm:px-10">
         <Link

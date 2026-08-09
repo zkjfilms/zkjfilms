@@ -34,7 +34,7 @@ export default function ServiceLandingPage({
             {service.tagline}
           </p>
           <h1 className="max-w-xl font-serif text-4xl italic leading-tight text-white sm:text-5xl md:text-6xl">
-            {service.name}
+            {service.appointmentTypeName}
           </h1>
         </div>
       </section>
@@ -48,9 +48,20 @@ export default function ServiceLandingPage({
       )}
 
       {faqItems.length > 0 && (
-        <div className="mx-auto w-full max-w-2xl px-6 sm:px-10">
+        <section className="mx-auto w-full max-w-2xl px-6 sm:px-10">
+          <h2 className="mb-4 text-center font-serif text-xl italic text-foreground">
+            Common questions
+          </h2>
           <FaqAccordion items={faqItems} />
-        </div>
+          <p className="mt-4 text-center text-sm text-muted">
+            <Link
+              href="/faq"
+              className="text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+            >
+              See all FAQs →
+            </Link>
+          </p>
+        </section>
       )}
 
       <div className="mx-auto mt-12 flex w-full max-w-2xl justify-center px-6 sm:px-10">

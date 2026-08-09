@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export type GalleryImage = { seed: string; index: number; alt: string };
 
@@ -9,6 +10,7 @@ export type GalleryBlock =
 export type GalleryGroup = {
   title: string;
   description: string;
+  link?: { href: string; label: string };
   blocks: GalleryBlock[];
 };
 
@@ -32,6 +34,16 @@ export default function Gallery({ groups }: { groups: GalleryGroup[] }) {
             {group.description && (
               <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
                 {group.description}
+              </p>
+            )}
+            {group.link && (
+              <p className="mt-4">
+                <Link
+                  href={group.link.href}
+                  className="text-xs uppercase tracking-[0.2em] text-muted underline decoration-border underline-offset-4 transition-colors hover:text-foreground"
+                >
+                  {group.link.label}
+                </Link>
               </p>
             )}
           </div>
