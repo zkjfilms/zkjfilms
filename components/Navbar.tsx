@@ -15,7 +15,13 @@ const links = [
 // Routes that open with a full-bleed hero image the navbar can float over.
 // Every other route gets the solid navbar immediately — there's no image
 // at the very top for transparent white text to sit on.
-const HERO_ROUTES = new Set(["/", "/portraits"]);
+const HERO_ROUTES = new Set([
+  "/",
+  "/portraits",
+  "/headshots",
+  "/creative-portraits",
+  "/boudoir",
+]);
 
 export default function Navbar() {
   const pathname = usePathname();

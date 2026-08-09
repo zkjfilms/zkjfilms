@@ -39,12 +39,12 @@ export default function ServiceLandingPage({
         </div>
       </section>
 
-      {service.gallery ? (
-        <Gallery groups={[service.gallery]} />
-      ) : (
-        <p className="mx-auto max-w-2xl px-6 py-16 text-center text-muted sm:px-10">
-          {service.description}
-        </p>
+      <p className="mx-auto max-w-2xl px-6 py-16 text-center text-muted sm:px-10">
+        {service.description}
+      </p>
+
+      {service.gallery && (
+        <Gallery groups={[{ ...service.gallery, description: "" }]} />
       )}
 
       {faqItems.length > 0 && (
@@ -76,6 +76,12 @@ export default function ServiceLandingPage({
               {other.name}
             </Link>
           ))}
+          <Link
+            href="/portraits"
+            className="text-sm text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+          >
+            All Portraits
+          </Link>
         </div>
       </div>
     </div>

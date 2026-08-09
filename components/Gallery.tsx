@@ -29,9 +29,11 @@ export default function Gallery({ groups }: { groups: GalleryGroup[] }) {
             <h2 className="font-serif text-2xl italic text-foreground sm:text-3xl">
               {group.title}
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
-              {group.description}
-            </p>
+            {group.description && (
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted">
+                {group.description}
+              </p>
+            )}
           </div>
 
           {group.blocks.map((block, blockIndex) =>
