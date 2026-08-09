@@ -30,7 +30,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "Pricing",
     question: "How much do sessions cost?",
     answer:
-      "Creative Portraits sessions start at $250 (2 hours); Fine Art Nude sessions start at $350 (3 hours). Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote.",
+      "Professional Headshots start at $150 (20 minutes); Creative Portraits sessions start at $250 (2 hours); Fine Art Boudoir & Nude sessions start at $350 (3 hours). Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote.",
   },
   {
     id: "session-length",
