@@ -3,7 +3,13 @@ import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo";
 import BookingFlow from "./BookingFlow";
 import FaqAccordion from "@/components/FaqAccordion";
-import { FAQ_ITEMS, type FaqItem } from "@/lib/faq";
+import { getFaqItems, type FaqItem } from "@/lib/faq";
+
+// Pricing/duration in the "session-cost" teaser answer is pulled live from
+// the same appointment_types data that powers the booking flow below (see
+// lib/faq.ts). Revalidate periodically so an admin price change shows up
+// here without a redeploy.
+export const revalidate = 300;
 
 const TEASER_FAQ_IDS = [
   "session-cost",
@@ -20,9 +26,10 @@ export function generateMetadata(): Metadata {
   });
 }
 
-export default function BookPage() {
+export default async function BookPage() {
+  const faqItems = await getFaqItems();
   const teaserItems = TEASER_FAQ_IDS.map((id) =>
-    FAQ_ITEMS.find((item) => item.id === id),
+    faqItems.find((item) => item.id === id),
   ).filter((item): item is FaqItem => item !== undefined);
 
   return (

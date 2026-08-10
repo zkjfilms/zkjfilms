@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { buildPageMetadata } from "@/lib/seo";
 import FaqAccordion from "@/components/FaqAccordion";
-import { FAQ_CATEGORIES, FAQ_ITEMS } from "@/lib/faq";
+import { FAQ_CATEGORIES, getFaqItems } from "@/lib/faq";
+
+// Pricing/duration in the "session-cost" answer is pulled live from the
+// same appointment_types data that powers /book (see lib/faq.ts). Revalidate
+// periodically so an admin price change shows up here without a redeploy.
+export const revalidate = 300;
 
 const TITLE = "Frequently Asked Questions";
 const DESCRIPTION =
@@ -16,20 +21,22 @@ export function generateMetadata(): Metadata {
   });
 }
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: FAQ_ITEMS.map((item) => ({
-    "@type": "Question",
-    name: item.question,
-    acceptedAnswer: {
-      "@type": "Answer",
-      text: item.answer,
-    },
-  })),
-};
+export default async function FaqPage() {
+  const faqItems = await getFaqItems();
 
-export default function FaqPage() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20 sm:px-10">
       <script
@@ -64,7 +71,7 @@ export default function FaqPage() {
             {category}
           </h2>
           <FaqAccordion
-            items={FAQ_ITEMS.filter((item) => item.category === category)}
+            items={faqItems.filter((item) => item.category === category)}
           />
         </section>
       ))}

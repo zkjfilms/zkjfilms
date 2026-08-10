@@ -1,3 +1,8 @@
+import {
+  fetchActiveAppointmentTypes,
+  type AppointmentTypeRow,
+} from "@/lib/availabilityQuery";
+
 export type FaqCategory =
   | "Pricing"
   | "Session Process"
@@ -30,7 +35,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "Pricing",
     question: "How much do sessions cost?",
     answer:
-      "Professional Headshots start at $150 (20 minutes); Creative Portraits sessions start at $250 (2 hours); Fine Art Boudoir & Nude sessions start at $350 (3 hours). Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote.",
+      "Professional Headshots start at $150 (20 minutes); Creative Portraits sessions start at $250 (2 hours); Fine Art Boudoir & Nude sessions start at $500 (3 hours). Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote.",
   },
   {
     id: "session-length",
@@ -86,3 +91,60 @@ export const FAQ_ITEMS: FaqItem[] = [
       "Sessions can be booked online starting 24 hours out and up to a year in advance. Need to cancel or reschedule? You can do that yourself online up to 48 hours before your session for a full refund — inside that window, just reach out directly.",
   },
 ];
+
+function formatWholeDollars(cents: number): string {
+  return `$${Math.round(cents / 100)}`;
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes >= 60 && minutes % 60 === 0) {
+    const hours = minutes / 60;
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  return `${minutes} minutes`;
+}
+
+// Matches each known service against the live appointment_types rows by a
+// stable keyword rather than an exact name — admin can freely rename types
+// (see app/admin/appointment-types/AppointmentTypeForm.tsx) without silently
+// breaking this answer. Returns null if any of the three can't be matched,
+// so callers fall back to the static default above instead of rendering a
+// sentence with a service missing.
+function buildSessionCostAnswer(types: AppointmentTypeRow[]): string | null {
+  const find = (keyword: string) =>
+    types.find((t) => t.name.toLowerCase().includes(keyword));
+
+  const headshots = find("headshot");
+  const creative = find("creative");
+  const boudoir = find("boudoir");
+  if (!headshots || !creative || !boudoir) return null;
+
+  return (
+    `Professional Headshots start at ${formatWholeDollars(headshots.price_cents)} (${formatDuration(headshots.duration_minutes)}); ` +
+    `Creative Portraits sessions start at ${formatWholeDollars(creative.price_cents)} (${formatDuration(creative.duration_minutes)}); ` +
+    `Fine Art Boudoir & Nude sessions start at ${formatWholeDollars(boudoir.price_cents)} (${formatDuration(boudoir.duration_minutes)}). ` +
+    "Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote."
+  );
+}
+
+// Single source of truth for pricing/duration copy: pulls the same live
+// appointment_types data that powers /book (via fetchActiveAppointmentTypes)
+// instead of relying on the hand-maintained numbers above. Falls back to the
+// static FAQ_ITEMS answer — which stays kept up to date as a floor — if the
+// query fails or a service can't be matched, so the page never breaks or
+// shows a malformed answer.
+export async function getFaqItems(): Promise<FaqItem[]> {
+  let dynamicAnswer: string | null = null;
+  try {
+    const types = await fetchActiveAppointmentTypes();
+    dynamicAnswer = buildSessionCostAnswer(types);
+  } catch (err) {
+    console.error("Failed to load live pricing for FAQ:", err);
+  }
+
+  if (!dynamicAnswer) return FAQ_ITEMS;
+
+  return FAQ_ITEMS.map((item) =>
+    item.id === "session-cost" ? { ...item, answer: dynamicAnswer } : item,
+  );
+}
