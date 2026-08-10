@@ -1,10 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import heroImage from "@/public/images/hero.jpg";
-import workImage from "@/public/images/second.jpg";
 import SectionNav from "@/components/SectionNav";
 import { BUSINESS, DEFAULT_OG_IMAGE, SITE_URL, buildPageMetadata } from "@/lib/seo";
+import { publicImageUrl } from "@/lib/media";
 import { fetchActiveAppointmentTypes } from "@/lib/availabilityQuery";
 import { formatPriceRange } from "@/lib/format";
 
@@ -93,10 +92,11 @@ export default async function Home() {
         className="relative -mt-20 flex min-h-screen scroll-mt-24 items-end overflow-hidden"
       >
         <Image
-          src={heroImage}
+          src={publicImageUrl("hero.jpg")}
           alt="Close-up portrait of a woman with dark bangs and closed eyes, bare shoulders and a fern tattoo across her collarbone, dried branches held in front of her face in warm, low light"
           fill
           priority
+          quality={90}
           className="object-cover"
           sizes="100vw"
         />
@@ -143,9 +143,10 @@ export default async function Home() {
         className="relative flex min-h-[85vh] scroll-mt-24 items-end overflow-hidden"
       >
         <Image
-          src={workImage}
+          src={publicImageUrl("second.jpg")}
           alt="Extreme close-up artistic portrait with one eye in sharp focus, the rest of the face softened behind an out-of-focus lace pattern, bathed in warm amber light"
           fill
+          quality={90}
           className="object-cover"
           sizes="100vw"
         />

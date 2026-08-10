@@ -12,7 +12,8 @@
     "gallery:archive": "node --env-file=.env.local scripts/gallery.mjs archive",
     "gallery:unarchive": "node --env-file=.env.local scripts/gallery.mjs unarchive",
     "gallery:delete": "node --env-file=.env.local scripts/gallery.mjs delete",
-    "scheduling:sweep-pending": "node --env-file=.env.local scripts/scheduling.mjs sweep-pending"
+    "scheduling:sweep-pending": "node --env-file=.env.local scripts/scheduling.mjs sweep-pending",
+    "image:upload": "node --env-file=.env.local scripts/uploadImage.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
