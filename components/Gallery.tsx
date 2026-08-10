@@ -1,7 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 
-export type GalleryImage = { seed: string; index: number; alt: string };
+// src is optional: when set (a real uploaded photo, see lib/media.ts), it's
+// used instead of the picsum.photos placeholder built from seed. seed stays
+// required either way — it's also the React key for pair blocks below.
+export type GalleryImage = { seed: string; index: number; alt: string; src?: string };
 
 export type GalleryBlock =
   | { type: "single"; items: [GalleryImage] }
@@ -55,7 +58,7 @@ export default function Gallery({ groups }: { groups: GalleryGroup[] }) {
                 className="group relative h-[80vh] w-full overflow-hidden bg-surface"
               >
                 <Image
-                  src={`https://picsum.photos/seed/${block.items[0].seed}/1600/1400`}
+                  src={block.items[0].src ?? `https://picsum.photos/seed/${block.items[0].seed}/1600/1400`}
                   alt={block.items[0].alt}
                   fill
                   quality={90}
@@ -75,7 +78,7 @@ export default function Gallery({ groups }: { groups: GalleryGroup[] }) {
                     className="group relative h-[60vh] overflow-hidden bg-surface sm:h-[70vh]"
                   >
                     <Image
-                      src={`https://picsum.photos/seed/${item.seed}/1200/1400`}
+                      src={item.src ?? `https://picsum.photos/seed/${item.seed}/1200/1400`}
                       alt={item.alt}
                       fill
                       quality={90}

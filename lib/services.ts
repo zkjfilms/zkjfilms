@@ -1,4 +1,5 @@
 import type { GalleryGroup } from "@/components/Gallery";
+import { publicImageUrl } from "@/lib/media";
 
 export type Service = {
   slug: string;
@@ -66,7 +67,8 @@ export const CREATIVE_PORTRAITS_GALLERY: GalleryGroup = {
         {
           seed: "nocturne-portrait-05",
           index: 3,
-          alt: "Concept-driven portrait session by a Columbia, Missouri photographer",
+          src: publicImageUrl("ocean-of-slumber.jpg"),
+          alt: "Black-and-white editorial group portrait: a woman with long dreadlocks, dark makeup, and a feathered collar stands in front of four bearded bandmates in a dramatic, gothic-toned session",
         },
       ],
     },
