@@ -1,12 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo";
 
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({
+  return {
     title: "Page Not Found",
     description: "The page you're looking for doesn't exist.",
-  });
+  };
 }
 
 export default function NotFound() {
