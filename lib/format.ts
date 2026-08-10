@@ -48,3 +48,15 @@ export function formatCents(cents: number): string {
     currency: "USD",
   });
 }
+
+// Schema.org priceRange (e.g. for LocalBusiness JSON-LD): a whole-dollar
+// "$min-$max" built from live prices rather than a hand-maintained guess.
+// Returns null for an empty input so callers can omit the field entirely
+// instead of asserting a range that doesn't exist.
+export function formatPriceRange(pricesCents: number[]): string | null {
+  if (pricesCents.length === 0) return null;
+  const whole = (cents: number) => `$${Math.round(cents / 100)}`;
+  const min = Math.min(...pricesCents);
+  const max = Math.max(...pricesCents);
+  return min === max ? whole(min) : `${whole(min)}-${whole(max)}`;
+}

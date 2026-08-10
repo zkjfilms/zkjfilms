@@ -2,7 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import SectionNav from "@/components/SectionNav";
-import { BUSINESS, SITE_URL, buildPageMetadata } from "@/lib/seo";
+import { BUSINESS, DEFAULT_OG_IMAGE, SITE_URL, buildPageMetadata } from "@/lib/seo";
+import { fetchActiveAppointmentTypes } from "@/lib/availabilityQuery";
+import { formatPriceRange } from "@/lib/format";
 
 const TITLE = "Zach K. Johnson | Columbia, MO Portrait & Boudoir Photographer";
 const DESCRIPTION =
@@ -12,6 +14,12 @@ export function generateMetadata(): Metadata {
   return buildPageMetadata({ title: TITLE, description: DESCRIPTION });
 }
 
+// priceRange is pulled live from the same appointment_types data that
+// powers /book (see lib/faq.ts for the identical pattern), so it can't
+// drift the way a hand-typed figure would. Revalidate periodically so an
+// admin price change shows up here without a redeploy.
+export const revalidate = 300;
+
 const sections = [
   { id: "hero", label: "Welcome" },
   { id: "story", label: "Story" },
@@ -19,39 +27,53 @@ const sections = [
   { id: "connect", label: "Connect" },
 ];
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": ["LocalBusiness", "ProfessionalService"],
-  "@id": `${SITE_URL}/#business`,
-  name: BUSINESS.name,
-  description: BUSINESS.description,
-  url: SITE_URL,
-  telephone: BUSINESS.telephone,
-  email: BUSINESS.email,
-  address: {
-    "@type": "PostalAddress",
-    streetAddress: BUSINESS.address.streetAddress,
-    addressLocality: BUSINESS.address.addressLocality,
-    addressRegion: BUSINESS.address.addressRegion,
-    postalCode: BUSINESS.address.postalCode,
-    addressCountry: BUSINESS.address.addressCountry,
-  },
-  geo: {
-    "@type": "GeoCoordinates",
-    latitude: BUSINESS.geo.latitude,
-    longitude: BUSINESS.geo.longitude,
-  },
-  areaServed: BUSINESS.areaServed,
-  sameAs: BUSINESS.sameAs,
-  openingHoursSpecification: {
-    "@type": "OpeningHoursSpecification",
-    dayOfWeek: BUSINESS.hours.dayOfWeek,
-    opens: BUSINESS.hours.opens,
-    closes: BUSINESS.hours.closes,
-  },
-};
+export default async function Home() {
+  let priceRange: string | null = null;
+  try {
+    const appointmentTypes = await fetchActiveAppointmentTypes();
+    priceRange = formatPriceRange(
+      appointmentTypes
+        .filter((type) => type.requires_payment)
+        .map((type) => type.price_cents),
+    );
+  } catch (err) {
+    console.error("Failed to load live pricing for homepage schema:", err);
+  }
 
-export default function Home() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": ["LocalBusiness", "ProfessionalService"],
+    "@id": `${SITE_URL}/#business`,
+    name: BUSINESS.name,
+    description: BUSINESS.description,
+    url: SITE_URL,
+    telephone: BUSINESS.telephone,
+    email: BUSINESS.email,
+    image: DEFAULT_OG_IMAGE.url,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: BUSINESS.address.streetAddress,
+      addressLocality: BUSINESS.address.addressLocality,
+      addressRegion: BUSINESS.address.addressRegion,
+      postalCode: BUSINESS.address.postalCode,
+      addressCountry: BUSINESS.address.addressCountry,
+    },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: BUSINESS.geo.latitude,
+      longitude: BUSINESS.geo.longitude,
+    },
+    areaServed: BUSINESS.areaServed,
+    sameAs: BUSINESS.sameAs,
+    openingHoursSpecification: {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: BUSINESS.hours.dayOfWeek,
+      opens: BUSINESS.hours.opens,
+      closes: BUSINESS.hours.closes,
+    },
+    ...(priceRange ? { priceRange } : {}),
+  };
+
   return (
     <div className="flex flex-col">
       <script
