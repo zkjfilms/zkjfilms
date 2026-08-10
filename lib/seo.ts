@@ -48,6 +48,15 @@ export const BUSINESS = {
     "Mid-Missouri",
   ],
   sameAs: Object.values(SOCIALS),
+  // Studio is open Friday-Sunday but every other week — schema.org's
+  // OpeningHoursSpecification has no clean way to express a biweekly
+  // cadence, so this simplifies to the weekday/time range shown in the
+  // footer. Matches the existing on-page disclosure, not a new claim.
+  hours: {
+    dayOfWeek: ["Friday", "Saturday", "Sunday"],
+    opens: "10:00",
+    closes: "17:00",
+  },
 };
 
 // Per-page metadata must build its own full `openGraph`/`twitter` objects —

@@ -43,6 +43,12 @@ const jsonLd = {
   },
   areaServed: BUSINESS.areaServed,
   sameAs: BUSINESS.sameAs,
+  openingHoursSpecification: {
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: BUSINESS.hours.dayOfWeek,
+    opens: BUSINESS.hours.opens,
+    closes: BUSINESS.hours.closes,
+  },
 };
 
 export default function Home() {
