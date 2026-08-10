@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo";
+import { publicImageUrl } from "@/lib/media";
 
 const TITLE = "About";
 const DESCRIPTION =
@@ -16,8 +17,8 @@ export default function AboutPage() {
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-14 px-6 py-20 sm:px-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start lg:gap-20">
       <div className="relative order-1 aspect-[4/5] w-full overflow-hidden lg:order-2">
         <Image
-          src="https://picsum.photos/seed/nocturne-studio-portrait/900/1125"
-          alt="Zach, portrait and boudoir photographer based in Columbia, Missouri"
+          src={publicImageUrl("zach.jpg")}
+          alt="Black-and-white studio portrait of Zach K. Johnson, a bearded man in a plain t-shirt looking off-camera in moody, low-key lighting"
           fill
           quality={90}
           className="object-cover"
