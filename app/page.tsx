@@ -91,12 +91,17 @@ export default async function Home() {
         id="hero"
         className="relative -mt-20 flex min-h-screen scroll-mt-24 items-end overflow-hidden"
       >
+        {/*
+          No quality override here on purpose: at fill+100vw this serves the
+          3840px retina bucket, where quality 90 vs the default 75 nearly
+          doubles the payload (2.9MB vs 1.5MB) for a difference invisible at
+          web display size — directly hurt this image's load time.
+        */}
         <Image
           src={publicImageUrl("hero.jpg")}
           alt="Close-up portrait of a woman with dark bangs and closed eyes, bare shoulders and a fern tattoo across her collarbone, dried branches held in front of her face in warm, low light"
           fill
           priority
-          quality={90}
           className="object-cover"
           sizes="100vw"
         />
@@ -142,11 +147,11 @@ export default async function Home() {
         id="work"
         className="relative flex min-h-[85vh] scroll-mt-24 items-end overflow-hidden"
       >
+        {/* Same reasoning as the hero image above — no quality override. */}
         <Image
           src={publicImageUrl("second.jpg")}
           alt="Extreme close-up artistic portrait with one eye in sharp focus, the rest of the face softened behind an out-of-focus lace pattern, bathed in warm amber light"
           fill
-          quality={90}
           className="object-cover"
           sizes="100vw"
         />
