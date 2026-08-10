@@ -58,6 +58,7 @@ export default function Gallery({ groups }: { groups: GalleryGroup[] }) {
                   src={`https://picsum.photos/seed/${block.items[0].seed}/1600/1400`}
                   alt={block.items[0].alt}
                   fill
+                  quality={90}
                   className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                   sizes="100vw"
                 />
@@ -77,6 +78,7 @@ export default function Gallery({ groups }: { groups: GalleryGroup[] }) {
                       src={`https://picsum.photos/seed/${item.seed}/1200/1400`}
                       alt={item.alt}
                       fill
+                      quality={90}
                       className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                       sizes="(min-width: 640px) 50vw, 100vw"
                     />

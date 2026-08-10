@@ -19,6 +19,7 @@ export default function AboutPage() {
           src="https://picsum.photos/seed/nocturne-studio-portrait/900/1125"
           alt="Zach, portrait and boudoir photographer based in Columbia, Missouri"
           fill
+          quality={90}
           className="object-cover"
           sizes="(min-width: 1024px) 460px, 100vw"
         />

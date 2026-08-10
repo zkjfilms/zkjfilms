@@ -24,6 +24,7 @@ export default function ServiceLandingPage({
           alt={service.heroImageAlt}
           fill
           priority
+          quality={90}
           className="object-cover"
           sizes="100vw"
         />
