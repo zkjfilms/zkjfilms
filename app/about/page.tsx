@@ -20,7 +20,7 @@ export default function AboutPage() {
           alt="Zach, portrait and boudoir photographer based in Columbia, Missouri"
           fill
           className="object-cover"
-          sizes="(min-width: 1024px) 50vw, 100vw"
+          sizes="(min-width: 1024px) 460px, 100vw"
         />
       </div>
 
