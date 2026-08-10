@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
-import { fetchOpenSlotsForDate, type AppointmentTypeRow } from "@/lib/availabilityQuery";
+import { fetchOpenDatesForMonth, type AppointmentTypeRow } from "@/lib/availabilityQuery";
 
 function daysInMonth(year: number, month: number): string[] {
   const days: string[] = [];
@@ -37,11 +37,7 @@ export async function GET(request: Request) {
     const [year, monthNum] = month.split("-").map(Number);
     const dates = daysInMonth(year, monthNum);
 
-    const openDates: string[] = [];
-    for (const date of dates) {
-      const slots = await fetchOpenSlotsForDate({ date, appointmentType: type as AppointmentTypeRow });
-      if (slots.length > 0) openDates.push(date);
-    }
+    const openDates = await fetchOpenDatesForMonth({ dates, appointmentType: type as AppointmentTypeRow });
 
     return Response.json({ openDates });
   } catch (err) {
