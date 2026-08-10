@@ -17,8 +17,8 @@ export default function AboutPage() {
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-14 px-6 py-20 sm:px-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start lg:gap-20">
       <div className="relative order-1 aspect-[4/5] w-full overflow-hidden lg:order-2">
         <Image
-          src={publicImageUrl("zach.jpg")}
-          alt="Black-and-white studio portrait of Zach K. Johnson, a bearded man in a plain t-shirt looking off-camera in moody, low-key lighting"
+          src={publicImageUrl("zach-fuzzy.jpg")}
+          alt="Black-and-white portrait of Zach K. Johnson in profile, a bearded man shirtless with visible tattoos, lit in dramatic low-key shadow"
           fill
           quality={90}
           className="object-cover"
