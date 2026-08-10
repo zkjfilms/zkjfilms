@@ -125,7 +125,7 @@ export default function Home() {
             03 — The Work
           </h2>
           <p className="font-serif text-4xl italic text-white sm:text-5xl">
-            Portraits, mostly.
+            Have a look &mdash; the work says more than I can.
           </p>
           <Link
             href="/portraits"

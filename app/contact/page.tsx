@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ContactForm from "./ContactForm";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildPageMetadata, BUSINESS } from "@/lib/seo";
 
 const TITLE = "Contact & Booking";
 const DESCRIPTION =
@@ -58,8 +58,14 @@ export default function ContactPage() {
         sessions available by appointment &mdash; once we&rsquo;re talking,
         I&rsquo;ll walk you through location, pricing, and what to expect.
         <br />
-        If you&rsquo;d rather email directly, reach me at [EMAIL &mdash;
-        placeholder].
+        If you&rsquo;d rather email directly, reach me at{" "}
+        <a
+          href={`mailto:${BUSINESS.email}`}
+          className="text-accent hover:underline"
+        >
+          {BUSINESS.email}
+        </a>
+        .
       </p>
     </div>
   );
