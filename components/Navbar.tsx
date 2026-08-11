@@ -207,7 +207,11 @@ export default function Navbar() {
                   key={link.href}
                   ref={portraitsRef}
                   className="relative flex items-center gap-1.5"
-                  onMouseEnter={() => setPortraitsDropdownOpen(true)}
+                  onMouseEnter={() => {
+                    if (window.matchMedia("(hover: hover)").matches) {
+                      setPortraitsDropdownOpen(true);
+                    }
+                  }}
                   onMouseLeave={() => setPortraitsDropdownOpen(false)}
                 >
                   <Link href={link.href} className={linkClass}>
@@ -218,7 +222,7 @@ export default function Navbar() {
                     onClick={() => setPortraitsDropdownOpen((open) => !open)}
                     aria-expanded={portraitsDropdownOpen}
                     aria-label="Show portrait categories"
-                    className={linkClass}
+                    className={`${linkClass} p-2 -my-2 -mr-2`}
                   >
                     <CaretIcon open={portraitsDropdownOpen} />
                   </button>
@@ -284,7 +288,7 @@ export default function Navbar() {
                     onClick={() => setMobileAccordionOpen((open) => !open)}
                     aria-expanded={mobileAccordionOpen}
                     aria-label="Show portrait categories"
-                    className="text-foreground"
+                    className="text-foreground p-3 -my-3 -mr-3"
                   >
                     <CaretIcon open={mobileAccordionOpen} />
                   </button>
