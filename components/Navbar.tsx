@@ -216,16 +216,18 @@ export default function Navbar() {
                     <CaretIcon open={portraitsDropdownOpen} />
                   </button>
                   {portraitsDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-2 min-w-[180px] border border-border bg-background/95 py-2 backdrop-blur-md">
-                      {PORTRAITS_SUBLINKS.map((sub) => (
-                        <Link
-                          key={sub.href}
-                          href={sub.href}
-                          className="block px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
-                        >
-                          {sub.label}
-                        </Link>
-                      ))}
+                    <div className="absolute top-full left-0 pt-2">
+                      <div className="min-w-[180px] border border-border bg-background/95 py-2 backdrop-blur-md">
+                        {PORTRAITS_SUBLINKS.map((sub) => (
+                          <Link
+                            key={sub.href}
+                            href={sub.href}
+                            className="block px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
+                          >
+                            {sub.label}
+                          </Link>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
