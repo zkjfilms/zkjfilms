@@ -87,6 +87,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [portraitsDropdownOpen, setPortraitsDropdownOpen] = useState(false);
   const portraitsRef = useRef<HTMLDivElement>(null);
+  const [mobileAccordionOpen, setMobileAccordionOpen] = useState(false);
   const scrolled = !hasHero || scrolledPastHero;
   // The overlay always renders on the light `bg-background`, so the header
   // content needs the dark/foreground treatment whenever it's open — even
@@ -159,6 +160,12 @@ export default function Navbar() {
     onChange();
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
+  }, [mobileMenuOpen]);
+
+  // Reset the accordion every time the mobile menu itself closes, so
+  // reopening it never shows a stale expanded state.
+  useEffect(() => {
+    if (!mobileMenuOpen) setMobileAccordionOpen(false);
   }, [mobileMenuOpen]);
 
   return (
@@ -250,15 +257,54 @@ export default function Navbar() {
 
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-8 bg-background md:hidden">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-lg uppercase tracking-[0.2em] text-foreground transition-colors hover:text-accent"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) => {
+            if (link.href !== "/portraits") {
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-lg uppercase tracking-[0.2em] text-foreground transition-colors hover:text-accent"
+                >
+                  {link.label}
+                </Link>
+              );
+            }
+
+            return (
+              <div key={link.href} className="flex flex-col items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={link.href}
+                    className="text-lg uppercase tracking-[0.2em] text-foreground transition-colors hover:text-accent"
+                  >
+                    {link.label}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setMobileAccordionOpen((open) => !open)}
+                    aria-expanded={mobileAccordionOpen}
+                    aria-label="Show portrait categories"
+                    className="text-foreground"
+                  >
+                    <CaretIcon open={mobileAccordionOpen} />
+                  </button>
+                </div>
+                {mobileAccordionOpen && (
+                  <div className="flex flex-col items-center gap-5">
+                    {PORTRAITS_SUBLINKS.map((sub) => (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        className="text-sm uppercase tracking-[0.2em] text-muted transition-colors hover:text-accent"
+                      >
+                        {sub.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </>
