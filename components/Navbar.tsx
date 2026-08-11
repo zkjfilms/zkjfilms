@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const links = [
   { href: "/", label: "Home" },
@@ -10,6 +10,12 @@ const links = [
   { href: "/about", label: "About" },
   { href: "/book", label: "Book" },
   { href: "/contact", label: "Contact" },
+];
+
+const PORTRAITS_SUBLINKS = [
+  { href: "/headshots", label: "Headshots" },
+  { href: "/creative-portraits", label: "Creative Portraits" },
+  { href: "/boudoir", label: "Boudoir" },
 ];
 
 // Routes that open with a full-bleed hero image the navbar can float over.
@@ -57,11 +63,30 @@ function MenuIcon({ open }: { open: boolean }) {
   );
 }
 
+function CaretIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+      className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+    >
+      <polyline points="1.5,3 5,6.5 8.5,3" />
+    </svg>
+  );
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const hasHero = HERO_ROUTES.has(pathname);
   const [scrolledPastHero, setScrolledPastHero] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [portraitsDropdownOpen, setPortraitsDropdownOpen] = useState(false);
+  const portraitsRef = useRef<HTMLDivElement>(null);
   const scrolled = !hasHero || scrolledPastHero;
   // The overlay always renders on the light `bg-background`, so the header
   // content needs the dark/foreground treatment whenever it's open — even
@@ -82,10 +107,8 @@ export default function Navbar() {
   // Close the mobile menu on any route change — covers direct link taps
   // as well as back/forward navigation.
   useEffect(() => {
-    function closeMenu() {
-      setMobileMenuOpen(false);
-    }
-    closeMenu();
+    setMobileMenuOpen(false);
+    setPortraitsDropdownOpen(false);
   }, [pathname]);
 
   // Lock background scroll while the full-screen overlay is open, and let
@@ -102,6 +125,26 @@ export default function Navbar() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [mobileMenuOpen]);
+
+  // The desktop dropdown gets its own Escape/outside-click handling,
+  // independent of the mobile menu's — it doesn't need a scroll lock.
+  useEffect(() => {
+    if (!portraitsDropdownOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setPortraitsDropdownOpen(false);
+    }
+    function onClickOutside(e: MouseEvent) {
+      if (portraitsRef.current && !portraitsRef.current.contains(e.target as Node)) {
+        setPortraitsDropdownOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    document.addEventListener("mousedown", onClickOutside);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onClickOutside);
+    };
+  }, [portraitsDropdownOpen]);
 
   // The overlay is hidden at md+ purely via CSS (`md:hidden`); if the
   // viewport crosses that breakpoint while it's open (e.g. rotating a
@@ -137,19 +180,57 @@ export default function Navbar() {
             Zach K. Johnson
           </Link>
           <nav className="hidden items-center gap-8 sm:gap-10 md:flex">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`text-[11px] uppercase tracking-[0.2em] transition-colors duration-500 ${
-                  scrolled
-                    ? "text-muted hover:text-foreground"
-                    : "text-white/80 hover:text-white"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {links.map((link) => {
+              const linkClass = `text-[11px] uppercase tracking-[0.2em] transition-colors duration-500 ${
+                scrolled
+                  ? "text-muted hover:text-foreground"
+                  : "text-white/80 hover:text-white"
+              }`;
+
+              if (link.href !== "/portraits") {
+                return (
+                  <Link key={link.href} href={link.href} className={linkClass}>
+                    {link.label}
+                  </Link>
+                );
+              }
+
+              return (
+                <div
+                  key={link.href}
+                  ref={portraitsRef}
+                  className="relative flex items-center gap-1.5"
+                  onMouseEnter={() => setPortraitsDropdownOpen(true)}
+                  onMouseLeave={() => setPortraitsDropdownOpen(false)}
+                >
+                  <Link href={link.href} className={linkClass}>
+                    {link.label}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setPortraitsDropdownOpen((open) => !open)}
+                    aria-expanded={portraitsDropdownOpen}
+                    aria-label="Show portrait categories"
+                    className={linkClass}
+                  >
+                    <CaretIcon open={portraitsDropdownOpen} />
+                  </button>
+                  {portraitsDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 min-w-[180px] border border-border bg-background/95 py-2 backdrop-blur-md">
+                      {PORTRAITS_SUBLINKS.map((sub) => (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          className="block px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
+                        >
+                          {sub.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
           <button
             type="button"
