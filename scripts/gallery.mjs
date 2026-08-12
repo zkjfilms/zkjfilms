@@ -4,6 +4,7 @@
 // Usage (via npm scripts — these already load .env.local):
 //   npm run gallery:list
 //   npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]
+//   npm run gallery:upload -- <slug> <local-folder>
 //   npm run gallery:set-expiry -- <slug> <date|none>
 //   npm run gallery:archive -- <slug>
 //   npm run gallery:unarchive -- <slug>
@@ -24,12 +25,15 @@
 
 import { randomInt } from "node:crypto";
 import { createInterface } from "node:readline/promises";
+import { readdirSync, readFileSync } from "node:fs";
+import { extname, join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import {
   S3Client,
   ListObjectsV2Command,
   DeleteObjectsCommand,
+  PutObjectCommand,
 } from "@aws-sdk/client-s3";
 
 function requireEnv(name) {
@@ -90,6 +94,18 @@ function generatePassword() {
 }
 
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
+
+// Kept in sync with CONTENT_TYPES in uploadImage.mjs by hand — same
+// reasoning as SITE_URL above (this file isn't compiled, so it can't
+// import a shared TS constant).
+const UPLOAD_CONTENT_TYPES = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".gif": "image/gif",
+};
 
 async function create(slug, title, clientName, expiresAtArg) {
   if (!slug || !title || !clientName) {
@@ -165,6 +181,75 @@ async function create(slug, title, clientName, expiresAtArg) {
       "Note: that date is in the past, so this gallery is immediately locked.",
     );
   }
+}
+
+async function upload(slug, folderPath) {
+  if (!slug || !folderPath) {
+    console.error("Usage: npm run gallery:upload -- <slug> <local-folder>");
+    process.exit(1);
+  }
+
+  const { data: gallery, error } = await supabase
+    .from("galleries")
+    .select("slug")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to look up gallery:", error.message);
+    process.exit(1);
+  }
+
+  if (!gallery) {
+    console.error(
+      `No gallery found with slug "${slug}". Create it first with gallery:create.`,
+    );
+    process.exit(1);
+  }
+
+  let entries;
+  try {
+    entries = readdirSync(folderPath, { withFileTypes: true });
+  } catch (err) {
+    console.error(`Failed to read folder "${folderPath}":`, err.message);
+    process.exit(1);
+  }
+
+  const client = getR2Client();
+  const bucket = requireEnv("R2_BUCKET_NAME");
+
+  let uploaded = 0;
+  let skipped = 0;
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+
+    const ext = extname(entry.name).toLowerCase();
+    const contentType = UPLOAD_CONTENT_TYPES[ext];
+
+    if (!contentType) {
+      console.log(`Skipping "${entry.name}" (not a recognized image type).`);
+      skipped += 1;
+      continue;
+    }
+
+    const body = readFileSync(join(folderPath, entry.name));
+    const key = `galleries/${slug}/${entry.name}`;
+
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+
+    console.log(`Uploaded ${entry.name} -> ${key}`);
+    uploaded += 1;
+  }
+
+  console.log(`\nUploaded ${uploaded} photo(s), skipped ${skipped} non-image file(s).`);
 }
 
 async function deleteGalleryPhotos(slug) {
@@ -375,6 +460,8 @@ const [, , command, ...args] = process.argv;
 
 if (command === "list") {
   await list();
+} else if (command === "upload") {
+  await upload(args[0], args[1]);
 } else if (command === "create") {
   await create(args[0], args[1], args[2], args[3]);
 } else if (command === "set") {
@@ -391,6 +478,7 @@ if (command === "list") {
       "Usage:",
       "  npm run gallery:list",
       '  npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]',
+      "  npm run gallery:upload -- <slug> <local-folder>",
       "  npm run gallery:set-expiry -- <slug> <date|none>",
       "  npm run gallery:archive -- <slug>",
       "  npm run gallery:unarchive -- <slug>",
