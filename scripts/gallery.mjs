@@ -80,17 +80,19 @@ const PASSWORD_WORDS = [
   "cinder", "sable", "laurel",
 ];
 
-// Two distinct words + a two-digit number, e.g. "dune-lantern-47". Not
-// meant to resist brute force on its own — the R2 photo URLs behind the
-// gate are short-lived signed URLs; this just keeps casual guessing out.
+// Three distinct words + a two-digit number, e.g. "dune-lantern-willow-47".
+// Three words keep this readable over a phone call while raising the guess
+// space meaningfully above the endpoint's lack of rate limiting — not a
+// substitute for rate limiting, which this password format alone cannot
+// provide.
 function generatePassword() {
-  const first = PASSWORD_WORDS[randomInt(PASSWORD_WORDS.length)];
-  let second = PASSWORD_WORDS[randomInt(PASSWORD_WORDS.length)];
-  while (second === first) {
-    second = PASSWORD_WORDS[randomInt(PASSWORD_WORDS.length)];
+  const words = [];
+  while (words.length < 3) {
+    const candidate = PASSWORD_WORDS[randomInt(PASSWORD_WORDS.length)];
+    if (!words.includes(candidate)) words.push(candidate);
   }
   const number = randomInt(10, 100);
-  return `${first}-${second}-${number}`;
+  return `${words.join("-")}-${number}`;
 }
 
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
@@ -220,9 +222,16 @@ async function upload(slug, folderPath) {
 
   let uploaded = 0;
   let skipped = 0;
+  let failed = 0;
 
   for (const entry of entries) {
     if (!entry.isFile()) continue;
+
+    if (entry.name.startsWith(".")) {
+      console.log(`Skipping "${entry.name}" (dotfile — likely a sidecar/system file, not a photo).`);
+      skipped += 1;
+      continue;
+    }
 
     const ext = extname(entry.name).toLowerCase();
     const contentType = UPLOAD_CONTENT_TYPES[ext];
@@ -233,23 +242,49 @@ async function upload(slug, folderPath) {
       continue;
     }
 
-    const body = readFileSync(join(folderPath, entry.name));
     const key = `galleries/${slug}/${entry.name}`;
 
-    await client.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: body,
-        ContentType: contentType,
-      }),
-    );
-
-    console.log(`Uploaded ${entry.name} -> ${key}`);
-    uploaded += 1;
+    try {
+      const body = readFileSync(join(folderPath, entry.name));
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: body,
+          ContentType: contentType,
+        }),
+      );
+      console.log(`Uploaded ${entry.name} -> ${key}`);
+      uploaded += 1;
+    } catch (err) {
+      console.error(`Failed to upload "${entry.name}":`, err.message);
+      failed += 1;
+      continue;
+    }
   }
 
-  console.log(`\nUploaded ${uploaded} photo(s), skipped ${skipped} non-image file(s).`);
+  console.log(
+    `\nUploaded ${uploaded} photo(s), skipped ${skipped} non-image file(s)${
+      failed > 0 ? `, failed ${failed} upload(s)` : ""
+    }.`,
+  );
+
+  if (uploaded > 0) {
+    const prefix = `galleries/${slug}/`;
+    const listing = await client.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }),
+    );
+    const count = listing.KeyCount ?? (listing.Contents ?? []).length;
+    if (count >= 1000) {
+      console.warn(
+        `WARNING: this gallery now has ${count} photos in R2. Only the first 1000 will be visible to the client (R2's list API caps at 1000 objects per prefix) — contact the developer about pagination before this gallery ships.`,
+      );
+    }
+  }
+
+  if (failed > 0) {
+    process.exit(1);
+  }
 }
 
 async function deleteGalleryPhotos(slug) {
