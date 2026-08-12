@@ -107,10 +107,28 @@ export default function GalleryGate({
   const session = parseSession(sessionRaw);
 
   const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
+  const [stage, setStage] = useState<"password" | "pin">("password");
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  // Shared by both handleSubmit and handlePinSubmit below — both end the
+  // same way once the server confirms access (with or without a PIN
+  // step in between), and this keeps that one behavior in one place.
+  function commitSession(data: {
+    images?: GalleryImage[];
+    imagesError?: boolean;
+    expiresAt?: number;
+  }) {
+    const newSession: Session = {
+      images: data.images ?? [],
+      imagesError: data.imagesError ?? false,
+      expiresAt: data.expiresAt ?? Date.now(),
+    };
+    sessionStorage.setItem(sessionKey(slug), JSON.stringify(newSession));
+  }
 
   function toggleSelect(key: string) {
     setSelected((prev) => {
@@ -140,6 +158,7 @@ export default function GalleryGate({
 
       const data: {
         error?: string;
+        pinRequired?: boolean;
         images?: GalleryImage[];
         imagesError?: boolean;
         expiresAt?: number;
@@ -151,12 +170,48 @@ export default function GalleryGate({
         return;
       }
 
-      const newSession: Session = {
-        images: data.images ?? [],
-        imagesError: data.imagesError ?? false,
-        expiresAt: data.expiresAt ?? Date.now(),
-      };
-      sessionStorage.setItem(sessionKey(slug), JSON.stringify(newSession));
+      if (data.pinRequired) {
+        setSubmitStatus("idle");
+        setStage("pin");
+        return;
+      }
+
+      commitSession(data);
+      setSubmitStatus("idle");
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setSubmitStatus("error");
+    }
+  }
+
+  async function handlePinSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (submitStatus === "loading") return;
+
+    setSubmitStatus("loading");
+    setError("");
+
+    try {
+      const response = await fetch("/api/gallery-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, password, pin }),
+      });
+
+      const data: {
+        error?: string;
+        images?: GalleryImage[];
+        imagesError?: boolean;
+        expiresAt?: number;
+      } = await response.json();
+
+      if (!response.ok) {
+        setError(data.error ?? "Something went wrong. Please try again.");
+        setSubmitStatus("error");
+        return;
+      }
+
+      commitSession(data);
       setSubmitStatus("idle");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -286,6 +341,49 @@ export default function GalleryGate({
             onNavigate={setLightboxIndex}
           />
         )}
+      </div>
+    );
+  }
+
+  if (stage === "pin") {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-foreground px-6 py-16 sm:px-10">
+        <div className="w-full max-w-md">
+          <p className="mb-3 text-center text-xs uppercase tracking-[0.3em] text-background/50">
+            Private Gallery
+          </p>
+          <h1 className="text-center font-serif text-3xl italic leading-tight text-background sm:text-4xl">
+            {title}
+          </h1>
+          <p className="mt-5 text-center text-sm leading-relaxed text-background/70">
+            Enter the 4-digit PIN shared with you to continue.
+          </p>
+
+          <form onSubmit={handlePinSubmit} className="mt-10 space-y-6">
+            <PasswordField
+              id="pin"
+              label="PIN"
+              inputMode="numeric"
+              maxLength={4}
+              value={pin}
+              onChange={(value) => {
+                setPin(value);
+                setError("");
+              }}
+              variant="dark"
+            />
+
+            {error && <p className="text-sm text-red-400">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={submitStatus === "loading"}
+              className="w-full border border-background px-8 py-3 text-xs uppercase tracking-[0.2em] text-background transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitStatus === "loading" ? "Checking…" : "Continue"}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }

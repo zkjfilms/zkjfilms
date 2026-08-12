@@ -7,6 +7,9 @@ type PasswordFieldProps = {
   value: string;
   onChange: (value: string) => void;
   variant: "dark" | "light";
+  label?: string;
+  inputMode?: "text" | "numeric";
+  maxLength?: number;
 };
 
 const VARIANT_CLASSES = {
@@ -27,6 +30,9 @@ export default function PasswordField({
   value,
   onChange,
   variant,
+  label = "Password",
+  inputMode = "text",
+  maxLength,
 }: PasswordFieldProps) {
   const [revealed, setRevealed] = useState(false);
   const classes = VARIANT_CLASSES[variant];
@@ -37,7 +43,7 @@ export default function PasswordField({
         htmlFor={id}
         className={`block text-xs uppercase tracking-[0.15em] ${classes.label}`}
       >
-        Password
+        {label}
       </label>
       <div className="relative mt-2">
         <input
@@ -47,6 +53,8 @@ export default function PasswordField({
           spellCheck={false}
           autoCorrect="off"
           autoCapitalize="none"
+          inputMode={inputMode}
+          maxLength={maxLength}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={`w-full border-b bg-transparent py-2 pr-10 outline-none transition-colors focus:border-accent ${classes.input}`}
