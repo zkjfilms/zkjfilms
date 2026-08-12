@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "gallery:list": "node --env-file=.env.local scripts/gallery.mjs list",
+    "gallery:create": "node --env-file=.env.local scripts/gallery.mjs create",
     "gallery:set-expiry": "node --env-file=.env.local scripts/gallery.mjs set",
     "gallery:archive": "node --env-file=.env.local scripts/gallery.mjs archive",
     "gallery:unarchive": "node --env-file=.env.local scripts/gallery.mjs unarchive",

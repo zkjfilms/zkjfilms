@@ -3,6 +3,7 @@
 //
 // Usage (via npm scripts — these already load .env.local):
 //   npm run gallery:list
+//   npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]
 //   npm run gallery:set-expiry -- <slug> <date|none>
 //   npm run gallery:archive -- <slug>
 //   npm run gallery:unarchive -- <slug>
@@ -21,8 +22,10 @@
 // Interactive by default (type the slug to confirm); pass --yes to skip
 // the prompt for non-interactive/scripted use.
 
+import { randomInt } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { createClient } from "@supabase/supabase-js";
+import bcrypt from "bcryptjs";
 import {
   S3Client,
   ListObjectsV2Command,
@@ -55,6 +58,113 @@ function getR2Client() {
       secretAccessKey: requireEnv("R2_SECRET_ACCESS_KEY"),
     },
   });
+}
+
+// zkjfilms.com — kept in sync manually since this script runs as plain
+// Node, not through Next/TypeScript (same reasoning as
+// PUBLIC_IMAGES_BASE_URL in uploadImage.mjs; see lib/seo.ts SITE_URL for
+// the source of truth used by the rest of the app).
+const SITE_URL = "https://zkjfilms.com";
+
+// Used by generatePassword() below. Deliberately plain, unambiguous
+// words (no near-duplicates like "there"/"their") since these are read
+// aloud or copy-pasted by clients, not typed from memory repeatedly.
+const PASSWORD_WORDS = [
+  "dune", "lantern", "willow", "harbor", "ember", "meadow", "cedar",
+  "canyon", "ridge", "marble", "violet", "amber", "thistle", "granite",
+  "coral", "birch", "quartz", "tundra", "orchid", "copper", "alpine",
+  "cinder", "sable", "laurel",
+];
+
+// Two distinct words + a two-digit number, e.g. "dune-lantern-47". Not
+// meant to resist brute force on its own — the R2 photo URLs behind the
+// gate are short-lived signed URLs; this just keeps casual guessing out.
+function generatePassword() {
+  const first = PASSWORD_WORDS[randomInt(PASSWORD_WORDS.length)];
+  let second = PASSWORD_WORDS[randomInt(PASSWORD_WORDS.length)];
+  while (second === first) {
+    second = PASSWORD_WORDS[randomInt(PASSWORD_WORDS.length)];
+  }
+  const number = randomInt(10, 100);
+  return `${first}-${second}-${number}`;
+}
+
+const SLUG_PATTERN = /^[a-z0-9-]+$/;
+
+async function create(slug, title, clientName, expiresAtArg) {
+  if (!slug || !title || !clientName) {
+    console.error(
+      'Usage: npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]',
+    );
+    process.exit(1);
+  }
+
+  if (!SLUG_PATTERN.test(slug)) {
+    console.error(
+      `"${slug}" isn't a valid slug — use only lowercase letters, numbers, and hyphens.`,
+    );
+    process.exit(1);
+  }
+
+  let expiresAt = null;
+  if (expiresAtArg && expiresAtArg !== "none" && expiresAtArg !== "clear") {
+    const parsed = new Date(expiresAtArg);
+    if (Number.isNaN(parsed.getTime())) {
+      console.error(
+        `"${expiresAtArg}" isn't a valid date. Try YYYY-MM-DD or a full ISO timestamp.`,
+      );
+      process.exit(1);
+    }
+    expiresAt = parsed.toISOString();
+  }
+
+  const { data: existing, error: lookupError } = await supabase
+    .from("galleries")
+    .select("slug")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("Failed to check for existing gallery:", lookupError.message);
+    process.exit(1);
+  }
+
+  if (existing) {
+    console.error(`A gallery with slug "${slug}" already exists.`);
+    process.exit(1);
+  }
+
+  const password = generatePassword();
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const { data, error } = await supabase
+    .from("galleries")
+    .insert({
+      slug,
+      title,
+      client_name: clientName,
+      password_hash: passwordHash,
+      expires_at: expiresAt,
+    })
+    .select("slug")
+    .single();
+
+  if (error) {
+    console.error("Failed to create gallery:", error.message);
+    process.exit(1);
+  }
+
+  console.log(`Created gallery "${data.slug}".`);
+  console.log(`URL: ${SITE_URL}/gallery/${data.slug}`);
+  console.log(`Password: ${password}`);
+  console.log("(Shown once — only its hash is stored. Save it before closing this terminal.)");
+  console.log(expiresAt ? `Expires: ${expiresAt}` : "Expires: never");
+
+  if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+    console.log(
+      "Note: that date is in the past, so this gallery is immediately locked.",
+    );
+  }
 }
 
 async function deleteGalleryPhotos(slug) {
@@ -265,6 +375,8 @@ const [, , command, ...args] = process.argv;
 
 if (command === "list") {
   await list();
+} else if (command === "create") {
+  await create(args[0], args[1], args[2], args[3]);
 } else if (command === "set") {
   await setExpiry(args[0], args[1]);
 } else if (command === "archive") {
@@ -278,6 +390,7 @@ if (command === "list") {
     [
       "Usage:",
       "  npm run gallery:list",
+      '  npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]',
       "  npm run gallery:set-expiry -- <slug> <date|none>",
       "  npm run gallery:archive -- <slug>",
       "  npm run gallery:unarchive -- <slug>",
