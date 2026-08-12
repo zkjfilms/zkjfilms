@@ -378,3 +378,10 @@ drop table if exists booking_slots;
 -- documented rough edge rather than a rewrite of those lines. In practice
 -- this file is applied statement-block-by-statement via the Supabase SQL
 -- Editor, not run end to end.
+
+-- Second factor for client galleries: an optional 4-digit PIN, checked
+-- after the password in app/api/gallery-access/route.ts. Nullable with
+-- no default — a null pin_hash means the gallery has no PIN and the
+-- second step never appears, which is what keeps every gallery created
+-- before this column existed working unchanged.
+alter table galleries add column if not exists pin_hash text;

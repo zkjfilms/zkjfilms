@@ -13,6 +13,8 @@
     "gallery:set-expiry": "node --env-file=.env.local scripts/gallery.mjs set",
     "gallery:archive": "node --env-file=.env.local scripts/gallery.mjs archive",
     "gallery:unarchive": "node --env-file=.env.local scripts/gallery.mjs unarchive",
+    "gallery:set-pin": "node --env-file=.env.local scripts/gallery.mjs set-pin",
+    "gallery:set-password": "node --env-file=.env.local scripts/gallery.mjs set-password",
     "gallery:delete": "node --env-file=.env.local scripts/gallery.mjs delete",
     "scheduling:sweep-pending": "node --env-file=.env.local scripts/scheduling.mjs sweep-pending",
     "image:upload": "node --env-file=.env.local scripts/uploadImage.mjs"

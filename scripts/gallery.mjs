@@ -8,6 +8,8 @@
 //   npm run gallery:set-expiry -- <slug> <date|none>
 //   npm run gallery:archive -- <slug>
 //   npm run gallery:unarchive -- <slug>
+//   npm run gallery:set-pin -- <slug>
+//   npm run gallery:set-password -- <slug>
 //   npm run gallery:delete -- <slug> [--yes] [--keep-photos]
 //
 // <date> accepts anything JS's Date constructor understands, e.g.
@@ -95,6 +97,12 @@ function generatePassword() {
   return `${words.join("-")}-${number}`;
 }
 
+// Used by create() and setPin() below. Zero-padded so e.g. 0472 stays
+// four characters — compared as a string, never parsed as a number.
+function generatePin() {
+  return String(randomInt(0, 10000)).padStart(4, "0");
+}
+
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 
 // Kept in sync with CONTENT_TYPES in uploadImage.mjs by hand — same
@@ -154,6 +162,8 @@ async function create(slug, title, clientName, expiresAtArg) {
 
   const password = generatePassword();
   const passwordHash = await bcrypt.hash(password, 10);
+  const pin = generatePin();
+  const pinHash = await bcrypt.hash(pin, 10);
 
   const { data, error } = await supabase
     .from("galleries")
@@ -162,6 +172,7 @@ async function create(slug, title, clientName, expiresAtArg) {
       title,
       client_name: clientName,
       password_hash: passwordHash,
+      pin_hash: pinHash,
       expires_at: expiresAt,
     })
     .select("slug")
@@ -175,7 +186,8 @@ async function create(slug, title, clientName, expiresAtArg) {
   console.log(`Created gallery "${data.slug}".`);
   console.log(`URL: ${SITE_URL}/gallery/${data.slug}`);
   console.log(`Password: ${password}`);
-  console.log("(Shown once — only its hash is stored. Save it before closing this terminal.)");
+  console.log(`PIN: ${pin}`);
+  console.log("(Shown once — only their hashes are stored. Save both before closing this terminal.)");
   console.log(expiresAt ? `Expires: ${expiresAt}` : "Expires: never");
 
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
@@ -425,6 +437,68 @@ async function setArchived(slug, archived) {
   );
 }
 
+async function setPin(slug) {
+  if (!slug) {
+    console.error("Usage: npm run gallery:set-pin -- <slug>");
+    process.exit(1);
+  }
+
+  const pin = generatePin();
+  const pinHash = await bcrypt.hash(pin, 10);
+
+  const { data, error } = await supabase
+    .from("galleries")
+    .update({ pin_hash: pinHash })
+    .eq("slug", slug)
+    .select("slug")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to set PIN:", error.message);
+    process.exit(1);
+  }
+
+  if (!data) {
+    console.error(`No gallery found with slug "${slug}".`);
+    process.exit(1);
+  }
+
+  console.log(`Set new PIN for gallery "${data.slug}".`);
+  console.log(`PIN: ${pin}`);
+  console.log("(Shown once — only its hash is stored. Save it before closing this terminal.)");
+}
+
+async function setPassword(slug) {
+  if (!slug) {
+    console.error("Usage: npm run gallery:set-password -- <slug>");
+    process.exit(1);
+  }
+
+  const password = generatePassword();
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const { data, error } = await supabase
+    .from("galleries")
+    .update({ password_hash: passwordHash })
+    .eq("slug", slug)
+    .select("slug")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to set password:", error.message);
+    process.exit(1);
+  }
+
+  if (!data) {
+    console.error(`No gallery found with slug "${slug}".`);
+    process.exit(1);
+  }
+
+  console.log(`Set new password for gallery "${data.slug}".`);
+  console.log(`Password: ${password}`);
+  console.log("(Shown once — only its hash is stored. Save it before closing this terminal.)");
+}
+
 async function del(slug, opts) {
   if (!slug) {
     console.error(
@@ -505,6 +579,10 @@ if (command === "list") {
   await setArchived(args[0], true);
 } else if (command === "unarchive") {
   await setArchived(args[0], false);
+} else if (command === "set-pin") {
+  await setPin(args[0]);
+} else if (command === "set-password") {
+  await setPassword(args[0]);
 } else if (command === "delete") {
   await del(args[0], args.slice(1));
 } else {
@@ -517,6 +595,8 @@ if (command === "list") {
       "  npm run gallery:set-expiry -- <slug> <date|none>",
       "  npm run gallery:archive -- <slug>",
       "  npm run gallery:unarchive -- <slug>",
+      "  npm run gallery:set-pin -- <slug>",
+      "  npm run gallery:set-password -- <slug>",
       "  npm run gallery:delete -- <slug> [--yes] [--keep-photos]",
     ].join("\n"),
   );
