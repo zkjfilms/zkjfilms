@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import type { GalleryImage } from "@/lib/r2";
 import GalleryLightbox from "./GalleryLightbox";
+import PasswordField from "@/components/PasswordField";
 
 type SubmitStatus = "idle" | "loading" | "error";
 type Session = {
@@ -303,25 +304,15 @@ export default function GalleryGate({
         </p>
 
         <form onSubmit={handleSubmit} className="mt-10 space-y-6">
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-xs uppercase tracking-[0.15em] text-background/50"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="off"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              className="mt-2 w-full border-b border-background/20 bg-transparent py-2 text-background outline-none transition-colors focus:border-accent"
-            />
-          </div>
+          <PasswordField
+            id="password"
+            value={password}
+            onChange={(value) => {
+              setPassword(value);
+              setError("");
+            }}
+            variant="dark"
+          />
 
           {error && <p className="text-sm text-red-400">{error}</p>}
 

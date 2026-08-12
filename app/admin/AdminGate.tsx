@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import PasswordField from "@/components/PasswordField";
 
 type Status = "idle" | "loading" | "error";
 
@@ -52,25 +53,15 @@ export default function AdminGate() {
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-10 space-y-6">
-        <div>
-          <label
-            htmlFor="password"
-            className="block text-xs uppercase tracking-[0.15em] text-muted"
-          >
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="off"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError("");
-            }}
-            className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none transition-colors focus:border-accent"
-          />
-        </div>
+        <PasswordField
+          id="password"
+          value={password}
+          onChange={(value) => {
+            setPassword(value);
+            setError("");
+          }}
+          variant="light"
+        />
 
         {error && <p className="text-sm text-red-700">{error}</p>}
 

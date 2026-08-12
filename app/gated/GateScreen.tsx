@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import PasswordField from "@/components/PasswordField";
 
 type Status = "idle" | "loading" | "error";
 
@@ -60,25 +61,15 @@ export default function GateScreen() {
         </p>
 
         <form onSubmit={handleSubmit} className="mt-10 space-y-6">
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-xs uppercase tracking-[0.15em] text-background/50"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="off"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              className="mt-2 w-full border-b border-background/20 bg-transparent py-2 text-background outline-none transition-colors focus:border-accent"
-            />
-          </div>
+          <PasswordField
+            id="password"
+            value={password}
+            onChange={(value) => {
+              setPassword(value);
+              setError("");
+            }}
+            variant="dark"
+          />
 
           <label className="flex items-start gap-3 text-sm text-background/70">
             <input
