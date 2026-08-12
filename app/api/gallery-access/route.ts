@@ -2,12 +2,13 @@ import bcrypt from "bcryptjs";
 import { getSupabaseClient } from "@/lib/supabase";
 import { listGalleryImages, SIGNED_URL_EXPIRY_SECONDS } from "@/lib/r2";
 import { isGalleryUnavailable } from "@/lib/gallery";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
-type Payload = { slug: string; password: string };
+type Payload = { slug: string; password: string; pin?: string };
 
 function parsePayload(body: unknown): Payload | null {
   if (typeof body !== "object" || body === null) return null;
-  const { slug, password } = body as Record<string, unknown>;
+  const { slug, password, pin } = body as Record<string, unknown>;
 
   if (
     typeof slug !== "string" ||
@@ -18,7 +19,11 @@ function parsePayload(body: unknown): Payload | null {
     return null;
   }
 
-  return { slug, password };
+  if (pin !== undefined && typeof pin !== "string") {
+    return null;
+  }
+
+  return { slug, password, pin };
 }
 
 export async function POST(request: Request) {
@@ -34,6 +39,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
+  const ip = getClientIp(request);
+  const { allowed } = await checkRateLimit({
+    ip,
+    endpoint: "gallery-access",
+    maxHits: 10,
+    windowMinutes: 15,
+  });
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many attempts. Please try again shortly." },
+      { status: 429 },
+    );
+  }
+
   let supabase;
   try {
     supabase = getSupabaseClient();
@@ -47,7 +66,7 @@ export async function POST(request: Request) {
 
   const { data: gallery, error } = await supabase
     .from("galleries")
-    .select("password_hash, expires_at, archived_at")
+    .select("password_hash, pin_hash, expires_at, archived_at")
     .eq("slug", payload.slug)
     .maybeSingle();
 
@@ -74,6 +93,17 @@ export async function POST(request: Request) {
 
   if (!passwordMatches) {
     return Response.json({ error: "Incorrect password." }, { status: 401 });
+  }
+
+  if (gallery.pin_hash) {
+    if (!payload.pin) {
+      return Response.json({ ok: true, pinRequired: true });
+    }
+
+    const pinMatches = await bcrypt.compare(payload.pin, gallery.pin_hash);
+    if (!pinMatches) {
+      return Response.json({ error: "Incorrect PIN." }, { status: 401 });
+    }
   }
 
   // The client caches this response (including expiresAt) in
