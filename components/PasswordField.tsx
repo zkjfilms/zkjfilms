@@ -44,16 +44,19 @@ export default function PasswordField({
           id={id}
           type={revealed ? "text" : "password"}
           autoComplete="off"
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="none"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full border-b bg-transparent py-2 pr-8 outline-none transition-colors focus:border-accent ${classes.input}`}
+          className={`w-full border-b bg-transparent py-2 pr-10 outline-none transition-colors focus:border-accent ${classes.input}`}
         />
         <button
           type="button"
           onClick={() => setRevealed((prev) => !prev)}
           aria-label={revealed ? "Hide password" : "Show password"}
           aria-pressed={revealed}
-          className={`absolute right-0 top-1/2 -translate-y-1/2 transition-colors ${classes.icon}`}
+          className={`absolute right-0 top-1/2 -translate-y-1/2 p-2 -mr-2 transition-colors ${classes.icon}`}
         >
           {revealed ? <EyeOffIcon /> : <EyeIcon />}
         </button>
