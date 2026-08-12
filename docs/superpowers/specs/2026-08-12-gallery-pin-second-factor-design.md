@@ -6,7 +6,7 @@ Client galleries are gated by a single password (`docs/superpowers/specs/2026-08
 
 ## Goal
 
-Add an optional 4-digit PIN as a second factor for client galleries specifically, entered as a separate step after the password, plus rate limiting on the endpoint that checks both — without breaking any gallery created before this feature exists.
+Add an optional 4-digit PIN as a second factor for client galleries specifically, entered as a separate step after the password, plus rate limiting on the endpoint that checks both — without breaking any gallery created before this feature exists. Also add a way to reset either secret from the CLI without relying on a hand-typed replacement, since neither `create` nor any existing command currently offers a way to regenerate a gallery's password after the fact (only `set-pin`, introduced by this same change, would have one).
 
 ## Design
 
@@ -44,6 +44,12 @@ Expires: never
 ### `scripts/gallery.mjs`: `set-pin` (new command)
 
 `npm run gallery:set-pin -- <slug>` — generates a fresh 4-digit PIN via the same `generatePin()`, hashes it, and updates the gallery's `pin_hash` (looking the gallery up first, same "no gallery found" error pattern as the other lifecycle commands). Prints the new PIN once, same "shown once" framing. This is how a PIN gets added to a gallery created before this feature (e.g. `andi`), or rotated on an existing one. No corresponding "clear PIN" command — removing this protection is rare enough to do by hand in Supabase if it's ever actually needed, not worth a one-line CLI command that makes it easy to accidentally weaken a gallery's protection.
+
+### `scripts/gallery.mjs`: `set-password` (new command)
+
+`npm run gallery:set-password -- <slug>` — the password equivalent of `set-pin`, and the reason both exist: right now there's no way to reset a gallery's password after `create` without hand-editing the database. Generates a fresh password via the same `generatePassword()` `create` already uses (three distinct words from `PASSWORD_WORDS` plus a random two-digit number), hashes it, and updates `password_hash`. Same "no gallery found" lookup and "shown once" print framing as every other secret-touching command in this file.
+
+Deliberately **generate-only, no argument to supply a specific password** — this is the answer to "how do I reset it without relying on a hand-picked one": the command always produces a fresh, full-entropy password the same way `create` does, so a reset can never accidentally introduce a weaker, human-chosen secret. If you ever genuinely need to set an exact string (recovering a password a client already has memorized, for instance), that's a deliberately unsupported path — do it directly in Supabase.
 
 ### `app/api/gallery-access/route.ts`
 
@@ -98,6 +104,7 @@ Flow:
 ### Out of scope
 
 - No "clear PIN" CLI command (see `set-pin` above).
+- No way to set an exact, hand-chosen password or PIN via `set-password`/`set-pin` — both are generate-only, by design (see `set-password` above).
 - No persistence of the intermediate "password verified, awaiting PIN" state across a page refresh.
 - Admin sign-in (`AdminGate.tsx`) and the age-gated section (`GateScreen.tsx`) are unaffected — single-factor password only, per the scope decision made during brainstorming.
 - No change to how `expires_at`/`archived_at` are checked — that logic runs once, on the password step, exactly as today.
@@ -108,6 +115,7 @@ Flow:
 - `tsc --noEmit` and a full production build.
 - `npm run gallery:create -- test-gallery-pin "Test" "Test"`: confirm both a password and a 4-digit PIN print, and that the `galleries` row has both `password_hash` and `pin_hash` set (bcrypt-prefixed).
 - `npm run gallery:set-pin -- andi`: confirm a new PIN prints and `andi`'s row gets a `pin_hash` where it previously had `null`.
+- `npm run gallery:set-password -- test-gallery-pin`: confirm a new password prints (different from the one `create` generated), the old password no longer unlocks the gallery, and the new one does.
 - Browser, on `test-gallery-pin` (has a PIN): enter the correct password → confirm the PIN screen appears with no photos shown yet → enter an incorrect PIN → confirm "Incorrect PIN." and the screen stays on PIN entry → enter the correct PIN → confirm photos load and the gallery behaves exactly as before (download, lightbox, `sessionStorage` session) once unlocked.
 - Browser, on the existing `andi` gallery *before* running `gallery:set-pin` on it: confirm the password alone still unlocks it directly, no PIN screen appears — proves backward compatibility.
 - Confirm rate limiting: script or manually fire 11 requests at `/api/gallery-access` for the same IP within 15 minutes and confirm the 11th returns `429` with the "Too many attempts" message.
