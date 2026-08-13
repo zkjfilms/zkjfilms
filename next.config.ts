@@ -19,7 +19,7 @@ const r2PublicHost = new URL(PUBLIC_IMAGES_BASE_URL).hostname;
 function buildCspHeader(isDev: boolean): string {
   return [
     `default-src 'self'`,
-    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' 'unsafe-inline'`,
     // Client galleries and /films load photos/videos directly from R2 via
     // plain <img>/<video> tags (signed or public URLs), not through
@@ -32,12 +32,12 @@ function buildCspHeader(isDev: boolean): string {
     // app/about/page.tsx embeds the studio location as a Google Maps
     // iframe; without this the map silently fails to load (falls back to
     // default-src 'self') with no visible error beyond the console.
-    `frame-src 'self' https://www.google.com`,
+    `frame-src 'self' https://www.google.com https://challenges.cloudflare.com`,
     `font-src 'self'`,
     // lib/supabaseBrowser.ts connects directly from the browser for
     // Realtime Broadcast (live booking-availability updates) — the only
     // client-side Supabase usage in the app.
-    `connect-src 'self' https://*.supabase.co wss://*.supabase.co`,
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com`,
     `object-src 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
