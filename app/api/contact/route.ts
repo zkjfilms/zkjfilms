@@ -2,6 +2,8 @@ import { Resend } from "resend";
 import { BUSINESS } from "@/lib/seo";
 import { getSupabaseClient } from "@/lib/supabase";
 import { escapeHtml } from "@/lib/email";
+import { verifyTurnstileToken } from "@/lib/turnstile";
+import { getClientIp } from "@/lib/rateLimit";
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
 
@@ -12,11 +14,12 @@ type ContactPayload = {
   email: string;
   sessionType: string;
   message: string;
+  turnstileToken: string;
 };
 
 function parsePayload(body: unknown): ContactPayload | null {
   if (typeof body !== "object" || body === null) return null;
-  const { name, email, sessionType, message } = body as Record<
+  const { name, email, sessionType, message, turnstileToken } = body as Record<
     string,
     unknown
   >;
@@ -25,7 +28,9 @@ function parsePayload(body: unknown): ContactPayload | null {
     typeof name !== "string" ||
     typeof email !== "string" ||
     typeof sessionType !== "string" ||
-    typeof message !== "string"
+    typeof message !== "string" ||
+    typeof turnstileToken !== "string" ||
+    !turnstileToken
   ) {
     return null;
   }
@@ -35,6 +40,7 @@ function parsePayload(body: unknown): ContactPayload | null {
     email: email.trim(),
     sessionType: sessionType.trim(),
     message: message.trim(),
+    turnstileToken,
   };
 
   if (
@@ -61,6 +67,26 @@ export async function POST(request: Request) {
   if (!payload) {
     return Response.json(
       { error: "Please fill out all fields with a valid email address." },
+      { status: 400 },
+    );
+  }
+
+  const verification = await verifyTurnstileToken(
+    payload.turnstileToken,
+    getClientIp(request),
+  );
+  if (!verification.ok) {
+    if (verification.reason === "unreachable") {
+      return Response.json(
+        {
+          error:
+            "Verification service is temporarily unavailable. Please try again shortly.",
+        },
+        { status: 503 },
+      );
+    }
+    return Response.json(
+      { error: "Verification failed. Please try again." },
       { status: 400 },
     );
   }

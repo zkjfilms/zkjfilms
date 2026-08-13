@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { SESSION_TYPES } from "@/lib/leads";
+import TurnstileWidget, {
+  type TurnstileWidgetHandle,
+} from "@/components/TurnstileWidget";
 
 type Status = "idle" | "loading" | "submitted" | "error";
 
@@ -49,6 +52,8 @@ export default function ContactForm() {
     sessionType: "",
     message: "",
   });
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   function handleChange(
     e: React.ChangeEvent<
@@ -75,7 +80,7 @@ export default function ContactForm() {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, turnstileToken }),
       });
 
       if (!response.ok) {
@@ -84,6 +89,8 @@ export default function ContactForm() {
 
       setStatus("submitted");
     } catch {
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
       setStatus("error");
     }
   }
@@ -196,10 +203,12 @@ export default function ContactForm() {
         )}
       </div>
 
+      <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} />
+
       <div>
         <button
           type="submit"
-          disabled={status === "loading"}
+          disabled={status === "loading" || !turnstileToken}
           className="mt-4 border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
         >
           {status === "loading" ? "Sending…" : "Send Message"}
