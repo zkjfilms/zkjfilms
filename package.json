@@ -17,7 +17,12 @@
     "gallery:set-password": "node --env-file=.env.local scripts/gallery.mjs set-password",
     "gallery:delete": "node --env-file=.env.local scripts/gallery.mjs delete",
     "scheduling:sweep-pending": "node --env-file=.env.local scripts/scheduling.mjs sweep-pending",
-    "image:upload": "node --env-file=.env.local scripts/uploadImage.mjs"
+    "image:upload": "node --env-file=.env.local scripts/uploadImage.mjs",
+    "video:list": "node --env-file=.env.local scripts/video.mjs list",
+    "video:create": "node --env-file=.env.local scripts/video.mjs create",
+    "video:upload": "node --env-file=.env.local scripts/video.mjs upload",
+    "video:set-order": "node --env-file=.env.local scripts/video.mjs set-order",
+    "video:delete": "node --env-file=.env.local scripts/video.mjs delete"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",

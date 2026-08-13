@@ -385,3 +385,23 @@ drop table if exists booking_slots;
 -- second step never appears, which is what keeps every gallery created
 -- before this column existed working unchanged.
 alter table galleries add column if not exists pin_hash text;
+
+-- Public showcase videos for /films — self-hosted via the same public R2
+-- bucket used for marketing photos (zkjfilms-public), not the private
+-- client-gallery bucket. RLS enabled with no policies, matching every
+-- other admin-managed table in this schema — all access goes through the
+-- service-role client server-side.
+create table videos (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  description text,
+  video_key text not null,
+  poster_key text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index videos_sort_order_idx on videos (sort_order);
+
+alter table videos enable row level security;
