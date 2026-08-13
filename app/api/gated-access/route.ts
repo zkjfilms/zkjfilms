@@ -3,6 +3,7 @@ import {
   createAccessToken,
   GATED_ACCESS_COOKIE,
 } from "@/lib/gatedAccess";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 type Payload = { password: string; ageConfirmed: boolean };
 
@@ -28,6 +29,19 @@ export async function POST(request: Request) {
   const payload = parsePayload(rawBody);
   if (!payload) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const { allowed } = await checkRateLimit({
+    ip: getClientIp(request),
+    endpoint: "gated-access",
+    maxHits: 10,
+    windowMinutes: 15,
+  });
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many attempts. Please try again shortly." },
+      { status: 429 },
+    );
   }
 
   if (!payload.ageConfirmed) {
