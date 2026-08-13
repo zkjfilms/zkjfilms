@@ -1,6 +1,7 @@
 // S3-compatible client for Cloudflare R2, used by the client gallery
-// feature to store and serve images.
+// feature to store and serve photos and videos.
 
+import { extname } from "node:path";
 import {
   GetObjectCommand,
   ListObjectsV2Command,
@@ -29,24 +30,42 @@ export function getR2Client(): S3Client {
   });
 }
 
-export type GalleryImage = {
+export type GalleryMedia = {
   key: string;
   url: string;
   downloadUrl: string;
   filename: string;
+  isVideo: boolean;
 };
 
 export const SIGNED_URL_EXPIRY_SECONDS = 60 * 60; // 1 hour
 
-// Images for a gallery live under galleries/<slug>/ in the bucket. Signed
+// Kept in sync with UPLOAD_CONTENT_TYPES's video entries in
+// scripts/gallery.mjs by hand — that script can't import this file since
+// it runs as plain Node, not through Next/TypeScript.
+const VIDEO_EXTENSIONS = new Set([".mp4"]);
+
+function isVideoFile(filename: string): boolean {
+  return VIDEO_EXTENSIONS.has(extname(filename).toLowerCase());
+}
+
+// A gallery can hold a mix of photos and short client-delivery videos —
+// this list treats them uniformly (same signed-URL mechanism, same
+// listing) and just tags each item so the UI knows how to render it.
+//
+// Media for a gallery lives under galleries/<slug>/ in the bucket. Signed
 // URLs expire after an hour — a client browsing longer than that in one
 // sitting would need to re-unlock to get fresh URLs.
 //
-// Two signed URLs per image: `url` for inline display, and `downloadUrl`
-// with a Content-Disposition override so browsers reliably save it as a
-// file with the right name instead of navigating to it — the plain HTML
-// `download` attribute isn't consistently honored for cross-origin URLs.
-export async function listGalleryImages(slug: string): Promise<GalleryImage[]> {
+// Two signed URLs per item: `url` for inline display/playback, and
+// `downloadUrl` with a Content-Disposition override so browsers reliably
+// save it as a file with the right name instead of navigating to it — the
+// plain HTML `download` attribute isn't consistently honored for
+// cross-origin URLs. Both work identically for photos and videos — R2
+// presigned GET URLs support HTTP Range requests regardless of content
+// type, so video seeking/scrubbing works the same way it does for the
+// public showcase videos (app/films).
+export async function listGalleryImages(slug: string): Promise<GalleryMedia[]> {
   const client = getR2Client();
 
   const listing = await client.send(
@@ -82,7 +101,7 @@ export async function listGalleryImages(slug: string): Promise<GalleryImage[]> {
         ),
       ]);
 
-      return { key: obj.Key, url, downloadUrl, filename };
+      return { key: obj.Key, url, downloadUrl, filename, isVideo: isVideoFile(filename) };
     }),
   );
 }

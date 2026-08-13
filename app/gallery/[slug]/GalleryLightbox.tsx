@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import type { GalleryImage } from "@/lib/r2";
+import type { GalleryMedia } from "@/lib/r2";
 
 export default function GalleryLightbox({
   images,
@@ -9,7 +9,7 @@ export default function GalleryLightbox({
   onClose,
   onNavigate,
 }: {
-  images: GalleryImage[];
+  images: GalleryMedia[];
   index: number;
   onClose: () => void;
   onNavigate: (index: number) => void;
@@ -75,13 +75,22 @@ export default function GalleryLightbox({
         </>
       )}
 
-      {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 URL */}
-      <img
-        src={image.url}
-        alt=""
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-full max-w-full object-contain"
-      />
+      {image.isVideo ? (
+        <video
+          src={image.url}
+          controls
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-full max-w-full object-contain"
+        />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- signed R2 URL
+        <img
+          src={image.url}
+          alt=""
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-full max-w-full object-contain"
+        />
+      )}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs uppercase tracking-[0.15em] text-white/60">
         {index + 1} / {images.length}

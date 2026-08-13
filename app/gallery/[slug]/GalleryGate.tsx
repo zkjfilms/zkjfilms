@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useSyncExternalStore, type FormEvent } from "react";
-import type { GalleryImage } from "@/lib/r2";
+import type { GalleryMedia } from "@/lib/r2";
 import GalleryLightbox from "./GalleryLightbox";
 import PasswordField from "@/components/PasswordField";
 
 type SubmitStatus = "idle" | "loading" | "error";
 type Session = {
-  images: GalleryImage[];
+  images: GalleryMedia[];
   imagesError: boolean;
   expiresAt: number;
 };
@@ -15,7 +15,7 @@ type Session = {
 // Triggers a native browser download for one image via a throwaway
 // anchor — downloadUrl carries a Content-Disposition: attachment header
 // from the server so this reliably saves a file rather than navigating.
-function triggerDownload(image: GalleryImage) {
+function triggerDownload(image: GalleryMedia) {
   const link = document.createElement("a");
   link.href = image.downloadUrl;
   link.download = image.filename;
@@ -29,7 +29,7 @@ function triggerDownload(image: GalleryImage) {
 // tight loop — spacing them out keeps each one going through cleanly
 // (though the browser may still show a one-time "allow multiple
 // downloads" prompt for the first batch).
-async function triggerDownloads(images: GalleryImage[]) {
+async function triggerDownloads(images: GalleryMedia[]) {
   for (const image of images) {
     triggerDownload(image);
     await new Promise((resolve) => setTimeout(resolve, 350));
@@ -118,7 +118,7 @@ export default function GalleryGate({
   // same way once the server confirms access (with or without a PIN
   // step in between), and this keeps that one behavior in one place.
   function commitSession(data: {
-    images?: GalleryImage[];
+    images?: GalleryMedia[];
     imagesError?: boolean;
     expiresAt?: number;
   }) {
@@ -159,7 +159,7 @@ export default function GalleryGate({
       const data: {
         error?: string;
         pinRequired?: boolean;
-        images?: GalleryImage[];
+        images?: GalleryMedia[];
         imagesError?: boolean;
         expiresAt?: number;
       } = await response.json();
@@ -200,7 +200,7 @@ export default function GalleryGate({
 
       const data: {
         error?: string;
-        images?: GalleryImage[];
+        images?: GalleryMedia[];
         imagesError?: boolean;
         expiresAt?: number;
       } = await response.json();
@@ -284,9 +284,9 @@ export default function GalleryGate({
             </p>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {images.map((image, i) => (
+              {images.map((media, i) => (
                 <div
-                  key={image.key}
+                  key={media.key}
                   role="button"
                   tabIndex={0}
                   onClick={() => setLightboxIndex(i)}
@@ -298,30 +298,50 @@ export default function GalleryGate({
                   }}
                   className="group relative aspect-square cursor-pointer overflow-hidden bg-surface"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- signed R2 URLs, not a static/optimizable asset */}
-                  <img
-                    src={image.url}
-                    alt={`${title} photo`}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                  />
+                  {media.isVideo ? (
+                    <video
+                      src={media.url}
+                      preload="metadata"
+                      muted
+                      playsInline
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element -- signed R2 URLs, not a static/optimizable asset
+                    <img
+                      src={media.url}
+                      alt={`${title} photo`}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                    />
+                  )}
+
+                  {media.isVideo && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+                        <PlayIcon />
+                      </div>
+                    </div>
+                  )}
 
                   <label
                     onClick={(e) => e.stopPropagation()}
                     className="absolute left-2 top-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-black/40 backdrop-blur-sm"
                   >
-                    <span className="sr-only">Select this photo</span>
+                    <span className="sr-only">
+                      Select this {media.isVideo ? "video" : "photo"}
+                    </span>
                     <input
                       type="checkbox"
-                      checked={selected.has(image.key)}
-                      onChange={() => toggleSelect(image.key)}
+                      checked={selected.has(media.key)}
+                      onChange={() => toggleSelect(media.key)}
                       className="h-4 w-4 accent-accent"
                     />
                   </label>
 
                   <a
-                    href={image.downloadUrl}
-                    download={image.filename}
+                    href={media.downloadUrl}
+                    download={media.filename}
                     onClick={(e) => e.stopPropagation()}
                     className="absolute bottom-2 right-2 z-10 rounded bg-black/40 px-2 py-1 text-[10px] uppercase tracking-wide text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
                   >
@@ -424,5 +444,18 @@ export default function GalleryGate({
         </form>
       </div>
     </div>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="h-6 w-6 text-white"
+      aria-hidden="true"
+    >
+      <path d="M8 5v14l11-7z" />
+    </svg>
   );
 }

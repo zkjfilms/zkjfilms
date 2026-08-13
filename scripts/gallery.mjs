@@ -115,6 +115,7 @@ const UPLOAD_CONTENT_TYPES = {
   ".webp": "image/webp",
   ".avif": "image/avif",
   ".gif": "image/gif",
+  ".mp4": "video/mp4",
 };
 
 async function create(slug, title, clientName, expiresAtArg) {
