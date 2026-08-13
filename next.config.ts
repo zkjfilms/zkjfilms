@@ -1,6 +1,41 @@
 import type { NextConfig } from "next";
 import { PUBLIC_IMAGES_BASE_URL } from "./lib/media";
 
+// Static (no nonces) CSP — the nonce-based alternative Next.js supports
+// requires every page to render dynamically per request, which would
+// disable the static generation and 5-minute ISR revalidation this site
+// relies on (/, /films, /faq, /book). script-src/style-src need
+// 'unsafe-inline' as the tradeoff: Next/React inject inline hydration
+// data, and several pages render inline JSON-LD structured data
+// (app/page.tsx, app/faq/page.tsx) with DB-driven content that can't be
+// hash-pinned at build time.
+function buildCspHeader(isDev: boolean): string {
+  const r2PublicHost = new URL(PUBLIC_IMAGES_BASE_URL).hostname;
+  return [
+    `default-src 'self'`,
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+    `style-src 'self' 'unsafe-inline'`,
+    // Client galleries and /films load photos/videos directly from R2 via
+    // plain <img>/<video> tags (signed or public URLs), not through
+    // next/image's same-origin proxy — bare 'self' wouldn't cover these.
+    // The private bucket's account-ID subdomain isn't a secret (it's
+    // already visible in every signed URL a gallery viewer's browser
+    // requests), so a wildcard is used rather than hardcoding it.
+    `img-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://${r2PublicHost}`,
+    `media-src 'self' https://*.r2.cloudflarestorage.com https://${r2PublicHost}`,
+    `font-src 'self'`,
+    // lib/supabaseBrowser.ts connects directly from the browser for
+    // Realtime Broadcast (live booking-availability updates) — the only
+    // client-side Supabase usage in the app.
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co`,
+    `object-src 'none'`,
+    `base-uri 'self'`,
+    `form-action 'self'`,
+    `frame-ancestors 'none'`,
+    `upgrade-insecure-requests`,
+  ].join("; ");
+}
+
 const nextConfig: NextConfig = {
   images: {
     // Next.js 16 requires listing every quality value used via the
@@ -32,6 +67,33 @@ const nextConfig: NextConfig = {
         search: "",
       },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: buildCspHeader(process.env.NODE_ENV === "development"),
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=()",
+          },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+    ];
   },
 };
 
