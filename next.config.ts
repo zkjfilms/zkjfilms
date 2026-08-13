@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 import { PUBLIC_IMAGES_BASE_URL } from "./lib/media";
 
+const r2PublicHost = new URL(PUBLIC_IMAGES_BASE_URL).hostname;
+
 // Static (no nonces) CSP — the nonce-based alternative Next.js supports
 // requires every page to render dynamically per request, which would
 // disable the static generation and 5-minute ISR revalidation this site
@@ -9,8 +11,12 @@ import { PUBLIC_IMAGES_BASE_URL } from "./lib/media";
 // data, and several pages render inline JSON-LD structured data
 // (app/page.tsx, app/faq/page.tsx) with DB-driven content that can't be
 // hash-pinned at build time.
+//
+// Note: Vercel's preview-deployment toolbar (vercel.live) will show CSP
+// violations in the console on *preview* URLs specifically — expected,
+// not a bug; Vercel doesn't inject that toolbar into production. Don't
+// widen this policy to accommodate a preview-only tool.
 function buildCspHeader(isDev: boolean): string {
-  const r2PublicHost = new URL(PUBLIC_IMAGES_BASE_URL).hostname;
   return [
     `default-src 'self'`,
     `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
@@ -23,6 +29,10 @@ function buildCspHeader(isDev: boolean): string {
     // requests), so a wildcard is used rather than hardcoding it.
     `img-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://${r2PublicHost}`,
     `media-src 'self' https://*.r2.cloudflarestorage.com https://${r2PublicHost}`,
+    // app/about/page.tsx embeds the studio location as a Google Maps
+    // iframe; without this the map silently fails to load (falls back to
+    // default-src 'self') with no visible error beyond the console.
+    `frame-src 'self' https://www.google.com`,
     `font-src 'self'`,
     // lib/supabaseBrowser.ts connects directly from the browser for
     // Realtime Broadcast (live booking-availability updates) — the only
@@ -61,7 +71,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: new URL(PUBLIC_IMAGES_BASE_URL).hostname,
+        hostname: r2PublicHost,
         port: "",
         pathname: "/**",
         search: "",
