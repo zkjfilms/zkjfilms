@@ -29,8 +29,7 @@ function parsePayload(body: unknown): ContactPayload | null {
     typeof email !== "string" ||
     typeof sessionType !== "string" ||
     typeof message !== "string" ||
-    typeof turnstileToken !== "string" ||
-    !turnstileToken
+    (typeof turnstileToken !== "string" && turnstileToken !== undefined)
   ) {
     return null;
   }
@@ -40,7 +39,7 @@ function parsePayload(body: unknown): ContactPayload | null {
     email: email.trim(),
     sessionType: sessionType.trim(),
     message: message.trim(),
-    turnstileToken,
+    turnstileToken: turnstileToken === undefined ? "" : turnstileToken,
   };
 
   if (
@@ -67,6 +66,13 @@ export async function POST(request: Request) {
   if (!payload) {
     return Response.json(
       { error: "Please fill out all fields with a valid email address." },
+      { status: 400 },
+    );
+  }
+
+  if (!payload.turnstileToken) {
+    return Response.json(
+      { error: "Verification failed. Please try again." },
       { status: 400 },
     );
   }
