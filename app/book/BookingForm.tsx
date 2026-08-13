@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import TurnstileWidget, {
+  type TurnstileWidgetHandle,
+} from "@/components/TurnstileWidget";
 
 type Props = {
   appointmentTypeId: string;
@@ -17,6 +20,8 @@ export default function BookingForm({ appointmentTypeId, date, startTime, onBack
   const [form, setForm] = useState({ clientName: "", clientEmail: "", clientPhone: "", notes: "", honeypot: "" });
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -28,12 +33,14 @@ export default function BookingForm({ appointmentTypeId, date, startTime, onBack
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appointmentTypeId, date, startTime, ...form }),
+        body: JSON.stringify({ appointmentTypeId, date, startTime, ...form, turnstileToken }),
       });
       const data: { checkoutUrl?: string | null; error?: string } = await response.json();
 
       if (!response.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
+        turnstileRef.current?.reset();
+        setTurnstileToken("");
         setStatus("idle");
         return;
       }
@@ -44,6 +51,8 @@ export default function BookingForm({ appointmentTypeId, date, startTime, onBack
       redirectTo("/book/confirmed");
     } catch {
       setError("Something went wrong. Please try again.");
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
       setStatus("idle");
     }
   }
@@ -102,10 +111,11 @@ export default function BookingForm({ appointmentTypeId, date, startTime, onBack
           />
         </label>
       </div>
+      <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button
         type="submit"
-        disabled={status === "loading"}
+        disabled={status === "loading" || !turnstileToken}
         className="w-full border border-foreground py-3 text-xs uppercase tracking-[0.3em] text-foreground transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
       >
         {status === "loading" ? "Please wait…" : "Confirm Booking"}

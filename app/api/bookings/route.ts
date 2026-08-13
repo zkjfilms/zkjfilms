@@ -5,6 +5,7 @@ import { createFullPaymentCheckoutSession } from "@/lib/stripe";
 import { sendFreeBookingConfirmedEmail } from "@/lib/email";
 import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,6 +18,7 @@ type Payload = {
   clientPhone: string;
   notes: string;
   honeypot: string;
+  turnstileToken: string;
 };
 
 function parsePayload(body: unknown): Payload | null {
@@ -33,7 +35,9 @@ function parsePayload(body: unknown): Payload | null {
     !EMAIL_REGEX.test(b.clientEmail.trim()) ||
     typeof b.clientPhone !== "string" ||
     typeof b.notes !== "string" ||
-    typeof b.honeypot !== "string"
+    typeof b.honeypot !== "string" ||
+    typeof b.turnstileToken !== "string" ||
+    !b.turnstileToken
   ) {
     return null;
   }
@@ -46,6 +50,7 @@ function parsePayload(body: unknown): Payload | null {
     clientPhone: b.clientPhone.trim(),
     notes: b.notes.trim(),
     honeypot: b.honeypot,
+    turnstileToken: b.turnstileToken,
   };
 }
 
@@ -65,6 +70,23 @@ export async function POST(request: Request) {
   const { allowed } = await checkRateLimit({ ip, endpoint: "bookings", maxHits: 5, windowMinutes: 10 });
   if (!allowed) {
     return Response.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
+  }
+
+  const verification = await verifyTurnstileToken(payload.turnstileToken, ip);
+  if (!verification.ok) {
+    if (verification.reason === "unreachable") {
+      return Response.json(
+        {
+          error:
+            "Verification service is temporarily unavailable. Please try again shortly.",
+        },
+        { status: 503 },
+      );
+    }
+    return Response.json(
+      { error: "Verification failed. Please try again." },
+      { status: 400 },
+    );
   }
 
   const supabase = getSupabaseClient();
