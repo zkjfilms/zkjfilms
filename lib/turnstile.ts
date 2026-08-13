@@ -35,6 +35,11 @@ export async function verifyTurnstileToken(
     return { ok: false, reason: "unreachable" };
   }
 
-  const data = (await response.json()) as { success: boolean };
-  return data.success ? { ok: true } : { ok: false, reason: "invalid" };
+  try {
+    const data = (await response.json()) as { success: boolean };
+    return data.success ? { ok: true } : { ok: false, reason: "invalid" };
+  } catch (err) {
+    console.error("Turnstile response JSON parse failed:", err);
+    return { ok: false, reason: "unreachable" };
+  }
 }
