@@ -7,6 +7,11 @@ const TITLE = "Films";
 const DESCRIPTION =
   "Cinematic video work from Zach K. Johnson — highlight reels and film pieces from Columbia, Missouri.";
 
+// Video rows are managed out-of-band via the video:* CLI (scripts/video.mjs),
+// so revalidate periodically — otherwise a newly uploaded film wouldn't
+// appear until the next deploy. Matches app/page.tsx / app/faq / app/book.
+export const revalidate = 300;
+
 export function generateMetadata(): Metadata {
   return buildPageMetadata({ title: TITLE, description: DESCRIPTION, path: "/films" });
 }
@@ -24,7 +29,8 @@ export default async function FilmsPage() {
   const { data: videos, error } = await supabase
     .from("videos")
     .select("slug, title, description, video_key, poster_key")
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) {
     console.error("Supabase videos fetch failed:", error);

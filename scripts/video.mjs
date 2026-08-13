@@ -222,7 +222,8 @@ async function list() {
   const { data, error } = await supabase
     .from("videos")
     .select("slug, title, sort_order")
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) {
     console.error("Failed to list videos:", error.message);
