@@ -25,12 +25,20 @@ export default function GalleryLightbox({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // Escape must close the lightbox even when a <video> has focus, so
+      // it's checked before the media-element guard below (which only
+      // exists to stop arrow-key navigation from fighting the video's
+      // own native seek handling).
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+
       // A focused <video controls> already handles ArrowLeft/ArrowRight
       // natively (seeking) — letting this handler also fire would yank
       // the viewer to a different gallery item mid-seek.
       if (e.target instanceof HTMLMediaElement) return;
 
-      if (e.key === "Escape") onClose();
       if (hasMultiple && e.key === "ArrowLeft") {
         onNavigate((index - 1 + images.length) % images.length);
       }
