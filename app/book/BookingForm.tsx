@@ -40,7 +40,6 @@ export default function BookingForm({ appointmentTypeId, date, startTime, onBack
       if (!response.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
         turnstileRef.current?.reset();
-        setTurnstileToken("");
         setStatus("idle");
         return;
       }
@@ -52,7 +51,6 @@ export default function BookingForm({ appointmentTypeId, date, startTime, onBack
     } catch {
       setError("Something went wrong. Please try again.");
       turnstileRef.current?.reset();
-      setTurnstileToken("");
       setStatus("idle");
     }
   }

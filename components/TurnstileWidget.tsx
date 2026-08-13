@@ -30,6 +30,7 @@ declare global {
         },
       ) => string;
       reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
     };
   }
 }
@@ -40,7 +41,13 @@ const TurnstileWidget = forwardRef<TurnstileWidgetHandle, Props>(
   function TurnstileWidget({ onVerify }, ref) {
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<string | null>(null);
-    const [scriptLoaded, setScriptLoaded] = useState(false);
+    // Seeded defensively: if the script is already fully loaded (e.g. this
+    // is a remount and next/script's LoadCache means onReady's underlying
+    // load event already fired before this effect subscribed), we don't
+    // want to wait on a callback that may never come.
+    const [scriptLoaded, setScriptLoaded] = useState(
+      () => typeof window !== "undefined" && !!window.turnstile,
+    );
     const [scriptFailed, setScriptFailed] = useState(false);
 
     useImperativeHandle(ref, () => ({
@@ -67,6 +74,24 @@ const TurnstileWidget = forwardRef<TurnstileWidgetHandle, Props>(
       });
     }, [scriptLoaded, onVerify]);
 
+    // Cleans up the Cloudflare-side widget registration on unmount so
+    // remounts (now that they actually render, per the fix above) don't
+    // pile up stale registrations. Resetting the ref after removal (not
+    // just calling remove()) matters: React's Strict Mode double-invokes
+    // effects on mount in dev (setup -> cleanup -> setup again), and if
+    // this cleanup fires between those two setups without clearing the
+    // ref, the render effect's `|| widgetIdRef.current` guard sees a
+    // stale (already-removed) id on the second setup and skips
+    // re-rendering — leaving no widget at all.
+    useEffect(() => {
+      return () => {
+        if (window.turnstile && widgetIdRef.current) {
+          window.turnstile.remove(widgetIdRef.current);
+        }
+        widgetIdRef.current = null;
+      };
+    }, []);
+
     const unavailable = !SITE_KEY || scriptFailed;
 
     return (
@@ -75,7 +100,12 @@ const TurnstileWidget = forwardRef<TurnstileWidgetHandle, Props>(
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js"
             strategy="afterInteractive"
-            onLoad={() => setScriptLoaded(true)}
+            // onReady (unlike onLoad) fires both on the script's first load
+            // AND on every subsequent component mount once next/script has
+            // cached the src — exactly what's needed for widgets that
+            // remount after the first (BookingForm remounting via
+            // BookingFlow, or client-side nav between /book and /contact).
+            onReady={() => setScriptLoaded(true)}
             onError={() => setScriptFailed(true)}
           />
         )}

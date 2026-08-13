@@ -53,6 +53,7 @@ export default function ContactForm() {
     message: "",
   });
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   function handleChange(
@@ -84,13 +85,27 @@ export default function ContactForm() {
       });
 
       if (!response.ok) {
-        throw new Error("Request failed");
+        let message = "Something went wrong sending your message. Please try again, or reach out directly using the details below.";
+        try {
+          const data: { error?: string } = await response.json();
+          if (data?.error) {
+            message = data.error;
+          }
+        } catch {
+          // Body wasn't valid JSON — fall back to the generic message above.
+        }
+        setErrorMessage(message);
+        turnstileRef.current?.reset();
+        setStatus("error");
+        return;
       }
 
       setStatus("submitted");
     } catch {
+      setErrorMessage(
+        "Something went wrong sending your message. Please try again, or reach out directly using the details below.",
+      );
       turnstileRef.current?.reset();
-      setTurnstileToken("");
       setStatus("error");
     }
   }
@@ -214,10 +229,7 @@ export default function ContactForm() {
           {status === "loading" ? "Sending…" : "Send Message"}
         </button>
         {status === "error" && (
-          <p className="mt-3 text-xs text-red-700">
-            Something went wrong sending your message. Please try again, or
-            reach out directly using the details below.
-          </p>
+          <p className="mt-3 text-xs text-red-700">{errorMessage}</p>
         )}
       </div>
     </form>

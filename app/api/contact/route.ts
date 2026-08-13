@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { BUSINESS } from "@/lib/seo";
 import { getSupabaseClient } from "@/lib/supabase";
 import { escapeHtml } from "@/lib/email";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { turnstileFailureResponse, verifyTurnstileToken } from "@/lib/turnstile";
 import { getClientIp } from "@/lib/rateLimit";
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
@@ -82,19 +82,7 @@ export async function POST(request: Request) {
     getClientIp(request),
   );
   if (!verification.ok) {
-    if (verification.reason === "unreachable") {
-      return Response.json(
-        {
-          error:
-            "Verification service is temporarily unavailable. Please try again shortly.",
-        },
-        { status: 503 },
-      );
-    }
-    return Response.json(
-      { error: "Verification failed. Please try again." },
-      { status: 400 },
-    );
+    return turnstileFailureResponse(verification);
   }
 
   const apiKey = process.env.RESEND_API_KEY;

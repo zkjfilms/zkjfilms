@@ -5,7 +5,7 @@ import { createFullPaymentCheckoutSession } from "@/lib/stripe";
 import { sendFreeBookingConfirmedEmail } from "@/lib/email";
 import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { turnstileFailureResponse, verifyTurnstileToken } from "@/lib/turnstile";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -80,19 +80,7 @@ export async function POST(request: Request) {
 
   const verification = await verifyTurnstileToken(payload.turnstileToken, ip);
   if (!verification.ok) {
-    if (verification.reason === "unreachable") {
-      return Response.json(
-        {
-          error:
-            "Verification service is temporarily unavailable. Please try again shortly.",
-        },
-        { status: 503 },
-      );
-    }
-    return Response.json(
-      { error: "Verification failed. Please try again." },
-      { status: 400 },
-    );
+    return turnstileFailureResponse(verification);
   }
 
   const supabase = getSupabaseClient();
