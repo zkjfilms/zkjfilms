@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import type { GalleryMedia } from "@/lib/r2";
 import GalleryLightbox from "./GalleryLightbox";
 import PasswordField from "@/components/PasswordField";
@@ -299,11 +299,8 @@ export default function GalleryGate({
                   className="group relative aspect-square cursor-pointer overflow-hidden bg-surface"
                 >
                   {media.isVideo ? (
-                    <video
+                    <LazyVideoThumbnail
                       src={media.url}
-                      preload="metadata"
-                      muted
-                      playsInline
                       className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                     />
                   ) : (
@@ -457,5 +454,52 @@ function PlayIcon() {
     >
       <path d="M8 5v14l11-7z" />
     </svg>
+  );
+}
+
+// Off-screen video tiles don't start fetching until they scroll near the
+// viewport — preload="metadata" alone has no lazy equivalent the way
+// <img loading="lazy"> does, and a gallery with a few dozen clips would
+// otherwise fire that many concurrent metadata fetches at once, which
+// mobile Safari's limit on simultaneous <video> elements can choke on.
+function LazyVideoThumbnail({
+  src,
+  className,
+}: {
+  src: string;
+  className: string;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <video
+      ref={ref}
+      // The #t=0.001 fragment nudges iOS Safari to actually paint the
+      // first frame instead of a black box — harmless on browsers that
+      // don't need it (Chrome/Firefox ignore it and behave the same).
+      src={isVisible ? `${src}#t=0.001` : undefined}
+      preload="metadata"
+      muted
+      playsInline
+      className={className}
+    />
   );
 }

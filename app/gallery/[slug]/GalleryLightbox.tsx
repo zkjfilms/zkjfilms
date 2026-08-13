@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { GalleryMedia } from "@/lib/r2";
 
 export default function GalleryLightbox({
@@ -17,8 +17,19 @@ export default function GalleryLightbox({
   const image = images[index];
   const hasMultiple = images.length > 1;
 
+  const [videoError, setVideoError] = useState(false);
+
+  useEffect(() => {
+    setVideoError(false);
+  }, [index]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // A focused <video controls> already handles ArrowLeft/ArrowRight
+      // natively (seeking) — letting this handler also fire would yank
+      // the viewer to a different gallery item mid-seek.
+      if (e.target instanceof HTMLMediaElement) return;
+
       if (e.key === "Escape") onClose();
       if (hasMultiple && e.key === "ArrowLeft") {
         onNavigate((index - 1 + images.length) % images.length);
@@ -76,12 +87,22 @@ export default function GalleryLightbox({
       )}
 
       {image.isVideo ? (
-        <video
-          src={image.url}
-          controls
+        <div
+          className="relative flex max-h-full max-w-full items-center justify-center"
           onClick={(e) => e.stopPropagation()}
-          className="max-h-full max-w-full object-contain"
-        />
+        >
+          <video
+            src={`${image.url}#t=0.001`}
+            controls
+            onError={() => setVideoError(true)}
+            className="max-h-full max-w-full object-contain"
+          />
+          {videoError && (
+            <p className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap text-sm text-white/80">
+              This link expired — refresh the page to keep watching.
+            </p>
+          )}
+        </div>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element -- signed R2 URL
         <img
