@@ -24,18 +24,21 @@ Turnstile is used in **explicit-render mode** (the JS API, not the auto-render `
 ### Server: `lib/turnstile.ts` (new)
 
 ```ts
+export type TurnstileResult = { ok: true } | { ok: false; reason: "invalid" | "unreachable" };
+
 export async function verifyTurnstileToken(
   token: string,
   ip: string,
-): Promise<boolean> {
+): Promise<TurnstileResult> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
     console.error("TURNSTILE_SECRET_KEY is not set.");
-    return false;
+    return { ok: false, reason: "unreachable" };
   }
 
+  let response: Response;
   try {
-    const response = await fetch(
+    response = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
       {
         method: "POST",
@@ -43,16 +46,22 @@ export async function verifyTurnstileToken(
         body: new URLSearchParams({ secret, response: token, remoteip: ip }),
       },
     );
-    const data = (await response.json()) as { success: boolean };
-    return data.success === true;
   } catch (err) {
     console.error("Turnstile verification request failed:", err);
-    return false;
+    return { ok: false, reason: "unreachable" };
   }
+
+  if (!response.ok) {
+    console.error("Turnstile siteverify returned non-OK status:", response.status);
+    return { ok: false, reason: "unreachable" };
+  }
+
+  const data = (await response.json()) as { success: boolean };
+  return data.success ? { ok: true } : { ok: false, reason: "invalid" };
 }
 ```
 
-Fails closed on every error path (missing secret, network failure, non-success response) — a `false` return always means "block this submission." Tokens are single-use and expire after 5 minutes, so no caching or replay handling is needed here; each call is a fresh check against Cloudflare.
+Returns a discriminated result rather than a plain boolean specifically so callers can tell a genuinely bad/expired token (`reason: "invalid"`, → 400) apart from Cloudflare's verification service itself being unreachable (`reason: "unreachable"`, → 503) — the two cases the error-handling table below requires different responses for. Every error path (missing secret, network failure, non-OK HTTP status) maps to `"unreachable"`, since none of them mean the visitor failed a real check. Tokens are single-use and expire after 5 minutes, so no caching or replay handling is needed here; each call is a fresh check against Cloudflare.
 
 ### Client: `components/TurnstileWidget.tsx` (new)
 
@@ -86,10 +95,16 @@ Check ordering (cheapest/local checks first, since Turnstile verification is a n
 4. `verifyTurnstileToken(payload.turnstileToken, getClientIp(request))` — **new**, both routes.
 5. Existing business logic (send email / create booking).
 
-A `false` result from step 4 returns:
+A non-`ok` result from step 4 returns, based on `reason`:
 
 ```ts
-Response.json(
+if (result.reason === "unreachable") {
+  return Response.json(
+    { error: "Verification service is temporarily unavailable. Please try again shortly." },
+    { status: 503 },
+  );
+}
+return Response.json(
   { error: "Verification failed. Please try again." },
   { status: 400 },
 );
@@ -121,7 +136,7 @@ Both added to `.env.example` as placeholders. For local development ahead of hav
 | Widget script fails to load | Inline message shown; submit stays disabled (fails closed) |
 | Token expires before submit | `expired-callback` clears the token; submit re-disables |
 | Server rejects the token (expired/reused/invalid) | `400`; form resets the widget for a retry |
-| Cloudflare's `siteverify` endpoint unreachable (outage) | `verifyTurnstileToken` returns `false`; route responds `503 { error: "Verification service is temporarily unavailable. Please try again shortly." }`, logged server-side |
+| Cloudflare's `siteverify` endpoint unreachable (outage) | `verifyTurnstileToken` returns `{ ok: false, reason: "unreachable" }`; route responds `503 { error: "Verification service is temporarily unavailable. Please try again shortly." }`, logged server-side |
 
 The outage case is a deliberate fail-closed choice: a real Cloudflare Turnstile outage would briefly block real submissions too, but this is judged safer than accepting a fail-open path that an attacker could potentially trigger to bypass verification entirely.
 
