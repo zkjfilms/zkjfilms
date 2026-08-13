@@ -36,8 +36,7 @@ function parsePayload(body: unknown): Payload | null {
     typeof b.clientPhone !== "string" ||
     typeof b.notes !== "string" ||
     typeof b.honeypot !== "string" ||
-    typeof b.turnstileToken !== "string" ||
-    !b.turnstileToken
+    (typeof b.turnstileToken !== "string" && b.turnstileToken !== undefined)
   ) {
     return null;
   }
@@ -50,7 +49,7 @@ function parsePayload(body: unknown): Payload | null {
     clientPhone: b.clientPhone.trim(),
     notes: b.notes.trim(),
     honeypot: b.honeypot,
-    turnstileToken: b.turnstileToken,
+    turnstileToken: b.turnstileToken === undefined ? "" : (b.turnstileToken as string),
   };
 }
 
@@ -70,6 +69,13 @@ export async function POST(request: Request) {
   const { allowed } = await checkRateLimit({ ip, endpoint: "bookings", maxHits: 5, windowMinutes: 10 });
   if (!allowed) {
     return Response.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
+  }
+
+  if (!payload.turnstileToken) {
+    return Response.json(
+      { error: "Verification failed. Please try again." },
+      { status: 400 },
+    );
   }
 
   const verification = await verifyTurnstileToken(payload.turnstileToken, ip);
