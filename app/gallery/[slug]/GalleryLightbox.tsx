@@ -17,11 +17,16 @@ export default function GalleryLightbox({
   const image = images[index];
   const hasMultiple = images.length > 1;
 
+  // Adjusted during render (not in an effect) per React's own guidance for
+  // resetting state when a prop changes — avoids the extra render an
+  // effect-based reset would cause, and the lint rule that flags setState
+  // inside effects for exactly this reason.
   const [videoError, setVideoError] = useState(false);
-
-  useEffect(() => {
+  const [videoErrorIndex, setVideoErrorIndex] = useState(index);
+  if (index !== videoErrorIndex) {
+    setVideoErrorIndex(index);
     setVideoError(false);
-  }, [index]);
+  }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
