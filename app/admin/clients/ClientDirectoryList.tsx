@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatDate, formatCents } from "@/lib/format";
+import { formatBusinessDate, formatCents } from "@/lib/format";
 
 export type ClientBooking = {
   typeName: string;
@@ -34,7 +34,7 @@ function ClientRow({ client }: { client: ClientBookingRow }) {
         </td>
         <td className="py-3 pr-4 text-muted">{client.phone ?? "—"}</td>
         <td className="py-3 pr-4 text-muted">{client.bookingCount}</td>
-        <td className="whitespace-nowrap py-3 pr-4 text-muted">{formatDate(client.lastBooking)}</td>
+        <td className="whitespace-nowrap py-3 pr-4 text-muted">{formatBusinessDate(client.lastBooking)}</td>
         <td className="py-3 pr-4 text-muted">{formatCents(client.totalPaidCents)}</td>
         <td className="py-3">
           <button
@@ -55,7 +55,7 @@ function ClientRow({ client }: { client: ClientBookingRow }) {
                 .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
                 .map((booking, i) => (
                   <li key={i}>
-                    {booking.typeName} · {formatDate(booking.startTime)}
+                    {booking.typeName} · {formatBusinessDate(booking.startTime)}
                     {booking.amountPaidCents ? ` · ${formatCents(booking.amountPaidCents)}` : ""}
                   </li>
                 ))}

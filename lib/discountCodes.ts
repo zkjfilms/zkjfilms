@@ -27,7 +27,11 @@ export const STRIPE_MIN_CHARGE_CENTS = 50;
 
 export function isValidDiscountValue(type: DiscountCodeType, value: number): boolean {
   if (!Number.isInteger(value) || value <= 0) return false;
-  if (type === "percentage") return value <= 100;
+  // Capped at 99, not 100 — the STRIPE_MIN_CHARGE_CENTS floor means a
+  // "100% off" code would still charge 50 cents, which contradicts what
+  // the client is told. A genuinely free booking should use a
+  // requires_payment: false appointment type instead of a discount code.
+  if (type === "percentage") return value <= 99;
   return true;
 }
 

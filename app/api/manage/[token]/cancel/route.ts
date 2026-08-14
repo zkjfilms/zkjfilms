@@ -47,6 +47,13 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
     }
   }
 
+  // Note: this does NOT touch discount_codes.redemption_count. Canceling
+  // (and refunding, below) a booking that used a discount code does not
+  // release that code's redemption — a max_redemptions: 1 code stays spent
+  // even if the underlying booking is fully refunded. This is intentional
+  // (matches how many real-world coupon systems treat a redeemed code as
+  // consumed regardless of what happens to the purchase afterward), not an
+  // oversight — confirmed with the business owner.
   if (booking.payment_intent_id) {
     try {
       const stripe = getStripeClient();

@@ -8,6 +8,23 @@ export function formatDate(iso: string): string {
   });
 }
 
+// Same as formatDate, but for values that are a booking *instant*
+// (e.g. start_time) rather than a bare created_at/administrative date —
+// see the comment on formatTimeRange below for why an explicit
+// timeZone is required for these. Use this instead of formatDate
+// anywhere a booking's start_time/end_time is rendered as a date, and
+// especially in client components (formatDate's other callers are all
+// server components, so they don't hit the UTC-host/hydration-mismatch
+// version of this bug).
+export function formatBusinessDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 // Shared between /admin/availability, /book, /manage/[token] and the
 // booking emails (lib/email.ts) — all of them mean "the business's local
 // time," never the host runtime's.
