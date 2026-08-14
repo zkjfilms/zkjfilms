@@ -6,6 +6,7 @@ import { sendFreeBookingConfirmedEmail } from "@/lib/email";
 import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
 import { turnstileFailureResponse, verifyTurnstileToken } from "@/lib/turnstile";
+import { computeDiscountedAmountCents, isDiscountCodeApplicable, type DiscountCode } from "@/lib/discountCodes";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -19,6 +20,7 @@ type Payload = {
   notes: string;
   honeypot: string;
   turnstileToken: string;
+  discountCode: string;
 };
 
 function parsePayload(body: unknown): Payload | null {
@@ -37,7 +39,8 @@ function parsePayload(body: unknown): Payload | null {
     !b.clientPhone.trim() ||
     typeof b.notes !== "string" ||
     typeof b.honeypot !== "string" ||
-    (typeof b.turnstileToken !== "string" && b.turnstileToken !== undefined)
+    (typeof b.turnstileToken !== "string" && b.turnstileToken !== undefined) ||
+    (typeof b.discountCode !== "string" && b.discountCode !== undefined)
   ) {
     return null;
   }
@@ -51,6 +54,7 @@ function parsePayload(body: unknown): Payload | null {
     notes: b.notes.trim(),
     honeypot: b.honeypot,
     turnstileToken: b.turnstileToken === undefined ? "" : (b.turnstileToken as string),
+    discountCode: typeof b.discountCode === "string" ? b.discountCode.trim().toUpperCase() : "",
   };
 }
 
@@ -96,6 +100,29 @@ export async function POST(request: Request) {
     return Response.json({ error: "That appointment type is no longer available." }, { status: 404 });
   }
 
+  // Discount codes only mean anything for a paid appointment type — a
+  // code submitted alongside a free type is silently ignored rather than
+  // rejected, since BookingForm only ever shows the field when
+  // requiresPayment is true.
+  let finalAmountCents = type.price_cents;
+  let appliedDiscount: DiscountCode | null = null;
+  if (type.requires_payment && payload.discountCode) {
+    const { data: discount } = await supabase
+      .from("discount_codes")
+      .select("*")
+      .eq("code", payload.discountCode)
+      .maybeSingle();
+
+    if (!discount || !isDiscountCodeApplicable(discount, type.id)) {
+      return Response.json(
+        { error: "That discount code is invalid or no longer available." },
+        { status: 400 },
+      );
+    }
+    appliedDiscount = discount;
+    finalAmountCents = computeDiscountedAmountCents(type.price_cents, discount);
+  }
+
   // Re-validate against current availability at submit time — the
   // client's list may be stale by the time they submit.
   const openSlots = await fetchOpenSlotsForDate({ date: payload.date, appointmentType: type });
@@ -137,6 +164,8 @@ export async function POST(request: Request) {
       status,
       notes: payload.notes || null,
       pending_expires_at: type.requires_payment ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null,
+      discount_code: appliedDiscount?.code ?? null,
+      discount_cents: appliedDiscount ? type.price_cents - finalAmountCents : null,
     })
     .select()
     .single();
@@ -174,7 +203,7 @@ export async function POST(request: Request) {
   try {
     const session = await createFullPaymentCheckoutSession({
       bookingId: booking.id,
-      amountCents: type.price_cents,
+      amountCents: finalAmountCents,
       appointmentTypeName: type.name,
       clientEmail: payload.clientEmail,
     });
