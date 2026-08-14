@@ -134,7 +134,11 @@ export async function sendFreeBookingConfirmedEmail(
 // appointment type's checkout session completes and the booking flips
 // from 'pending' to 'confirmed'.
 export async function sendBookingPaymentConfirmedEmail(
-  booking: BookingForEmail & { amount_paid_cents: number | null },
+  booking: BookingForEmail & {
+    amount_paid_cents: number | null;
+    discount_code: string | null;
+    discount_cents: number | null;
+  },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
@@ -145,6 +149,10 @@ export async function sendBookingPaymentConfirmedEmail(
   const paidLine = booking.amount_paid_cents
     ? `Payment of ${formatCents(booking.amount_paid_cents)} received — you're all set.`
     : "You're all set.";
+  const discountLine =
+    booking.discount_code && booking.discount_cents
+      ? `Discount applied: ${booking.discount_code} (-${formatCents(booking.discount_cents)}).`
+      : null;
   const resend = new Resend(apiKey);
 
   try {
@@ -157,6 +165,7 @@ export async function sendBookingPaymentConfirmedEmail(
         "",
         `You're confirmed for ${typeName} on ${when}.`,
         paidLine,
+        ...(discountLine ? [discountLine] : []),
         "",
         "Need to reschedule or cancel? Use your private booking link:",
         manageUrl,
@@ -168,6 +177,7 @@ export async function sendBookingPaymentConfirmedEmail(
         <p>Hi ${escapeHtml(booking.client_name)},</p>
         <p>You're confirmed for ${escapeHtml(typeName)} on ${escapeHtml(when)}.</p>
         <p>${escapeHtml(paidLine)}</p>
+        ${discountLine ? `<p>${escapeHtml(discountLine)}</p>` : ""}
         <p>Need to reschedule or cancel? Use your private booking link:</p>
         <p><a href="${manageUrl}">${manageUrl}</a></p>
         <p>See you soon,<br />${escapeHtml(BUSINESS.name)}</p>
