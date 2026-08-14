@@ -13,6 +13,7 @@ type FormValues = {
   email: string;
   sessionType: string;
   message: string;
+  honeypot: string;
 };
 
 type FormErrors = Partial<Record<keyof FormValues, string>>;
@@ -51,6 +52,7 @@ export default function ContactForm() {
     email: "",
     sessionType: "",
     message: "",
+    honeypot: "",
   });
   const [turnstileToken, setTurnstileToken] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -216,6 +218,21 @@ export default function ContactForm() {
         {errors.message && (
           <p className="mt-2 text-xs text-red-700">{errors.message}</p>
         )}
+      </div>
+
+      {/* Honeypot — hidden from real visitors via CSS, not `type="hidden"`
+          (some bots skip hidden inputs but still fill visible-but-offscreen ones). */}
+      <div className="absolute -left-[9999px]" aria-hidden="true">
+        <label>
+          Leave this field blank
+          <input
+            name="honeypot"
+            tabIndex={-1}
+            autoComplete="off"
+            value={form.honeypot}
+            onChange={handleChange}
+          />
+        </label>
       </div>
 
       <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} />

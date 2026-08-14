@@ -3,7 +3,7 @@ import { BUSINESS } from "@/lib/seo";
 import { getSupabaseClient } from "@/lib/supabase";
 import { escapeHtml } from "@/lib/email";
 import { turnstileFailureResponse, verifyTurnstileToken } from "@/lib/turnstile";
-import { getClientIp } from "@/lib/rateLimit";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
 
@@ -15,11 +15,12 @@ type ContactPayload = {
   sessionType: string;
   message: string;
   turnstileToken: string;
+  honeypot: string;
 };
 
 function parsePayload(body: unknown): ContactPayload | null {
   if (typeof body !== "object" || body === null) return null;
-  const { name, email, sessionType, message, turnstileToken } = body as Record<
+  const { name, email, sessionType, message, turnstileToken, honeypot } = body as Record<
     string,
     unknown
   >;
@@ -29,7 +30,8 @@ function parsePayload(body: unknown): ContactPayload | null {
     typeof email !== "string" ||
     typeof sessionType !== "string" ||
     typeof message !== "string" ||
-    (typeof turnstileToken !== "string" && turnstileToken !== undefined)
+    (typeof turnstileToken !== "string" && turnstileToken !== undefined) ||
+    (typeof honeypot !== "string" && honeypot !== undefined)
   ) {
     return null;
   }
@@ -40,6 +42,7 @@ function parsePayload(body: unknown): ContactPayload | null {
     sessionType: sessionType.trim(),
     message: message.trim(),
     turnstileToken: turnstileToken === undefined ? "" : turnstileToken,
+    honeypot: honeypot === undefined ? "" : honeypot,
   };
 
   if (
@@ -70,6 +73,26 @@ export async function POST(request: Request) {
     );
   }
 
+  // Honeypot: a real client never fills this hidden field. Silently
+  // pretend success so a bot doesn't learn its submission was rejected.
+  if (payload.honeypot) {
+    return Response.json({ ok: true });
+  }
+
+  const ip = getClientIp(request);
+  const { allowed } = await checkRateLimit({
+    ip,
+    endpoint: "contact",
+    maxHits: 5,
+    windowMinutes: 10,
+  });
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many requests. Please try again shortly." },
+      { status: 429 },
+    );
+  }
+
   if (!payload.turnstileToken) {
     return Response.json(
       { error: "Verification failed. Please try again." },
@@ -77,10 +100,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const verification = await verifyTurnstileToken(
-    payload.turnstileToken,
-    getClientIp(request),
-  );
+  const verification = await verifyTurnstileToken(payload.turnstileToken, ip);
   if (!verification.ok) {
     return turnstileFailureResponse(verification);
   }
