@@ -43,6 +43,18 @@ export async function handleBookingCheckoutCompleted(
     return { retry: false };
   }
 
+  // Only count a redemption once the payment has actually gone through —
+  // an abandoned or expired checkout (handleBookingCheckoutExpired below)
+  // never reaches this point, so it never consumes a limited-use code.
+  if (booking.discount_code) {
+    const { error: redemptionError } = await supabase.rpc("increment_discount_code_redemption", {
+      p_code: booking.discount_code,
+    });
+    if (redemptionError) {
+      console.error("Failed to increment discount code redemption:", redemptionError);
+    }
+  }
+
   try {
     await sendBookingPaymentConfirmedEmail(booking);
   } catch (err) {
