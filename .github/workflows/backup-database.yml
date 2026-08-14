@@ -6,43 +6,89 @@ name: Database Backup
 # docs/superpowers/plans/2026-08-14-database-backups.md for the full
 # design and setup steps.
 #
-# RESTORE (in an emergency — replace <date> and <account-id>; the R2
-# account ID is not secret, see next.config.ts's r2PublicHost comment):
+# SUPABASE_DB_URL must be the Session pooler connection string (port
+# 5432, host like aws-0-<region>.pooler.supabase.com) — NOT the Direct
+# connection, which is IPv6-only and unreachable from GitHub's runners.
 #
-#   aws s3 cp s3://zkjfilms-db-backups/backups/<date>.dump ./backup.dump \
+# Note: GitHub auto-disables scheduled workflows after 60 days of repo
+# inactivity (with an email warning first). If backups stop, check this
+# workflow's Actions tab status.
+#
+# RESTORE (in an emergency — replace <timestamp> and <account-id>; the R2
+# account ID is not secret, see next.config.ts's CSP img-src comment,
+# which explains the private bucket's account-ID subdomain isn't a
+# secret because it's already visible in every signed URL a gallery
+# viewer's browser requests):
+#
+#   Each run uploads to its own timestamped key (not one per day), so
+#   list the bucket first to find the object you want:
+#
+#   aws s3 ls s3://zkjfilms-db-backups/backups/ \
+#     --endpoint-url https://<account-id>.r2.cloudflarestorage.com
+#
+#   aws s3 cp s3://zkjfilms-db-backups/backups/<timestamp>.dump ./backup.dump \
 #     --endpoint-url https://<account-id>.r2.cloudflarestorage.com
 #   pg_restore --clean --if-exists --no-owner --no-acl \
 #     -d "<target-connection-string>" backup.dump
 #
 on:
   schedule:
-    - cron: "0 9 * * *" # ~3-4am America/Chicago daily (fixed UTC time; local hour shifts by 1 across DST since cron doesn't follow timezones)
+    - cron: "17 9 * * *" # ~3-4am America/Chicago daily (not exactly on the hour, since GitHub notes top-of-hour schedules are more likely to be delayed; fixed UTC time, local hour shifts by 1 across DST since cron doesn't follow timezones)
   workflow_dispatch: {}
+
+permissions: {}
 
 jobs:
   backup:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Install postgresql-client
-        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
-
-      - name: Install AWS CLI
+        # Supabase currently provisions Postgres 17. pg_dump refuses to dump
+        # from a server whose major version is newer than the client's, and
+        # ubuntu-latest's apt default (postgresql-client) installs client 16
+        # — so this installs from the official PGDG repo and pins the
+        # version explicitly instead. Bump postgresql-client-17 below if the
+        # Supabase project's own Postgres major version is ever upgraded (a
+        # client older than the server fails the same way) — check the
+        # actual version via the Supabase dashboard (Project Settings →
+        # Infrastructure, or `SELECT version();`) if backups ever start
+        # failing with a "server version mismatch" error.
         run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip -q awscliv2.zip
-          sudo ./aws/install
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update && sudo apt-get install --yes postgresql-client-17
 
       - name: Dump database
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: pg_dump -Fc --no-owner --no-acl "$SUPABASE_DB_URL" -f backup.dump
 
+      - name: Verify dump integrity
+        # Confirms the file is both non-empty and a structurally valid
+        # pg_restore-readable archive before it's uploaded and trusted as a
+        # real backup, catching a truncated or corrupted dump early (see
+        # sync-google-calendar.yml for this repo's equivalent habit of not
+        # trusting an apparently-successful step at face value).
+        run: pg_restore --list backup.dump > /dev/null && [ -s backup.dump ]
+
       - name: Upload to R2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+          # The AWS CLI's S3 client requires a resolvable region even with a
+          # custom --endpoint-url; "auto" is Cloudflare's documented value
+          # for R2's S3 compatibility.
+          AWS_DEFAULT_REGION: auto
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
         run: |
-          DATE=$(date +%Y-%m-%d)
-          aws s3 cp backup.dump "s3://zkjfilms-db-backups/backups/${DATE}.dump" \
+          # Timestamped (not just dated) key so a manual workflow_dispatch
+          # run — e.g. right before a risky migration — never silently
+          # overwrites the same day's scheduled backup (R2 object
+          # versioning is off by default).
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H%M%SZ)
+          aws s3 cp backup.dump "s3://zkjfilms-db-backups/backups/${TIMESTAMP}.dump" \
             --endpoint-url "$R2_ENDPOINT"
