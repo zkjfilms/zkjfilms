@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: "/admin/dashboard", label: "Contracts" },
   { href: "/admin/availability", label: "Availability" },
   { href: "/admin/appointment-types", label: "Appointment Types" },
+  { href: "/admin/discount-codes", label: "Discount Codes" },
   { href: "/admin/templates", label: "Templates" },
   { href: "/admin/galleries", label: "Galleries" },
   { href: "/admin/leads", label: "Leads" },
