@@ -1,0 +1,47 @@
+name: Database Backup
+
+# Daily logical backup of the full Supabase Postgres database, uploaded
+# to a dedicated R2 bucket (zkjfilms-db-backups) with a 30-day lifecycle
+# rule configured in the Cloudflare dashboard. See
+# docs/superpowers/plans/2026-08-14-database-backups.md for the full
+# design and setup steps.
+#
+# RESTORE (in an emergency — replace <date> and <account-id>; the R2
+# account ID is not secret, see next.config.ts's r2PublicHost comment):
+#
+#   aws s3 cp s3://zkjfilms-db-backups/backups/<date>.dump ./backup.dump \
+#     --endpoint-url https://<account-id>.r2.cloudflarestorage.com
+#   pg_restore --clean --if-exists --no-owner --no-acl \
+#     -d "<target-connection-string>" backup.dump
+#
+on:
+  schedule:
+    - cron: "0 9 * * *" # ~3-4am America/Chicago daily (fixed UTC time; local hour shifts by 1 across DST since cron doesn't follow timezones)
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Install AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: pg_dump -Fc --no-owner --no-acl "$SUPABASE_DB_URL" -f backup.dump
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          aws s3 cp backup.dump "s3://zkjfilms-db-backups/backups/${DATE}.dump" \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}"
