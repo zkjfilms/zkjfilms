@@ -86,11 +86,8 @@ export default function DiscountCodeForm({
       setStatus("error");
       return;
     }
-    // Capped at 99, not 100 — matches isValidDiscountValue in
-    // lib/discountCodes.ts (100% off would still charge $0.50 due to the
-    // Stripe minimum-charge floor, so the server rejects it).
-    if (form.type === "percentage" && rawValue > 99) {
-      setError("Percentage must be 99 or less.");
+    if (form.type === "percentage" && rawValue > 100) {
+      setError("Percentage must be 100 or less.");
       setStatus("error");
       return;
     }
@@ -179,7 +176,7 @@ export default function DiscountCodeForm({
         </div>
         <div>
           <label htmlFor="value" className="block text-xs uppercase tracking-[0.15em] text-muted">
-            {form.type === "percentage" ? "Percent (1-99)" : "Amount ($)"}
+            {form.type === "percentage" ? "Percent (1-100)" : "Amount ($)"}
           </label>
           <input
             id="value"

@@ -21,17 +21,17 @@ export type DiscountCode = {
 };
 
 // Stripe rejects card charges below $0.50 USD at Checkout Session
-// creation — a fixed-amount code larger than the price would otherwise
-// produce an amount Stripe can't charge.
+// creation. computeDiscountedAmountCents below treats this as two
+// tiers: a discount that fully covers the price (raw <= 0) produces a
+// genuinely free booking (see app/api/bookings/route.ts, which skips
+// Stripe entirely in that case); a discount that leaves a small but
+// positive amount still floors up to this minimum, since that booking
+// still goes through a real Stripe charge.
 export const STRIPE_MIN_CHARGE_CENTS = 50;
 
 export function isValidDiscountValue(type: DiscountCodeType, value: number): boolean {
   if (!Number.isInteger(value) || value <= 0) return false;
-  // Capped at 99, not 100 — the STRIPE_MIN_CHARGE_CENTS floor means a
-  // "100% off" code would still charge 50 cents, which contradicts what
-  // the client is told. A genuinely free booking should use a
-  // requires_payment: false appointment type instead of a discount code.
-  if (type === "percentage") return value <= 99;
+  if (type === "percentage") return value <= 100;
   return true;
 }
 
@@ -43,6 +43,7 @@ export function computeDiscountedAmountCents(
     discount.type === "percentage"
       ? Math.round((priceCents * (100 - discount.value)) / 100)
       : priceCents - discount.value;
+  if (raw <= 0) return 0;
   return Math.max(raw, STRIPE_MIN_CHARGE_CENTS);
 }
 
