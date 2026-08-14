@@ -405,3 +405,96 @@ create table videos (
 create index videos_sort_order_idx on videos (sort_order);
 
 alter table videos enable row level security;
+
+-- Discount codes: admin-managed percentage or fixed-amount codes clients
+-- enter on the booking form before checkout (see app/api/bookings/route.ts
+-- and app/admin/discount-codes). Applied server-side by lowering the
+-- Stripe Checkout line-item amount directly — Stripe itself never sees a
+-- "discount," just a smaller total. RLS enabled with no policies,
+-- matching every other admin-managed table in this schema.
+create table discount_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  type text not null check (type in ('percentage', 'fixed_amount')),
+  value integer not null check (value > 0),
+  active boolean not null default true,
+  expires_at timestamptz,
+  max_redemptions integer check (max_redemptions is null or max_redemptions > 0),
+  redemption_count integer not null default 0,
+  appointment_type_ids uuid[],
+  created_at timestamptz not null default now(),
+  check (type <> 'percentage' or value <= 100)
+);
+
+alter table discount_codes enable row level security;
+
+alter table bookings add column if not exists discount_code text;
+alter table bookings add column if not exists discount_cents integer;
+
+-- reschedule_booking (defined when the booking system was first built)
+-- must also carry discount_code/discount_cents forward, same as every
+-- other payment-related column it already copies (payment_intent_id,
+-- amount_paid_cents) — otherwise a reschedule silently drops which code,
+-- if any, was applied to the original booking. CREATE OR REPLACE
+-- preserves the existing revoke below (Postgres keeps a function's ACL
+-- across a replace as long as the owner is unchanged).
+create or replace function reschedule_booking(
+  p_booking_token uuid,
+  p_new_start timestamptz,
+  p_new_end timestamptz
+) returns bookings
+language plpgsql
+as $$
+declare
+  v_old bookings;
+  v_new bookings;
+begin
+  select * into v_old from bookings
+    where booking_token = p_booking_token and status = 'confirmed'
+    for update;
+
+  if not found then
+    raise exception 'booking_not_found_or_not_confirmed';
+  end if;
+
+  update bookings set status = 'canceled' where id = v_old.id;
+
+  insert into bookings (
+    appointment_type_id, client_name, client_email, client_phone,
+    start_time, end_time, status, notes, booking_token,
+    payment_intent_id, amount_paid_cents, discount_code, discount_cents
+  ) values (
+    v_old.appointment_type_id, v_old.client_name, v_old.client_email, v_old.client_phone,
+    p_new_start, p_new_end, 'confirmed', v_old.notes, v_old.booking_token,
+    v_old.payment_intent_id, v_old.amount_paid_cents, v_old.discount_code, v_old.discount_cents
+  ) returning * into v_new;
+
+  return v_new;
+end;
+$$;
+
+-- Atomic redemption increment: called from the booking-confirmed webhook
+-- (lib/bookingsWebhook.ts) so two nearly-simultaneous checkouts for the
+-- same capped code can't both push redemption_count past
+-- max_redemptions. A plain supabase-js `.update()` can't express
+-- `redemption_count = redemption_count + 1` as a relative expression, so
+-- this needs to be a function.
+create or replace function increment_discount_code_redemption(p_code text)
+returns void
+language sql
+as $$
+  update discount_codes
+  set redemption_count = redemption_count + 1
+  where code = p_code
+    and (max_redemptions is null or redemption_count < max_redemptions);
+$$;
+
+-- Same reasoning as reschedule_booking's existing revoke: Postgres grants
+-- execute on new functions to PUBLIC by default, and Supabase exposes
+-- every public-schema function at POST /rest/v1/rpc/<name>. Leaving this
+-- callable by anon would let anyone increment a code's redemption count
+-- directly, exhausting a limited-use code without ever booking anything.
+-- The webhook's own call path uses the service-role key and is
+-- unaffected by this revoke.
+revoke execute on function increment_discount_code_redemption(text)
+  from public, anon, authenticated;
