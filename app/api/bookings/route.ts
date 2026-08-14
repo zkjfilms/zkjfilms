@@ -107,11 +107,16 @@ export async function POST(request: Request) {
   let finalAmountCents = type.price_cents;
   let appliedDiscount: DiscountCode | null = null;
   if (type.requires_payment && payload.discountCode) {
-    const { data: discount } = await supabase
+    const { data: discount, error: discountError } = await supabase
       .from("discount_codes")
       .select("*")
       .eq("code", payload.discountCode)
       .maybeSingle();
+
+    if (discountError) {
+      console.error("discount code lookup failed:", discountError);
+      return Response.json({ error: "Something went wrong." }, { status: 500 });
+    }
 
     if (!discount || !isDiscountCodeApplicable(discount, type.id)) {
       return Response.json(
