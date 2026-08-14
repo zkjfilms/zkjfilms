@@ -54,6 +54,17 @@ jobs:
         # actual version via the Supabase dashboard (Project Settings →
         # Infrastructure, or `SELECT version();`) if backups ever start
         # failing with a "server version mismatch" error.
+        #
+        # Installing postgresql-client-17 alone isn't sufficient: Debian's
+        # postgresql-common wrapper scripts at /usr/bin/pg_dump don't
+        # automatically prefer the newest installed version, and
+        # ubuntu-latest's runner image already has an older client
+        # registered — confirmed in practice, where this produced "server
+        # version: 17.6; pg_dump version: 16.14" even with 17 installed.
+        # Prepending the versioned binary directory to $GITHUB_PATH (which
+        # persists for the rest of the job) makes pg_dump/pg_restore in
+        # later steps resolve to 17 unambiguously, sidestepping the wrapper
+        # entirely instead of fighting its version-selection logic.
         run: |
           sudo install -d /usr/share/postgresql-common/pgdg
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
@@ -61,6 +72,7 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update && sudo apt-get install --yes postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
       - name: Dump database
         env:
