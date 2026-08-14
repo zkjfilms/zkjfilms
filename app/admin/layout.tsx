@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/admin/templates", label: "Templates" },
   { href: "/admin/galleries", label: "Galleries" },
   { href: "/admin/leads", label: "Leads" },
+  { href: "/admin/clients", label: "Clients" },
 ];
 
 // Applies to every /admin/* route — noindex here, plus the disallow rule
