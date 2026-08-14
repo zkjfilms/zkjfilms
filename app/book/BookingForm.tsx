@@ -80,8 +80,9 @@ export default function BookingForm({ appointmentTypeId, date, startTime, onBack
         />
       </div>
       <div>
-        <label className="mb-2 block text-xs uppercase tracking-[0.3em] text-muted">Phone (optional)</label>
+        <label className="mb-2 block text-xs uppercase tracking-[0.3em] text-muted">Phone</label>
         <input
+          required
           value={form.clientPhone}
           onChange={(e) => setForm((p) => ({ ...p, clientPhone: e.target.value }))}
           className="w-full border-b border-border bg-transparent pb-2 text-foreground focus:border-accent focus:outline-none"

@@ -34,6 +34,7 @@ function parsePayload(body: unknown): Payload | null {
     typeof b.clientEmail !== "string" ||
     !EMAIL_REGEX.test(b.clientEmail.trim()) ||
     typeof b.clientPhone !== "string" ||
+    !b.clientPhone.trim() ||
     typeof b.notes !== "string" ||
     typeof b.honeypot !== "string" ||
     (typeof b.turnstileToken !== "string" && b.turnstileToken !== undefined)
