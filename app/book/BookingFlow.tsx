@@ -137,6 +137,7 @@ export default function BookingFlow() {
             appointmentTypeId={appointmentType.id}
             date={date}
             startTime={slot.startTime}
+            requiresPayment={appointmentType.requires_payment}
             onBack={changeSlot}
           />
         </div>

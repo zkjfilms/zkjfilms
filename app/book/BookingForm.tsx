@@ -9,6 +9,7 @@ type Props = {
   appointmentTypeId: string;
   date: string;
   startTime: string;
+  requiresPayment: boolean;
   onBack: () => void;
 };
 
@@ -16,8 +17,15 @@ function redirectTo(url: string) {
   window.location.href = url;
 }
 
-export default function BookingForm({ appointmentTypeId, date, startTime, onBack }: Props) {
-  const [form, setForm] = useState({ clientName: "", clientEmail: "", clientPhone: "", notes: "", honeypot: "" });
+export default function BookingForm({ appointmentTypeId, date, startTime, requiresPayment, onBack }: Props) {
+  const [form, setForm] = useState({
+    clientName: "",
+    clientEmail: "",
+    clientPhone: "",
+    notes: "",
+    discountCode: "",
+    honeypot: "",
+  });
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -97,6 +105,16 @@ export default function BookingForm({ appointmentTypeId, date, startTime, onBack
           className="w-full border border-border bg-transparent p-3 text-foreground focus:border-accent focus:outline-none"
         />
       </div>
+      {requiresPayment && (
+        <div>
+          <label className="mb-2 block text-xs uppercase tracking-[0.3em] text-muted">Discount code (optional)</label>
+          <input
+            value={form.discountCode}
+            onChange={(e) => setForm((p) => ({ ...p, discountCode: e.target.value }))}
+            className="w-full border-b border-border bg-transparent pb-2 text-foreground focus:border-accent focus:outline-none"
+          />
+        </div>
+      )}
       {/* Honeypot — hidden from real visitors via CSS, not `type="hidden"`
           (some bots skip hidden inputs but still fill visible-but-offscreen ones). */}
       <div className="absolute -left-[9999px]" aria-hidden="true">
