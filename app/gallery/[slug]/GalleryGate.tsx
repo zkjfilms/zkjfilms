@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 import type { GalleryMedia } from "@/lib/r2";
-import GalleryLightbox from "./GalleryLightbox";
+import GalleryPhotoGrid from "./GalleryPhotoGrid";
 import PasswordField from "@/components/PasswordField";
 
 type SubmitStatus = "idle" | "loading" | "error";
@@ -10,39 +10,17 @@ type Session = {
   images: GalleryMedia[];
   imagesError: boolean;
   expiresAt: number;
+  favoriteToken: string;
+  favoritedKeys: string[];
 };
-
-// Triggers a native browser download for one image via a throwaway
-// anchor — downloadUrl carries a Content-Disposition: attachment header
-// from the server so this reliably saves a file rather than navigating.
-function triggerDownload(image: GalleryMedia) {
-  const link = document.createElement("a");
-  link.href = image.downloadUrl;
-  link.download = image.filename;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Browsers throttle/block bursts of programmatic downloads fired in a
-// tight loop — spacing them out keeps each one going through cleanly
-// (though the browser may still show a one-time "allow multiple
-// downloads" prompt for the first batch).
-async function triggerDownloads(images: GalleryMedia[]) {
-  for (const image of images) {
-    triggerDownload(image);
-    await new Promise((resolve) => setTimeout(resolve, 350));
-  }
-}
 
 function sessionKey(slug: string) {
   return `gallery-session:${slug}`;
 }
 
 // No real external events to subscribe to — sessionStorage only changes
-// here, from handleSubmit below — so this just satisfies the hook's
-// contract with a no-op.
+// here, from handleSubmit/handlePinSubmit/toggleFavorite below — so this
+// just satisfies the hook's contract with a no-op.
 function subscribe() {
   return () => {};
 }
@@ -56,6 +34,8 @@ function parseSession(raw: string | null): Session | null {
       images: parsed.images ?? [],
       imagesError: parsed.imagesError ?? false,
       expiresAt: parsed.expiresAt,
+      favoriteToken: typeof parsed.favoriteToken === "string" ? parsed.favoriteToken : "",
+      favoritedKeys: Array.isArray(parsed.favoritedKeys) ? parsed.favoritedKeys : [],
     };
   } catch {
     return null;
@@ -111,8 +91,26 @@ export default function GalleryGate({
   const [stage, setStage] = useState<"password" | "pin">("password");
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [favoriteError, setFavoriteError] = useState("");
+
+  // Seeded once from whatever's cached in sessionStorage at mount (the
+  // "returning within the same unlocked session" case). Fresh unlocks
+  // re-seed this explicitly in handleSubmit/handlePinSubmit below, since
+  // this lazy initializer only ever runs once per mount.
+  // Guarded for SSR: the lazy initializer below still runs server-side
+  // (unlike useSyncExternalStore's getSnapshot, useState's initializer has
+  // no separate server-safe variant), where sessionStorage doesn't exist.
+  // This is safe to short-circuit to an empty Set on the server — the
+  // `unlocked` flag above is always false there (per its own
+  // getServerSnapshot), so `favorited` is never rendered server-side
+  // anyway; the client re-runs this initializer during hydration, when
+  // sessionStorage is available, and seeds correctly.
+  const [favorited, setFavorited] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    return new Set(
+      parseSession(sessionStorage.getItem(sessionKey(slug)))?.favoritedKeys ?? [],
+    );
+  });
 
   // Shared by both handleSubmit and handlePinSubmit below — both end the
   // same way once the server confirms access (with or without a PIN
@@ -121,25 +119,59 @@ export default function GalleryGate({
     images?: GalleryMedia[];
     imagesError?: boolean;
     expiresAt?: number;
+    favoriteToken?: string;
+    favoritedKeys?: string[];
   }) {
     const newSession: Session = {
       images: data.images ?? [],
       imagesError: data.imagesError ?? false,
       expiresAt: data.expiresAt ?? Date.now(),
+      favoriteToken: data.favoriteToken ?? "",
+      favoritedKeys: data.favoritedKeys ?? [],
     };
     sessionStorage.setItem(sessionKey(slug), JSON.stringify(newSession));
   }
 
-  function toggleSelect(key: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
+  // Keeps sessionStorage's cached favoritedKeys in sync with local state
+  // after every optimistic toggle (and its revert, if the request
+  // fails), so a same-tab reload within the session window starts from
+  // the right favorited set via the lazy initializer above.
+  function patchFavoritedKeys(keys: Set<string>) {
+    const current = parseSession(sessionStorage.getItem(sessionKey(slug)));
+    if (!current) return;
+    const next: Session = { ...current, favoritedKeys: Array.from(keys) };
+    sessionStorage.setItem(sessionKey(slug), JSON.stringify(next));
+  }
+
+  async function toggleFavorite(key: string, next: boolean, favoriteToken: string) {
+    setFavoriteError("");
+    setFavorited((prev) => {
+      const updated = new Set(prev);
+      if (next) updated.add(key);
+      else updated.delete(key);
+      patchFavoritedKeys(updated);
+      return updated;
     });
+
+    try {
+      const response = await fetch("/api/gallery-access/favorite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, imageKey: key, favoriteToken, favorited: next }),
+      });
+      if (!response.ok) throw new Error("Favorite request failed.");
+    } catch {
+      setFavorited((prev) => {
+        const reverted = new Set(prev);
+        if (next) reverted.delete(key);
+        else reverted.add(key);
+        patchFavoritedKeys(reverted);
+        return reverted;
+      });
+      setFavoriteError(
+        "Couldn't save that — your session may have expired. Refresh and sign back in.",
+      );
+    }
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -162,6 +194,8 @@ export default function GalleryGate({
         images?: GalleryMedia[];
         imagesError?: boolean;
         expiresAt?: number;
+        favoriteToken?: string;
+        favoritedKeys?: string[];
       } = await response.json();
 
       if (!response.ok) {
@@ -177,6 +211,7 @@ export default function GalleryGate({
       }
 
       commitSession(data);
+      setFavorited(new Set(data.favoritedKeys ?? []));
       setSubmitStatus("idle");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -203,6 +238,8 @@ export default function GalleryGate({
         images?: GalleryMedia[];
         imagesError?: boolean;
         expiresAt?: number;
+        favoriteToken?: string;
+        favoritedKeys?: string[];
       } = await response.json();
 
       if (!response.ok) {
@@ -212,6 +249,7 @@ export default function GalleryGate({
       }
 
       commitSession(data);
+      setFavorited(new Set(data.favoritedKeys ?? []));
       setSubmitStatus("idle");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -220,7 +258,7 @@ export default function GalleryGate({
   }
 
   if (unlocked && session) {
-    const { images, imagesError } = session;
+    const { images, imagesError, favoriteToken } = session;
 
     return (
       <div className="mx-auto w-full max-w-5xl px-6 py-16 sm:px-10">
@@ -244,119 +282,16 @@ export default function GalleryGate({
           </p>
         ) : (
           <>
-            <div className="mb-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs uppercase tracking-[0.15em]">
-              <button
-                type="button"
-                onClick={() =>
-                  setSelected(
-                    selected.size === images.length
-                      ? new Set()
-                      : new Set(images.map((image) => image.key)),
-                  )
-                }
-                className="text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline"
-              >
-                {selected.size === images.length
-                  ? "Clear selection"
-                  : "Select all"}
-              </button>
-              <button
-                type="button"
-                onClick={() => triggerDownloads(images)}
-                className="border border-foreground px-6 py-2 text-foreground transition-colors hover:bg-foreground hover:text-background"
-              >
-                Download all ({images.length})
-              </button>
-              <button
-                type="button"
-                disabled={selected.size === 0}
-                onClick={() =>
-                  triggerDownloads(images.filter((i) => selected.has(i.key)))
-                }
-                className="border border-foreground px-6 py-2 text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-foreground"
-              >
-                Download selected ({selected.size})
-              </button>
-            </div>
-            <p className="mb-8 text-center text-xs text-muted">
-              Downloading several photos at once may prompt your browser to
-              allow multiple downloads.
-            </p>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {images.map((media, i) => (
-                <div
-                  key={media.key}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setLightboxIndex(i)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setLightboxIndex(i);
-                    }
-                  }}
-                  className="group relative aspect-square cursor-pointer overflow-hidden bg-surface"
-                >
-                  {media.isVideo ? (
-                    <LazyVideoThumbnail
-                      src={media.url}
-                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                    />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element -- signed R2 URLs, not a static/optimizable asset
-                    <img
-                      src={media.url}
-                      alt={`${title} photo`}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-                    />
-                  )}
-
-                  {media.isVideo && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
-                        <PlayIcon />
-                      </div>
-                    </div>
-                  )}
-
-                  <label
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute left-2 top-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded bg-black/40 backdrop-blur-sm"
-                  >
-                    <span className="sr-only">
-                      Select this {media.isVideo ? "video" : "photo"}
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(media.key)}
-                      onChange={() => toggleSelect(media.key)}
-                      className="h-4 w-4 accent-accent"
-                    />
-                  </label>
-
-                  <a
-                    href={media.downloadUrl}
-                    download={media.filename}
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-2 right-2 z-10 rounded bg-black/40 px-2 py-1 text-[10px] uppercase tracking-wide text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
-                  >
-                    Download
-                  </a>
-                </div>
-              ))}
-            </div>
+            {favoriteError && (
+              <p className="mb-4 text-center text-sm text-red-600">{favoriteError}</p>
+            )}
+            <GalleryPhotoGrid
+              title={title}
+              images={images}
+              favoritedKeys={favorited}
+              onToggleFavorite={(key, next) => toggleFavorite(key, next, favoriteToken)}
+            />
           </>
-        )}
-
-        {lightboxIndex !== null && (
-          <GalleryLightbox
-            images={images}
-            index={lightboxIndex}
-            onClose={() => setLightboxIndex(null)}
-            onNavigate={setLightboxIndex}
-          />
         )}
       </div>
     );
@@ -441,65 +376,5 @@ export default function GalleryGate({
         </form>
       </div>
     </div>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="h-6 w-6 text-white"
-      aria-hidden="true"
-    >
-      <path d="M8 5v14l11-7z" />
-    </svg>
-  );
-}
-
-// Off-screen video tiles don't start fetching until they scroll near the
-// viewport — preload="metadata" alone has no lazy equivalent the way
-// <img loading="lazy"> does, and a gallery with a few dozen clips would
-// otherwise fire that many concurrent metadata fetches at once, which
-// mobile Safari's limit on simultaneous <video> elements can choke on.
-function LazyVideoThumbnail({
-  src,
-  className,
-}: {
-  src: string;
-  className: string;
-}) {
-  const [isVisible, setIsVisible] = useState(false);
-  const ref = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <video
-      ref={ref}
-      // The #t=0.001 fragment nudges iOS Safari to actually paint the
-      // first frame instead of a black box — harmless on browsers that
-      // don't need it (Chrome/Firefox ignore it and behave the same).
-      src={isVisible ? `${src}#t=0.001` : undefined}
-      preload="metadata"
-      muted
-      playsInline
-      className={className}
-    />
   );
 }
