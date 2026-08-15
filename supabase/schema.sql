@@ -518,3 +518,30 @@ create index if not exists gallery_favorites_gallery_id_idx
   on gallery_favorites (gallery_id);
 
 alter table gallery_favorites enable row level security;
+
+-- Client-facing "gallery ready" notifications. client_email is set (or
+-- updated) whenever an admin sends the notification from
+-- /admin/galleries/[slug] — not captured at gallery:create time, since
+-- galleries can predate this feature. credentials_sent_at is bookkeeping
+-- only (drives the "Not yet sent" / "Last sent <date>" admin UI state);
+-- it does not gate anything.
+alter table galleries add column if not exists client_email text;
+alter table galleries add column if not exists credentials_sent_at timestamptz;
+
+-- Seed placeholder content — replace via /admin/templates before real use.
+insert into templates (template_type, content)
+values (
+  'gallery_ready',
+  'Hi {{client_name}},
+
+Your gallery, {{gallery_title}}, is ready to view!
+
+{{gallery_url}}
+
+Password: {{gallery_password}}
+PIN: {{gallery_pin}}
+
+Enjoy your photos,
+Zach K. Johnson'
+)
+on conflict (template_type) do nothing;
