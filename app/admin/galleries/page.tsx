@@ -112,7 +112,7 @@ export default async function AdminGalleriesPage() {
                     </td>
                     <td className="py-3">
                       <Link
-                        href={`/gallery/${gallery.slug}`}
+                        href={`/admin/galleries/${gallery.slug}`}
                         target="_blank"
                         className="text-accent underline-offset-4 hover:underline"
                       >
