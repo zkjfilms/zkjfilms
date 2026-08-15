@@ -92,7 +92,14 @@ export default async function AdminGalleriesPage() {
                 const status = statusFor(gallery);
                 return (
                   <tr key={gallery.slug} className="border-b border-border/60">
-                    <td className="py-3 pr-4 text-foreground">{gallery.slug}</td>
+                    <td className="py-3 pr-4 text-foreground">
+                      <Link
+                        href={`/admin/galleries/${gallery.slug}`}
+                        className="underline-offset-4 hover:underline"
+                      >
+                        {gallery.slug}
+                      </Link>
+                    </td>
                     <td className="py-3 pr-4 text-foreground">{gallery.title}</td>
                     <td className="py-3 pr-4 text-muted">
                       {gallery.client_name}

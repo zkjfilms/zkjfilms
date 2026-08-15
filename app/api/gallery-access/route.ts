@@ -3,6 +3,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { listGalleryImages, SIGNED_URL_EXPIRY_SECONDS } from "@/lib/r2";
 import { isGalleryUnavailable } from "@/lib/gallery";
 import { peekRateLimit, recordRateLimitHit, getClientIp } from "@/lib/rateLimit";
+import { createFavoriteToken } from "@/lib/galleryFavoriteToken";
 
 type Payload = { slug: string; password: string; pin?: string };
 
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
 
   const { data: gallery, error } = await supabase
     .from("galleries")
-    .select("password_hash, pin_hash, expires_at, archived_at")
+    .select("id, password_hash, pin_hash, expires_at, archived_at")
     .eq("slug", payload.slug)
     .maybeSingle();
 
@@ -149,15 +150,53 @@ export async function POST(request: Request) {
   // page load — expiresAt tells it when to drop the cache and re-prompt,
   // matching how long the signed image URLs below stay valid.
   const expiresAt = Date.now() + SIGNED_URL_EXPIRY_SECONDS * 1000;
+  // A missing/misconfigured GALLERY_FAVORITE_TOKEN_SECRET must only
+  // degrade the favorites feature, not the whole gallery unlock — an
+  // uncaught throw here would 500 every unlock. The client already
+  // defaults favoriteToken to "" and the favorite endpoint rejects an
+  // empty token with a 400, so hearting just silently fails while
+  // gallery browsing/downloading keeps working.
+  let favoriteToken = "";
+  try {
+    favoriteToken = createFavoriteToken(payload.slug, expiresAt);
+  } catch (err) {
+    console.error("Failed to issue favorite token:", err);
+  }
+
+  // A failed favorites lookup doesn't block the unlock, same tolerance
+  // as the R2 failure below — it just means the gallery opens with no
+  // favorites shown yet instead of a hard error.
+  const { data: favoriteRows, error: favoritesError } = await supabase
+    .from("gallery_favorites")
+    .select("image_key")
+    .eq("gallery_id", gallery.id);
+
+  if (favoritesError) {
+    console.error("Failed to load gallery favorites:", favoritesError);
+  }
+  const favoritedKeys = (favoriteRows ?? []).map((row) => row.image_key);
 
   // The password was correct — don't fail the whole unlock just because
   // R2 is unreachable. The client shows a distinct "couldn't load photos"
   // state when imagesError is set instead of an empty gallery.
   try {
     const images = await listGalleryImages(payload.slug);
-    return Response.json({ ok: true, images, expiresAt });
+    return Response.json({
+      ok: true,
+      images,
+      expiresAt,
+      favoriteToken,
+      favoritedKeys,
+    });
   } catch (err) {
     console.error("Failed to list gallery images from R2:", err);
-    return Response.json({ ok: true, images: [], imagesError: true, expiresAt });
+    return Response.json({
+      ok: true,
+      images: [],
+      imagesError: true,
+      expiresAt,
+      favoriteToken,
+      favoritedKeys,
+    });
   }
 }
