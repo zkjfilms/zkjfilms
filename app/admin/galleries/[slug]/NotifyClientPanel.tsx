@@ -2,16 +2,11 @@
 
 import { useMemo, useState } from "react";
 import type { DirectoryClient } from "@/lib/clientDirectory";
+import { formatBusinessDate } from "@/lib/format";
 
 type SendState = "idle" | "confirming" | "sending" | "sent" | "error";
 
-function formatSentAt(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function NotifyClientPanel({
   slug,
@@ -39,7 +34,7 @@ export default function NotifyClientPanel({
       .slice(0, 6);
   }, [nameQuery, directory]);
 
-  const canSend = email.includes("@");
+  const canSend = EMAIL_REGEX.test(email.trim());
 
   async function handleConfirmSend() {
     setState("sending");
@@ -50,7 +45,7 @@ export default function NotifyClientPanel({
       const response = await fetch(`/api/admin/galleries/${slug}/send-ready-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientEmail: email }),
+        body: JSON.stringify({ clientEmail: email.trim() }),
       });
 
       const data: {
@@ -84,7 +79,7 @@ export default function NotifyClientPanel({
       </h2>
 
       <p className="mb-4 text-center text-sm text-muted">
-        {sentAt ? `Last sent ${formatSentAt(sentAt)}` : "Not yet sent"}
+        {sentAt ? `Last sent ${formatBusinessDate(sentAt)}` : "Not yet sent"}
       </p>
 
       <div className="relative mb-3">

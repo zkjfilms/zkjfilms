@@ -4,15 +4,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // wins) — same query shape /admin/clients runs for its own rollups, but
 // that page needs every row (not deduped) plus fields this doesn't
 // select, so it keeps its own separate query. This is for the gallery
-// page's "Notify client" name search, which only needs name/email/phone.
-export type DirectoryClient = { name: string; email: string; phone: string | null };
+// page's "Notify client" name search, which only needs name/email.
+export type DirectoryClient = { name: string; email: string };
 
 export async function getConfirmedBookingClients(
   supabase: SupabaseClient,
 ): Promise<DirectoryClient[]> {
   const { data, error } = await supabase
     .from("bookings")
-    .select("client_name, client_email, client_phone, start_time")
+    .select("client_name, client_email, start_time")
     .eq("status", "confirmed")
     .order("start_time", { ascending: false });
 
@@ -27,7 +27,6 @@ export async function getConfirmedBookingClients(
       byEmail.set(row.client_email, {
         name: row.client_name,
         email: row.client_email,
-        phone: row.client_phone,
       });
     }
   }

@@ -75,6 +75,9 @@ const SITE_URL = "https://zkjfilms.com";
 // Used by generatePassword() below. Deliberately plain, unambiguous
 // words (no near-duplicates like "there"/"their") since these are read
 // aloud or copy-pasted by clients, not typed from memory repeatedly.
+// lib/galleryCredentials.ts is a hand-synced TypeScript twin of this
+// word list and generatePassword()/generatePin() — edit one, check the
+// other.
 const PASSWORD_WORDS = [
   "dune", "lantern", "willow", "harbor", "ember", "meadow", "cedar",
   "canyon", "ridge", "marble", "violet", "amber", "thistle", "granite",

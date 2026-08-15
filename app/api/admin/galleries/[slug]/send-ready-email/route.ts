@@ -10,13 +10,20 @@ import { SITE_URL } from "@/lib/seo";
 
 type Payload = { clientEmail: string };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const SEND_FAILURE_MESSAGE =
+  "Credentials were reset, but the email failed to send. Copy these and send them yourself, or try again.";
+
 function parsePayload(body: unknown): Payload | null {
   if (typeof body !== "object" || body === null) return null;
   const { clientEmail } = body as Record<string, unknown>;
-  if (typeof clientEmail !== "string" || !clientEmail.includes("@")) {
+  if (typeof clientEmail !== "string") return null;
+  const trimmed = clientEmail.trim();
+  if (!EMAIL_REGEX.test(trimmed)) {
     return null;
   }
-  return { clientEmail };
+  return { clientEmail: trimmed };
 }
 
 export async function POST(
@@ -42,7 +49,17 @@ export async function POST(
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
 
-  const supabase = getSupabaseClient();
+  let supabase;
+  try {
+    supabase = getSupabaseClient();
+  } catch (err) {
+    console.error("Failed to create Supabase client:", err);
+    return Response.json(
+      { error: "Gallery service is not configured yet." },
+      { status: 500 },
+    );
+  }
+
   const { data: gallery, error } = await supabase
     .from("galleries")
     .select("id, title, client_name, expires_at, archived_at")
@@ -83,19 +100,22 @@ export async function POST(
   // credential for a first-ever send. Persisting first means the worst
   // case on a later failure is "credentials rotated, admin sees them
   // once in this response and can relay manually or just retry."
-  const sentAt = new Date().toISOString();
-  const { error: updateError } = await supabase
+  const { data: updatedGallery, error: updateError } = await supabase
     .from("galleries")
     .update({
       password_hash: passwordHash,
       pin_hash: pinHash,
       client_email: payload.clientEmail,
-      credentials_sent_at: sentAt,
     })
-    .eq("id", gallery.id);
+    .eq("id", gallery.id)
+    .select("id")
+    .maybeSingle();
 
-  if (updateError) {
-    console.error("Failed to persist rotated gallery credentials:", updateError);
+  if (updateError || !updatedGallery) {
+    console.error(
+      "Failed to persist rotated gallery credentials:",
+      updateError ?? "update matched no row",
+    );
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
 
@@ -113,7 +133,7 @@ export async function POST(
     console.error("Failed to load gallery_ready template:", templateError);
     return Response.json(
       {
-        error: "Credentials were reset, but the email failed to send. Copy these and send them yourself, or try again.",
+        error: SEND_FAILURE_MESSAGE,
         password,
         pin,
       },
@@ -139,7 +159,7 @@ export async function POST(
     console.error("Failed to send gallery-ready email:", result.error);
     return Response.json(
       {
-        error: "Credentials were reset, but the email failed to send. Copy these and send them yourself, or try again.",
+        error: SEND_FAILURE_MESSAGE,
         password,
         pin,
       },
@@ -147,5 +167,21 @@ export async function POST(
     );
   }
 
-  return Response.json({ ok: true, sentAt });
+  // Pure bookkeeping now that the email has genuinely been sent — same
+  // "log it and move on" posture as app/api/admin/contracts/[id]/
+  // send-email/route.ts's post-send update. A failure here must not fail
+  // the whole request: the client already has working credentials.
+  const sentAt = new Date().toISOString();
+  const { data: sentGallery, error: sentAtError } = await supabase
+    .from("galleries")
+    .update({ credentials_sent_at: sentAt })
+    .eq("id", gallery.id)
+    .select("credentials_sent_at")
+    .maybeSingle();
+
+  if (sentAtError) {
+    console.error("Email sent but failed to record credentials_sent_at:", sentAtError);
+  }
+
+  return Response.json({ ok: true, sentAt: sentGallery?.credentials_sent_at ?? sentAt });
 }
