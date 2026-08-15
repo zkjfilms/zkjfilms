@@ -2,7 +2,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { fetchOpenSlotsForDate } from "@/lib/availabilityQuery";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { createFullPaymentCheckoutSession } from "@/lib/stripe";
-import { sendFreeBookingConfirmedEmail } from "@/lib/email";
+import { sendFreeBookingConfirmedEmail, sendBookingPaymentConfirmedEmail } from "@/lib/email";
 import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
 import { turnstileFailureResponse, verifyTurnstileToken } from "@/lib/turnstile";
@@ -128,6 +128,11 @@ export async function POST(request: Request) {
     finalAmountCents = computeDiscountedAmountCents(type.price_cents, discount);
   }
 
+  // A discount that fully covers the price (finalAmountCents === 0) skips
+  // Stripe entirely and confirms immediately, same as a free appointment
+  // type — there's nothing for Stripe to charge.
+  const skipsStripe = !type.requires_payment || finalAmountCents === 0;
+
   // Re-validate against current availability at submit time — the
   // client's list may be stale by the time they submit.
   const openSlots = await fetchOpenSlotsForDate({ date: payload.date, appointmentType: type });
@@ -156,7 +161,7 @@ export async function POST(request: Request) {
     .lt("start_time", endIso)
     .gt("end_time", startIso);
 
-  const status = type.requires_payment ? "pending" : "confirmed";
+  const status = skipsStripe ? "confirmed" : "pending";
   const { data: booking, error: insertError } = await supabase
     .from("bookings")
     .insert({
@@ -168,7 +173,7 @@ export async function POST(request: Request) {
       end_time: endIso,
       status,
       notes: payload.notes || null,
-      pending_expires_at: type.requires_payment ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null,
+      pending_expires_at: skipsStripe ? null : new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       discount_code: appliedDiscount?.code ?? null,
       discount_cents: appliedDiscount ? type.price_cents - finalAmountCents : null,
     })
@@ -185,9 +190,27 @@ export async function POST(request: Request) {
     return Response.json({ error: "Something went wrong." }, { status: 500 });
   }
 
-  if (!type.requires_payment) {
+  if (skipsStripe) {
+    // Only count a redemption once the booking is actually confirmed. For
+    // every other discounted booking that goes through Stripe, this same
+    // RPC is called from the webhook (lib/bookingsWebhook.ts) once
+    // payment completes — here there's no payment to wait for, so the
+    // increment happens immediately instead.
+    if (appliedDiscount) {
+      const { error: redemptionError } = await supabase.rpc("increment_discount_code_redemption", {
+        p_code: appliedDiscount.code,
+      });
+      if (redemptionError) {
+        console.error("Failed to increment discount code redemption:", redemptionError);
+      }
+    }
+
     try {
-      await sendFreeBookingConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
+      if (appliedDiscount) {
+        await sendBookingPaymentConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
+      } else {
+        await sendFreeBookingConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
+      }
     } catch (err) {
       console.error("Confirmation email failed (booking still confirmed):", err);
     }
