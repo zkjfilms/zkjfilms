@@ -201,10 +201,12 @@ export default function GalleryPhotoGrid({
                 </button>
               ) : (
                 <span
-                  aria-hidden="true"
                   className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded bg-black/40 text-white backdrop-blur-sm"
                 >
                   <HeartIcon filled={isFavorited} />
+                  <span className="sr-only">
+                    {isFavorited ? "Favorited" : "Not favorited"}
+                  </span>
                 </span>
               )}
 

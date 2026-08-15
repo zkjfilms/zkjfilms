@@ -150,7 +150,18 @@ export async function POST(request: Request) {
   // page load — expiresAt tells it when to drop the cache and re-prompt,
   // matching how long the signed image URLs below stay valid.
   const expiresAt = Date.now() + SIGNED_URL_EXPIRY_SECONDS * 1000;
-  const favoriteToken = createFavoriteToken(payload.slug, expiresAt);
+  // A missing/misconfigured GALLERY_FAVORITE_TOKEN_SECRET must only
+  // degrade the favorites feature, not the whole gallery unlock — an
+  // uncaught throw here would 500 every unlock. The client already
+  // defaults favoriteToken to "" and the favorite endpoint rejects an
+  // empty token with a 400, so hearting just silently fails while
+  // gallery browsing/downloading keeps working.
+  let favoriteToken = "";
+  try {
+    favoriteToken = createFavoriteToken(payload.slug, expiresAt);
+  } catch (err) {
+    console.error("Failed to issue favorite token:", err);
+  }
 
   // A failed favorites lookup doesn't block the unlock, same tolerance
   // as the R2 failure below — it just means the gallery opens with no

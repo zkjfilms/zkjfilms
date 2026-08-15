@@ -145,13 +145,11 @@ export default function GalleryGate({
 
   async function toggleFavorite(key: string, next: boolean, favoriteToken: string) {
     setFavoriteError("");
-    setFavorited((prev) => {
-      const updated = new Set(prev);
-      if (next) updated.add(key);
-      else updated.delete(key);
-      patchFavoritedKeys(updated);
-      return updated;
-    });
+    const updated = new Set(favorited);
+    if (next) updated.add(key);
+    else updated.delete(key);
+    setFavorited(updated);
+    patchFavoritedKeys(updated);
 
     try {
       const response = await fetch("/api/gallery-access/favorite", {
@@ -161,13 +159,11 @@ export default function GalleryGate({
       });
       if (!response.ok) throw new Error("Favorite request failed.");
     } catch {
-      setFavorited((prev) => {
-        const reverted = new Set(prev);
-        if (next) reverted.delete(key);
-        else reverted.add(key);
-        patchFavoritedKeys(reverted);
-        return reverted;
-      });
+      const reverted = new Set(updated);
+      if (next) reverted.delete(key);
+      else reverted.add(key);
+      setFavorited(reverted);
+      patchFavoritedKeys(reverted);
       setFavoriteError(
         "Couldn't save that — your session may have expired. Refresh and sign back in.",
       );
