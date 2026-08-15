@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { getSupabaseClient } from "@/lib/supabase";
 import { listGalleryImages, type GalleryMedia } from "@/lib/r2";
 import GalleryPhotoGrid from "@/app/gallery/[slug]/GalleryPhotoGrid";
+import NotifyClientPanel from "./NotifyClientPanel";
+import { getConfirmedBookingClients } from "@/lib/clientDirectory";
 
 // robots noindex is inherited from app/admin/layout.tsx.
 export function generateMetadata(): Metadata {
@@ -22,7 +24,7 @@ export default async function AdminGalleryDetailPage({
   // gallery for their own reference.
   const { data: gallery, error } = await supabase
     .from("galleries")
-    .select("id, title, client_name")
+    .select("id, title, client_name, client_email, credentials_sent_at")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -58,6 +60,8 @@ export default async function AdminGalleryDetailPage({
     imagesError = true;
   }
 
+  const directory = await getConfirmedBookingClients(supabase);
+
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-16 sm:px-10">
       <div className="mb-10 text-center">
@@ -78,6 +82,13 @@ export default async function AdminGalleryDetailPage({
       ) : (
         <GalleryPhotoGrid title={gallery.title} images={images} favoritedKeys={favoritedKeys} />
       )}
+
+      <NotifyClientPanel
+        slug={slug}
+        initialClientEmail={gallery.client_email}
+        initialSentAt={gallery.credentials_sent_at}
+        directory={directory}
+      />
     </div>
   );
 }
