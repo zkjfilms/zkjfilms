@@ -7,6 +7,44 @@ import type { DiscountCode, DiscountCodeType } from "@/lib/discountCodes";
 
 type Status = "idle" | "loading" | "error";
 
+// Excludes visually-confusable characters (0/O, 1/I/L) so a code is easy
+// to read aloud or hand-write when given directly to a client.
+const CODE_CHARSET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const CODE_LENGTH = 8;
+
+function generateRandomCode(): string {
+  const bytes = new Uint8Array(CODE_LENGTH);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => CODE_CHARSET[b % CODE_CHARSET.length]).join("");
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can fail (insecure context, denied permission) —
+      // silently no-op rather than surface an error for a low-stakes
+      // convenience action.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      disabled={!value}
+      className="text-xs text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-50"
+    >
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
+
 function toFormState(discountCode: DiscountCode | null) {
   if (!discountCode) {
     return {
@@ -48,10 +86,14 @@ export default function DiscountCodeForm({
   const [form, setForm] = useState(() => toFormState(discountCode));
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
+  const [oneTimeUse, setOneTimeUse] = useState(false);
+  const [createdCode, setCreatedCode] = useState<string | null>(null);
 
   const isEditing = discountCode !== null;
 
-  function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+  function handleChange(
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
     setForm((prev) => ({
@@ -67,6 +109,18 @@ export default function DiscountCodeForm({
         ? prev.appointmentTypeIds.filter((existing) => existing !== id)
         : [...prev.appointmentTypeIds, id],
     }));
+  }
+
+  function handleGenerateCode() {
+    setForm((prev) => ({ ...prev, code: generateRandomCode() }));
+  }
+
+  function handleOneTimeUseChange(e: ChangeEvent<HTMLInputElement>) {
+    const checked = e.target.checked;
+    setOneTimeUse(checked);
+    if (checked) {
+      setForm((prev) => ({ ...prev, maxRedemptions: "1" }));
+    }
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -124,7 +178,7 @@ export default function DiscountCodeForm({
         },
       );
 
-      const data: { error?: string } = await response.json();
+      const data: { error?: string; discountCode?: { code: string } } = await response.json();
 
       if (!response.ok) {
         setError(data.error ?? "Something went wrong. Please try again.");
@@ -134,19 +188,54 @@ export default function DiscountCodeForm({
 
       setStatus("idle");
       router.refresh();
-      onDone();
+      if (isEditing) {
+        onDone();
+      } else {
+        setCreatedCode(data.discountCode?.code ?? body.code);
+      }
     } catch {
       setError("Something went wrong. Please try again.");
       setStatus("error");
     }
   }
 
+  if (createdCode) {
+    return (
+      <div className="max-w-lg space-y-4 border border-border p-6">
+        <p className="text-xs uppercase tracking-[0.15em] text-muted">Code created</p>
+        <div className="flex items-center gap-4">
+          <p className="font-mono text-2xl text-foreground">{createdCode}</p>
+          <CopyButton value={createdCode} />
+        </div>
+        <button
+          type="button"
+          onClick={onDone}
+          className="border border-foreground px-6 py-2 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+        >
+          Done
+        </button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="max-w-lg space-y-4 border border-border p-6">
       <div>
-        <label htmlFor="code" className="block text-xs uppercase tracking-[0.15em] text-muted">
-          Code
-        </label>
+        <div className="flex items-center justify-between">
+          <label htmlFor="code" className="block text-xs uppercase tracking-[0.15em] text-muted">
+            Code
+          </label>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleGenerateCode}
+              className="text-xs text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            >
+              Generate
+            </button>
+            <CopyButton value={form.code} />
+          </div>
+        </div>
         <input
           id="code"
           name="code"
@@ -220,6 +309,15 @@ export default function DiscountCodeForm({
             onChange={handleChange}
             className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
           />
+          <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={oneTimeUse}
+              onChange={handleOneTimeUseChange}
+              className="h-3.5 w-3.5 border-border accent-accent"
+            />
+            One-time use
+          </label>
         </div>
       </div>
 
