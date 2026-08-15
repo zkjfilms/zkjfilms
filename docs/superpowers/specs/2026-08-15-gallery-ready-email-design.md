@@ -155,9 +155,9 @@ The HTML body is a plain `<pre>`-wrapped escape of the same text the admin edite
 
 **Why persist-then-send, not send-then-persist:** `app/api/admin/contracts/[id]/send-email/route.ts` sends first and treats its DB update (`email_sent_at`) as best-effort bookkeeping — reasonable there, since nothing functional depends on that flag. Here, the DB update *is* the functional artifact: the emailed password only works if its hash is already saved. Sending first and persisting second would mean a persist failure leaves the client holding a password that was never actually saved — for a first-ever send (the common case per the project owner) there's no fallback credential they already have, so that failure mode is a real lockout with no recovery but "contact the photographer." Persisting first means the worst case on a send failure is "credentials rotated, admin sees them once in the error response and can relay manually or just click Send again" — recoverable either way, and self-explanatory in the UI.
 
-### `lib/clientDirectory.ts` (new — small extraction from `/admin/clients`)
+### `lib/clientDirectory.ts` (new)
 
-`app/admin/clients/page.tsx` already queries `bookings` for `status = 'confirmed'` and dedupes by email; this pulls just that base list (name/email/phone, no booking-count/total rollups — those stay page-local to `/admin/clients`) into a shared function both pages call, so the two "who is this client" views can't drift:
+`app/admin/clients/page.tsx` already queries `bookings` for `status = 'confirmed'` and dedupes by email; this is the same query shape (name/email/phone, same filter, same dedup rule), pulled into a shared function for the new gallery-page name search to use, rather than writing a third bespoke version of the same dedup logic:
 
 ```ts
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -192,9 +192,9 @@ export async function getConfirmedBookingClients(
 }
 ```
 
-Rows are already ordered newest-first, so the first time a given email is seen is its most recent booking — same "keep the newest name" reasoning `app/admin/clients/page.tsx` already relies on, preserved here.
+Rows are already ordered newest-first, so the first time a given email is seen is its most recent booking — same "keep the newest name" reasoning `app/admin/clients/page.tsx` already relies on.
 
-`app/admin/clients/page.tsx` is updated to call this for its base list, then layer its existing booking-count/total/date rollup loop on top of it, instead of re-deriving the dedup itself — the rollup logic (`bookingCount`, `totalPaidCents`, etc.) is unchanged, only the base-list derivation moves.
+**`app/admin/clients/page.tsx` itself is not changed.** Its rollup computation (`bookingCount`, `totalPaidCents`, the per-client `bookings` array) needs every row per client, not a deduped list, plus `amount_paid_cents`/`appointment_types(name)` that this helper deliberately doesn't select — so it still needs its own full query regardless. This helper and that page's query are two independent call sites reading the same table with the same filter and the same dedup rule, not one shared code path; sharing only becomes possible (and worthwhile) if a future page needs the same narrow name/email/phone shape this one does.
 
 ### `app/admin/galleries/[slug]/page.tsx` (extended)
 
@@ -217,7 +217,7 @@ Rendered below the photo grid. Owns:
 - No encryption-at-rest option for the password/PIN — deliberately rejected during brainstorming in favor of keeping today's bcrypt-hash-only posture.
 - No change to `scripts/gallery.mjs` — the CLI's own `create`/`set-password`/`set-pin` commands are untouched; this feature is a second, independent way credentials can be rotated, specifically the one that also emails them.
 - No rich HTML email layout — plain-text template rendered into a minimally-styled `<pre>` block, matching the template's plain-text editing surface.
-- `/admin/clients`'s own per-client rollup UI (booking counts, totals, expand/collapse) is unchanged — only its base client-list derivation is extracted, not its rendering.
+- `/admin/clients` is not modified at all — its rollup computation needs every booking row per client (not a deduped list) plus fields `lib/clientDirectory.ts` doesn't select, so there's nothing to extract from it without a redundant second query.
 
 ## Testing / Verification
 
@@ -229,4 +229,4 @@ Rendered below the photo grid. Owns:
 - Click Send, confirm through, confirm: the email arrives at the target address with the gallery's title, a working `/gallery/<slug>` link, and a password/PIN that actually unlock it (bcrypt-compare against the new hash succeeds); the admin panel now shows "Last sent {date}"; a second `/api/gallery-access` attempt using the *original* `gallery:create`-issued password/PIN now fails (proving rotation actually invalidated them).
 - Force a send failure (e.g. temporarily unset `RESEND_API_KEY`) and confirm: the gallery's `password_hash`/`pin_hash` were still updated (the new password DOES work against `/api/gallery-access` even though the email didn't send), the admin UI shows the fallback password/PIN display with the "email failed" message, and re-adding the key and clicking Send again succeeds normally.
 - Confirm sending against an archived or expired test gallery returns the 410 and no email goes out.
-- Confirm `/admin/clients` still renders identically (same client rows, same booking counts/totals) after its base-list derivation moves to the shared `lib/clientDirectory.ts` helper.
+- Confirm `/admin/clients` is byte-for-byte unmodified by this change (it's not touched — only a new, separate helper is added for the gallery page's search to use).
