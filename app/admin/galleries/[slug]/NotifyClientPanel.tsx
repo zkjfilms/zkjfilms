@@ -88,7 +88,14 @@ export default function NotifyClientPanel({
       </p>
 
       <div className="relative mb-3">
+        <label
+          htmlFor="notify-client-search"
+          className="mb-1 block text-xs uppercase tracking-[0.15em] text-muted"
+        >
+          Search clients
+        </label>
         <input
+          id="notify-client-search"
           type="text"
           value={nameQuery}
           onChange={(e) => setNameQuery(e.target.value)}
@@ -114,7 +121,14 @@ export default function NotifyClientPanel({
         )}
       </div>
 
+      <label
+        htmlFor="notify-client-email"
+        className="mb-1 block text-xs uppercase tracking-[0.15em] text-muted"
+      >
+        Client email
+      </label>
       <input
+        id="notify-client-email"
         type="email"
         value={email}
         onChange={(e) => {
