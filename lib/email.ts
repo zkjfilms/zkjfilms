@@ -236,3 +236,37 @@ export async function sendBookingRescheduledEmail(
     return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
   }
 }
+
+// Sent from the admin "Notify client" action
+// (app/api/admin/galleries/[slug]/send-ready-email/route.ts) once a
+// fresh gallery password/PIN have already been generated and persisted.
+// The caller fills the template before calling this — same division of
+// responsibility as sendSigningLinkEmail, which doesn't know about
+// template tokens either. bodyText is rendered into a plain <pre> block
+// rather than a richer HTML layout: this template is short and
+// credential-bearing, not worth a separate HTML version the admin's
+// plain-text edits in /admin/templates would drift out of sync with.
+export async function sendGalleryReadyEmail(params: {
+  clientEmail: string;
+  galleryTitle: string;
+  bodyText: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [params.clientEmail],
+      subject: `${params.galleryTitle} is ready to view`,
+      text: params.bodyText,
+      html: `<pre style="font-family: inherit; white-space: pre-wrap;">${escapeHtml(params.bodyText)}</pre>`,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
