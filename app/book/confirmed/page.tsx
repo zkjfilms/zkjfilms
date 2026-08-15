@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 
-// Reached via Stripe Checkout's success_url. The booking itself is
-// finalized asynchronously by the webhook (see lib/bookingsWebhook.ts),
-// so this page doesn't query anything — it can't know the finalization
-// has landed yet, and doesn't need to.
+// Reached after any successful booking: via Stripe Checkout's
+// success_url, a free appointment type, or a discount code that fully
+// covered the price. Only the Stripe case finalizes asynchronously by
+// the webhook (see lib/bookingsWebhook.ts) — the other two are already
+// confirmed by the time the client is redirected here. This page doesn't
+// query anything either way — it can't know the Stripe case has landed
+// yet, and doesn't need to.
 export function generateMetadata(): Metadata {
   return {
     title: "Booking Confirmed",

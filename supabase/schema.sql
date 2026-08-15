@@ -476,9 +476,11 @@ $$;
 -- Atomic redemption increment: called from the booking-confirmed webhook
 -- (lib/bookingsWebhook.ts) so two nearly-simultaneous checkouts for the
 -- same capped code can't both push redemption_count past
--- max_redemptions. A plain supabase-js `.update()` can't express
--- `redemption_count = redemption_count + 1` as a relative expression, so
--- this needs to be a function.
+-- max_redemptions. Also called directly from app/api/bookings/route.ts
+-- for a fully-free booking, where a discount code covers the whole price
+-- and there's no checkout to wait on. A plain supabase-js `.update()`
+-- can't express `redemption_count = redemption_count + 1` as a relative
+-- expression, so this needs to be a function.
 create or replace function increment_discount_code_redemption(p_code text)
 returns void
 language sql

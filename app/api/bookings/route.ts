@@ -206,10 +206,11 @@ export async function POST(request: Request) {
     }
 
     try {
-      if (appliedDiscount) {
-        await sendBookingPaymentConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
-      } else {
-        await sendFreeBookingConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
+      const result = appliedDiscount
+        ? await sendBookingPaymentConfirmedEmail({ ...booking, appointment_types: { name: type.name } })
+        : await sendFreeBookingConfirmedEmail({ ...booking, appointment_types: { name: type.name } });
+      if (!result.ok) {
+        console.error("Confirmation email failed (booking still confirmed):", result.error);
       }
     } catch (err) {
       console.error("Confirmation email failed (booking still confirmed):", err);

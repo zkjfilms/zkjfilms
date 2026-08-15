@@ -132,7 +132,10 @@ export async function sendFreeBookingConfirmedEmail(
 
 // Sent from the Stripe webhook (lib/bookingsWebhook.ts) once a paid
 // appointment type's checkout session completes and the booking flips
-// from 'pending' to 'confirmed'.
+// from 'pending' to 'confirmed'. Also called directly from
+// app/api/bookings/route.ts when a discount code fully covers the price —
+// there's no Stripe session in that case, and the row is inserted as
+// 'confirmed' outright rather than flipped from 'pending'.
 export async function sendBookingPaymentConfirmedEmail(
   booking: BookingForEmail & {
     amount_paid_cents: number | null;

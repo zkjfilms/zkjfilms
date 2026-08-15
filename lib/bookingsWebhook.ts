@@ -56,7 +56,10 @@ export async function handleBookingCheckoutCompleted(
   }
 
   try {
-    await sendBookingPaymentConfirmedEmail(booking);
+    const result = await sendBookingPaymentConfirmedEmail(booking);
+    if (!result.ok) {
+      console.error("Confirmation email failed (booking still confirmed):", result.error);
+    }
   } catch (err) {
     console.error("Confirmation email failed (booking still confirmed):", err);
   }
