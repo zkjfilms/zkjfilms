@@ -500,3 +500,21 @@ $$;
 -- unaffected by this revoke.
 revoke execute on function increment_discount_code_redemption(text)
   from public, anon, authenticated;
+
+-- Persisted per-gallery favorites (hearted photos). image_key is an R2
+-- object key (see lib/r2.ts's GalleryMedia.key) — gallery photos aren't
+-- rows in this database, they're listed live from R2, so a favorite is
+-- just "this key was hearted in this gallery." on delete cascade means
+-- gallery:delete cleans up a gallery's favorites automatically.
+create table if not exists gallery_favorites (
+  id uuid primary key default gen_random_uuid(),
+  gallery_id uuid not null references galleries(id) on delete cascade,
+  image_key text not null,
+  favorited_at timestamptz not null default now(),
+  unique (gallery_id, image_key)
+);
+
+create index if not exists gallery_favorites_gallery_id_idx
+  on gallery_favorites (gallery_id);
+
+alter table gallery_favorites enable row level security;
