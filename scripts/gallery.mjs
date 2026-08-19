@@ -11,6 +11,7 @@
 //   npm run gallery:set-pin -- <slug>
 //   npm run gallery:set-password -- <slug>
 //   npm run gallery:delete -- <slug> [--yes] [--keep-photos]
+//   npm run gallery:remove-photo -- <slug> <filename> [filename2...] [--yes]
 //
 // <date> accepts anything JS's Date constructor understands, e.g.
 // 2026-12-31 or 2026-12-31T23:59:59Z. Use "none" (or "clear") to remove
@@ -24,6 +25,13 @@
 // --keep-photos is passed, every photo under galleries/<slug>/ in R2.
 // Interactive by default (type the slug to confirm); pass --yes to skip
 // the prompt for non-interactive/scripted use.
+//
+// remove-photo deletes one or more individual photos from a gallery,
+// leaving the gallery and its other photos alone — for the "wrong photo
+// got uploaded" case where a full gallery:delete would be overkill.
+// Filenames are matched against what's actually in R2 (not assumed), so
+// a typo'd filename is reported as skipped rather than silently doing
+// nothing. Interactive y/n by default; pass --yes to skip the prompt.
 
 import { randomInt } from "node:crypto";
 import { createInterface } from "node:readline/promises";
@@ -569,6 +577,111 @@ async function del(slug, opts) {
   }
 }
 
+// Removes one or more individual photos from a gallery, keeping the
+// gallery itself and its other photos intact. Filenames are matched
+// against the actual R2 listing (not blindly turned into keys), so a
+// typo'd or already-deleted filename is reported as skipped rather than
+// silently doing nothing. Also cleans up any gallery_favorites rows for
+// the removed photos, so a hearted-then-removed photo doesn't leave a
+// stale favorite pointing at nothing.
+async function removePhotos(slug, rest) {
+  const filenames = rest.filter((arg) => !arg.startsWith("-"));
+  const autoConfirm = rest.includes("--yes") || rest.includes("-y");
+
+  if (!slug || filenames.length === 0) {
+    console.error(
+      "Usage: npm run gallery:remove-photo -- <slug> <filename> [filename2...] [--yes]",
+    );
+    process.exit(1);
+  }
+
+  const { data: gallery, error: lookupError } = await supabase
+    .from("galleries")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("Failed to look up gallery:", lookupError.message);
+    process.exit(1);
+  }
+
+  if (!gallery) {
+    console.error(`No gallery found with slug "${slug}".`);
+    process.exit(1);
+  }
+
+  const client = getR2Client();
+  const bucket = requireEnv("R2_BUCKET_NAME");
+  const prefix = `galleries/${slug}/`;
+
+  const listing = await client.send(
+    new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix }),
+  );
+  const existingByFilename = new Map(
+    (listing.Contents ?? [])
+      .filter((obj) => typeof obj.Key === "string")
+      .map((obj) => [obj.Key.slice(prefix.length), obj.Key]),
+  );
+
+  const matchedKeys = [];
+  const notFound = [];
+  for (const filename of filenames) {
+    const key = existingByFilename.get(filename);
+    if (key) {
+      matchedKeys.push(key);
+    } else {
+      notFound.push(filename);
+    }
+  }
+
+  if (notFound.length > 0) {
+    console.log(`Not found in "${slug}", skipping: ${notFound.join(", ")}`);
+  }
+
+  if (matchedKeys.length === 0) {
+    console.log("Nothing to delete.");
+    return;
+  }
+
+  if (!autoConfirm) {
+    if (!process.stdin.isTTY) {
+      console.error(
+        "Refusing to delete without confirmation in a non-interactive shell. Pass --yes to skip the prompt.",
+      );
+      process.exit(1);
+    }
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await rl.question(
+      `Delete ${matchedKeys.length} photo(s) from "${slug}": ${filenames.filter((f) => existingByFilename.has(f)).join(", ")}? (y/N) `,
+    );
+    rl.close();
+    if (answer.trim().toLowerCase() !== "y") {
+      console.error("Aborted.");
+      process.exit(1);
+    }
+  }
+
+  await client.send(
+    new DeleteObjectsCommand({
+      Bucket: bucket,
+      Delete: { Objects: matchedKeys.map((Key) => ({ Key })) },
+    }),
+  );
+
+  const { error: favoritesError } = await supabase
+    .from("gallery_favorites")
+    .delete()
+    .eq("gallery_id", gallery.id)
+    .in("image_key", matchedKeys);
+
+  if (favoritesError) {
+    console.error("Warning: failed to clean up gallery_favorites:", favoritesError.message);
+  }
+
+  console.log(`Deleted ${matchedKeys.length} photo(s) from "${slug}".`);
+}
+
 const [, , command, ...args] = process.argv;
 
 if (command === "list") {
@@ -589,6 +702,8 @@ if (command === "list") {
   await setPassword(args[0]);
 } else if (command === "delete") {
   await del(args[0], args.slice(1));
+} else if (command === "remove-photo") {
+  await removePhotos(args[0], args.slice(1));
 } else {
   console.error(
     [
@@ -602,6 +717,7 @@ if (command === "list") {
       "  npm run gallery:set-pin -- <slug>",
       "  npm run gallery:set-password -- <slug>",
       "  npm run gallery:delete -- <slug> [--yes] [--keep-photos]",
+      "  npm run gallery:remove-photo -- <slug> <filename> [filename2...] [--yes]",
     ].join("\n"),
   );
   process.exit(1);
