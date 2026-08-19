@@ -1,6 +1,7 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import { fillTemplate } from "@/lib/contracts";
 import { sendSessionReminderEmail } from "@/lib/email";
+import { BUSINESS_TIME_ZONE } from "@/lib/scheduling";
 
 type AppointmentTypeInfo = { name: string; uses_boudoir_reminder: boolean };
 
@@ -24,11 +25,13 @@ function appointmentType(booking: DueBooking): AppointmentTypeInfo | null {
 
 function formatSessionDate(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
     weekday: "long",
     month: "long",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZoneName: "short",
   });
 }
 

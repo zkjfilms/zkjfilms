@@ -10,6 +10,10 @@ on:
     - cron: "0 * * * *"
   workflow_dispatch: {}
 
+concurrency:
+  group: send-session-reminders
+  cancel-in-progress: false
+
 jobs:
   remind:
     runs-on: ubuntu-latest
@@ -25,8 +29,8 @@ jobs:
             exit 1
           fi
           echo "HTTP status: $status"
-          cat /tmp/response.txt
           if [ "$status" -ge 400 ]; then
-            echo "Reminder endpoint returned an error status."
+            echo "Reminder endpoint returned an error status:"
+            cat /tmp/response.txt
             exit 1
           fi

@@ -291,7 +291,7 @@ export async function sendSessionReminderEmail(params: {
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: [params.clientEmail],
-      subject: `Your ${params.sessionType} session is coming up`,
+      subject: "Your session is coming up",
       text: params.bodyText,
       html: `<pre style="font-family: inherit; white-space: pre-wrap;">${escapeHtml(params.bodyText)}</pre>`,
     });
