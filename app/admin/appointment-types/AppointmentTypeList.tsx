@@ -13,6 +13,7 @@ export type AppointmentType = {
   buffer_after_minutes: number;
   price_cents: number;
   requires_payment: boolean;
+  uses_boudoir_reminder: boolean;
   color: string;
   active: boolean;
   sort_order: number;

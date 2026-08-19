@@ -31,6 +31,7 @@ type CreatePayload = {
   bufferAfterMinutes: number;
   priceCents: number;
   requiresPayment: boolean;
+  usesBoudoirReminder: boolean;
   color: string;
 };
 
@@ -49,6 +50,7 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     typeof b.priceCents !== "number" ||
     b.priceCents < 0 ||
     typeof b.requiresPayment !== "boolean" ||
+    typeof b.usesBoudoirReminder !== "boolean" ||
     typeof b.color !== "string"
   ) {
     return null;
@@ -60,6 +62,7 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     bufferAfterMinutes: b.bufferAfterMinutes,
     priceCents: b.priceCents,
     requiresPayment: b.requiresPayment,
+    usesBoudoirReminder: b.usesBoudoirReminder,
     color: b.color,
   };
 }
@@ -91,6 +94,7 @@ export async function POST(request: Request) {
       buffer_after_minutes: payload.bufferAfterMinutes,
       price_cents: payload.priceCents,
       requires_payment: payload.requiresPayment,
+      uses_boudoir_reminder: payload.usesBoudoirReminder,
       color: payload.color,
       sort_order: nextSortOrder,
     })
