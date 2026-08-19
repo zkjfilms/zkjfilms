@@ -545,3 +545,48 @@ Enjoy your photos,
 Zach K. Johnson'
 )
 on conflict (template_type) do nothing;
+
+-- Pre-session reminder emails, sent 2 days before a confirmed booking's
+-- start_time by the send-session-reminders cron (see
+-- app/api/cron/send-session-reminders/route.ts). reminder_sent_at is the
+-- only dedup mechanism — set after a successful send, not before, since
+-- unlike gallery credentials this is pure bookkeeping with no
+-- functional consequence if the write itself ever failed.
+alter table bookings add column if not exists reminder_sent_at timestamptz;
+
+-- Explicit admin-set flag (checkbox in /admin/appointment-types), not a
+-- name match on "Boudoir" — so renaming an appointment type later can't
+-- silently change which reminder template it gets.
+alter table appointment_types add column if not exists uses_boudoir_reminder boolean not null default false;
+
+-- Seed placeholder content — replace via /admin/templates before real use.
+insert into templates (template_type, content) values (
+  'session_reminder',
+  'Hi {{client_name}},
+
+Just a reminder that your {{session_type}} session is coming up on {{session_date}}!
+
+A few things to keep in mind:
+- Arrive a few minutes early so we can start on time.
+- Wear something you feel comfortable and confident in.
+- If anything comes up and you need to reschedule, just reply to this email.
+
+Looking forward to it,
+Zach K. Johnson'
+) on conflict (template_type) do nothing;
+
+insert into templates (template_type, content) values (
+  'session_reminder_boudoir',
+  'Hi {{client_name}},
+
+Just a reminder that your {{session_type}} session is coming up on {{session_date}}!
+
+A few things to keep in mind:
+- The studio is a private, judgment-free space — it''s just us.
+- Bring a couple of outfit options if you''re unsure what you want to shoot in.
+- If you''re planning hair, nails, or waxing, most people prefer to have that done a day or two ahead rather than the same day.
+- If anything comes up and you need to reschedule, just reply to this email.
+
+Looking forward to it,
+Zach K. Johnson'
+) on conflict (template_type) do nothing;
