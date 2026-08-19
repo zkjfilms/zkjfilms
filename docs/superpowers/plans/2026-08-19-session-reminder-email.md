@@ -674,9 +674,14 @@ import('@supabase/supabase-js').then(async ({ createClient }) => {
   if (!nonBoudoir || !boudoir) { console.error('Need at least one active appointment type with uses_boudoir_reminder=false and one with =true.'); process.exit(1); }
   const start = new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day out — inside the 2-day window
   const end = new Date(start.getTime() + 60 * 60 * 1000);
+  // Staggered 2 hours from the first booking — bookings_time_range_excl
+  // (see supabase/schema.sql) rejects overlapping confirmed/pending
+  // bookings, so the two test fixtures can't share a time slot.
+  const start2 = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+  const end2 = new Date(start2.getTime() + 60 * 60 * 1000);
   const rows = [
     { appointment_type_id: nonBoudoir.id, client_name: 'Reminder Test Client Generic', client_email: 'you+reminder-test-generic@example.com', start_time: start.toISOString(), end_time: end.toISOString(), status: 'confirmed' },
-    { appointment_type_id: boudoir.id, client_name: 'Reminder Test Client Boudoir', client_email: 'you+reminder-test-boudoir@example.com', start_time: start.toISOString(), end_time: end.toISOString(), status: 'confirmed' },
+    { appointment_type_id: boudoir.id, client_name: 'Reminder Test Client Boudoir', client_email: 'you+reminder-test-boudoir@example.com', start_time: start2.toISOString(), end_time: end2.toISOString(), status: 'confirmed' },
   ];
   const { data, error } = await supabase.from('bookings').insert(rows).select('id, client_name');
   console.log(JSON.stringify({ inserted: data, error }, null, 2));

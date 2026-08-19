@@ -17,6 +17,7 @@ function toFormState(appointmentType: AppointmentType | null) {
       bufferAfterMinutes: "0",
       priceDollars: "",
       requiresPayment: false,
+      usesBoudoirReminder: false,
       color: DEFAULT_COLOR,
     };
   }
@@ -27,6 +28,7 @@ function toFormState(appointmentType: AppointmentType | null) {
     bufferAfterMinutes: String(appointmentType.buffer_after_minutes),
     priceDollars: (appointmentType.price_cents / 100).toString(),
     requiresPayment: appointmentType.requires_payment,
+    usesBoudoirReminder: appointmentType.uses_boudoir_reminder,
     color: appointmentType.color,
   };
 }
@@ -100,6 +102,7 @@ export default function AppointmentTypeForm({
       bufferAfterMinutes,
       priceCents,
       requiresPayment: form.requiresPayment,
+      usesBoudoirReminder: form.usesBoudoirReminder,
       color: form.color,
     };
 
@@ -262,6 +265,17 @@ export default function AppointmentTypeForm({
           className="h-4 w-4 border-border accent-accent"
         />
         Requires payment at booking
+      </label>
+
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          name="usesBoudoirReminder"
+          checked={form.usesBoudoirReminder}
+          onChange={handleChange}
+          className="h-4 w-4 border-border accent-accent"
+        />
+        Use boudoir-specific pre-session reminder email
       </label>
 
       {error && <p className="text-xs text-red-700">{error}</p>}
