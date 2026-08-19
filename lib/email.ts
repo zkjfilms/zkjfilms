@@ -270,3 +270,34 @@ export async function sendGalleryReadyEmail(params: {
     return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
   }
 }
+
+// Sent by the send-session-reminders cron
+// (app/api/cron/send-session-reminders/route.ts) 2 days before a
+// confirmed booking. Same shape as sendGalleryReadyEmail: the caller
+// fills the template before calling this, plain-text body rendered into
+// a <pre> block rather than a richer HTML layout, since this template
+// is short and the admin edits it as plain text in /admin/templates.
+export async function sendSessionReminderEmail(params: {
+  clientEmail: string;
+  sessionType: string;
+  bodyText: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [params.clientEmail],
+      subject: `Your ${params.sessionType} session is coming up`,
+      text: params.bodyText,
+      html: `<pre style="font-family: inherit; white-space: pre-wrap;">${escapeHtml(params.bodyText)}</pre>`,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
