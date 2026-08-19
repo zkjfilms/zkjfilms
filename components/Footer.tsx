@@ -20,9 +20,12 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-6 sm:px-10">
         {/* Top bar */}
         <div className="flex flex-col items-center gap-6 border-b border-border py-8 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-serif text-2xl italic text-foreground">
+          <Link
+            href="/"
+            className="font-serif text-2xl italic text-foreground transition-colors hover:text-accent"
+          >
             Zach K. Johnson
-          </p>
+          </Link>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
             <span className="text-[11px] uppercase tracking-[0.3em] text-muted">
               Follow Me
@@ -47,9 +50,12 @@ export default function Footer() {
         <div className="grid grid-cols-1 gap-12 py-14 sm:grid-cols-3 sm:gap-10">
           <div>
             <p className="text-sm leading-relaxed text-muted">
-              <strong className="font-semibold text-foreground">
+              <Link
+                href="/"
+                className="font-semibold text-foreground transition-colors hover:text-accent"
+              >
                 Zach K. Johnson
-              </strong>{" "}
+              </Link>{" "}
               is a portrait, boudoir, and fine art{" "}
               <em className="font-serif italic text-foreground">
                 photographer
@@ -116,7 +122,11 @@ export default function Footer() {
 
         {/* Bottom */}
         <p className="border-t border-border py-8 text-center text-[11px] uppercase tracking-[0.3em] text-muted">
-          &copy; Zach K. Johnson {year}
+          &copy;{" "}
+          <Link href="/" className="transition-colors hover:text-accent">
+            Zach K. Johnson
+          </Link>{" "}
+          {year}
         </p>
       </div>
     </footer>
