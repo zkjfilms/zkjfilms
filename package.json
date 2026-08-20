@@ -26,6 +26,7 @@
     "video:delete": "node --env-file=.env.local scripts/video.mjs delete"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@aws-sdk/client-s3": "^3.1101.0",
     "@aws-sdk/s3-request-presigner": "^3.1101.0",
     "@supabase/supabase-js": "^2.111.0",

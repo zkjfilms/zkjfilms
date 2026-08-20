@@ -18,6 +18,7 @@
 import { readFileSync } from "node:fs";
 import { basename, extname } from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
 
 // Keep in sync with lib/media.ts — see that file's comment for why this
@@ -43,6 +44,34 @@ function requireEnv(name) {
     process.exit(1);
   }
   return value;
+}
+
+async function generateAltText(imageBuffer, mediaType) {
+  const anthropic = new Anthropic({ apiKey: requireEnv("ANTHROPIC_API_KEY") });
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 200,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: mediaType, data: imageBuffer.toString("base64") },
+          },
+          {
+            type: "text",
+            text: "Write concise, specific SEO alt text for this photo from a Columbia, Missouri portrait/headshot photography portfolio. One sentence, no marketing fluff, describe what's actually visible — pose, setting, mood. Do not include phrases like \"image of\" or \"photo of\".",
+          },
+        ],
+      },
+    ],
+  });
+  const block = response.content[0];
+  if (block.type !== "text") {
+    throw new Error("Unexpected response content type from Anthropic API.");
+  }
+  return block.text.trim();
 }
 
 const [, , filePath, destinationKeyArg] = process.argv;
@@ -85,10 +114,14 @@ await client.send(
   }),
 );
 
+const altText = await generateAltText(body, contentType);
+const escapedAlt = altText.replace(/"/g, '\\"');
+
 console.log(`Uploaded ${filePath} -> ${key}`);
 console.log(`${PUBLIC_IMAGES_BASE_URL}/${key}`);
+console.log(`Suggested alt text: ${altText}`);
 console.log("");
 console.log("Paste into a MasonryPhoto list (lib/masonryPhotos.ts):");
 console.log(
-  `{ key: "${key}", width: ${width}, height: ${height}, alt: "", src: publicImageUrl("${key}") },`,
+  `{ key: "${key}", width: ${width}, height: ${height}, alt: "${escapedAlt}", src: publicImageUrl("${key}") },`,
 );
