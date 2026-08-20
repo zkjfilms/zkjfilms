@@ -1,5 +1,7 @@
 import type { GalleryGroup } from "@/components/Gallery";
 import { publicImageUrl } from "@/lib/media";
+import type { MasonryPhoto } from "@/lib/masonryPhotos";
+import { HEADSHOTS_MASONRY_PHOTOS, CREATIVE_PORTRAITS_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
 
 export type Service = {
   slug: string;
@@ -10,6 +12,7 @@ export type Service = {
   heroImageSeed: string;
   heroImageAlt: string;
   gallery: GalleryGroup | null;
+  masonryPhotos?: MasonryPhoto[];
   faqIds: string[];
 };
 
@@ -85,7 +88,8 @@ export const HEADSHOTS_SERVICE: Service = {
   heroImageSeed: "nocturne-headshots-hero",
   heroImageAlt:
     "Professional headshot photography session in Columbia, Missouri.",
-  gallery: HEADSHOTS_GALLERY,
+  gallery: null,
+  masonryPhotos: HEADSHOTS_MASONRY_PHOTOS,
   faqIds: ["what-to-wear", "session-length"],
 };
 
@@ -99,7 +103,8 @@ export const CREATIVE_PORTRAITS_SERVICE: Service = {
   heroImageSeed: "nocturne-creative-hero",
   heroImageAlt:
     "Art-directed creative portrait photography session in Columbia, Missouri.",
-  gallery: CREATIVE_PORTRAITS_GALLERY,
+  gallery: null,
+  masonryPhotos: CREATIVE_PORTRAITS_MASONRY_PHOTOS,
   faqIds: ["what-to-wear", "session-what-happens"],
 };
 

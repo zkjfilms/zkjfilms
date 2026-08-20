@@ -1,5 +1,6 @@
 // Upload a local image file to the public R2 bucket used for site
-// marketing/portfolio photos (see lib/media.ts) and print its public URL.
+// marketing/portfolio photos (see lib/media.ts) and print its public URL
+// plus a ready-to-paste MasonryPhoto snippet (real dimensions via sharp).
 //
 // Usage (via the npm script — loads .env.local automatically):
 //   npm run image:upload -- ./path/to/photo.jpg [destination-key]
@@ -17,6 +18,8 @@
 import { readFileSync } from "node:fs";
 import { basename, extname } from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
 
 // Keep in sync with lib/media.ts — see that file's comment for why this
 // can't just be imported (this script runs as plain Node, not through
@@ -43,6 +46,34 @@ function requireEnv(name) {
   return value;
 }
 
+async function generateAltText(imageBuffer, mediaType, anthropicApiKey) {
+  const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 200,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: mediaType, data: imageBuffer.toString("base64") },
+          },
+          {
+            type: "text",
+            text: "Write concise, specific SEO alt text for this photo from a Columbia, Missouri portrait/headshot photography portfolio. One sentence, no marketing fluff, describe what's actually visible — pose, setting, mood. Do not include phrases like \"image of\" or \"photo of\".",
+          },
+        ],
+      },
+    ],
+  });
+  const block = response.content[0];
+  if (block.type !== "text") {
+    throw new Error("Unexpected response content type from Anthropic API.");
+  }
+  return block.text.trim();
+}
+
 const [, , filePath, destinationKeyArg] = process.argv;
 if (!filePath) {
   console.error("Usage: npm run image:upload -- <local-file-path> [destination-key]");
@@ -58,6 +89,16 @@ if (!contentType) {
 
 const key = destinationKeyArg || basename(filePath);
 const body = readFileSync(filePath);
+
+const { width, height } = await sharp(body).metadata();
+if (!width || !height) {
+  console.error("Could not read image dimensions — the file may be corrupt or an unsupported format for sharp.");
+  process.exit(1);
+}
+
+// Validate before the R2 upload — a missing key here should never let the
+// script upload to the permanently-public bucket and only fail afterward.
+const anthropicApiKey = requireEnv("ANTHROPIC_API_KEY");
 
 const client = new S3Client({
   region: "auto",
@@ -77,5 +118,13 @@ await client.send(
   }),
 );
 
+const altText = await generateAltText(body, contentType, anthropicApiKey);
+
 console.log(`Uploaded ${filePath} -> ${key}`);
 console.log(`${PUBLIC_IMAGES_BASE_URL}/${key}`);
+console.log(`Suggested alt text: ${altText}`);
+console.log("");
+console.log("Paste into a MasonryPhoto list (lib/masonryPhotos.ts):");
+console.log(
+  `{ key: "${key}", width: ${width}, height: ${height}, alt: ${JSON.stringify(altText)}, src: publicImageUrl("${key}") },`,
+);
