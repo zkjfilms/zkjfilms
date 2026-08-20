@@ -12,6 +12,10 @@ export type MasonryPhoto = {
   src: string;
 };
 
+// Pasting a real photo entry from `npm run image:upload`'s printed snippet
+// (which uses `src: publicImageUrl("...")`) requires adding
+// `import { publicImageUrl } from "@/lib/media";` at the top of this file.
+
 // Placeholder photos with deliberately varied real dimensions (landscape,
 // portrait, and near-square) so the masonry grid shows a genuine mixed
 // layout before any real photos are uploaded. Replace with real entries —
@@ -104,5 +108,12 @@ export const CREATIVE_PORTRAITS_MASONRY_PHOTOS: MasonryPhoto[] = [
     height: 1200,
     alt: "Narrative-driven portrait session, Mid-Missouri photographer",
     src: "https://picsum.photos/seed/creative-portraits-placeholder-06/1800/1200",
+  },
+  {
+    key: "ocean-of-slumber",
+    width: 5077,
+    height: 3378,
+    alt: "Black-and-white editorial group portrait: a woman with long dreadlocks, dark makeup, and a feathered collar stands in front of four bearded bandmates in a dramatic, gothic-toned session",
+    src: "https://pub-a78d2319f08941ff9a3249390ab8f644.r2.dev/ocean-of-slumber.jpg",
   },
 ];

@@ -53,7 +53,7 @@ export default function MasonryGallery({ photos }: { photos: MasonryPhoto[] }) {
 
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 sm:p-10"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 sm:p-10"
           onClick={() => setSelectedIndex(null)}
         >
           <button
@@ -96,7 +96,7 @@ export default function MasonryGallery({ photos }: { photos: MasonryPhoto[] }) {
               width={selected.width}
               height={selected.height}
               quality={90}
-              sizes="100vw"
+              sizes="90vw"
               className="max-h-[90vh] w-auto max-w-full object-contain"
             />
           </div>

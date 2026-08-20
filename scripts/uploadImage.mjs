@@ -46,8 +46,8 @@ function requireEnv(name) {
   return value;
 }
 
-async function generateAltText(imageBuffer, mediaType) {
-  const anthropic = new Anthropic({ apiKey: requireEnv("ANTHROPIC_API_KEY") });
+async function generateAltText(imageBuffer, mediaType, anthropicApiKey) {
+  const anthropic = new Anthropic({ apiKey: anthropicApiKey });
   const response = await anthropic.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 200,
@@ -96,6 +96,10 @@ if (!width || !height) {
   process.exit(1);
 }
 
+// Validate before the R2 upload — a missing key here should never let the
+// script upload to the permanently-public bucket and only fail afterward.
+const anthropicApiKey = requireEnv("ANTHROPIC_API_KEY");
+
 const client = new S3Client({
   region: "auto",
   endpoint: requireEnv("R2_ENDPOINT"),
@@ -114,8 +118,7 @@ await client.send(
   }),
 );
 
-const altText = await generateAltText(body, contentType);
-const escapedAlt = altText.replace(/"/g, '\\"');
+const altText = await generateAltText(body, contentType, anthropicApiKey);
 
 console.log(`Uploaded ${filePath} -> ${key}`);
 console.log(`${PUBLIC_IMAGES_BASE_URL}/${key}`);
@@ -123,5 +126,5 @@ console.log(`Suggested alt text: ${altText}`);
 console.log("");
 console.log("Paste into a MasonryPhoto list (lib/masonryPhotos.ts):");
 console.log(
-  `{ key: "${key}", width: ${width}, height: ${height}, alt: "${escapedAlt}", src: publicImageUrl("${key}") },`,
+  `{ key: "${key}", width: ${width}, height: ${height}, alt: ${JSON.stringify(altText)}, src: publicImageUrl("${key}") },`,
 );

@@ -45,7 +45,10 @@ export default function ServiceLandingPage({
         {service.description}
       </p>
 
-      {service.masonryPhotos ? (
+      {/* masonryPhotos takes precedence over gallery when both are present;
+          check length (not just truthiness) so an emptied array falls
+          through to the gallery fallback instead of rendering nothing. */}
+      {service.masonryPhotos?.length ? (
         <MasonryGallery photos={service.masonryPhotos} />
       ) : (
         service.gallery && (
