@@ -1,5 +1,6 @@
 // Upload a local image file to the public R2 bucket used for site
-// marketing/portfolio photos (see lib/media.ts) and print its public URL.
+// marketing/portfolio photos (see lib/media.ts) and print its public URL
+// plus a ready-to-paste MasonryPhoto snippet (real dimensions via sharp).
 //
 // Usage (via the npm script — loads .env.local automatically):
 //   npm run image:upload -- ./path/to/photo.jpg [destination-key]
@@ -17,6 +18,7 @@
 import { readFileSync } from "node:fs";
 import { basename, extname } from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import sharp from "sharp";
 
 // Keep in sync with lib/media.ts — see that file's comment for why this
 // can't just be imported (this script runs as plain Node, not through
@@ -59,6 +61,12 @@ if (!contentType) {
 const key = destinationKeyArg || basename(filePath);
 const body = readFileSync(filePath);
 
+const { width, height } = await sharp(body).metadata();
+if (!width || !height) {
+  console.error("Could not read image dimensions — the file may be corrupt or an unsupported format for sharp.");
+  process.exit(1);
+}
+
 const client = new S3Client({
   region: "auto",
   endpoint: requireEnv("R2_ENDPOINT"),
@@ -79,3 +87,8 @@ await client.send(
 
 console.log(`Uploaded ${filePath} -> ${key}`);
 console.log(`${PUBLIC_IMAGES_BASE_URL}/${key}`);
+console.log("");
+console.log("Paste into a MasonryPhoto list (lib/masonryPhotos.ts):");
+console.log(
+  `{ key: "${key}", width: ${width}, height: ${height}, alt: "", src: publicImageUrl("${key}") },`,
+);
