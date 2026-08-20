@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import Gallery from "@/components/Gallery";
+import MasonryGallery from "@/components/MasonryGallery";
 import FaqAccordion from "@/components/FaqAccordion";
 import { FAQ_ITEMS, type FaqItem } from "@/lib/faq";
 import { SERVICES, type Service } from "@/lib/services";
@@ -44,8 +45,12 @@ export default function ServiceLandingPage({
         {service.description}
       </p>
 
-      {service.gallery && (
-        <Gallery groups={[{ ...service.gallery, description: "" }]} />
+      {service.masonryPhotos ? (
+        <MasonryGallery photos={service.masonryPhotos} />
+      ) : (
+        service.gallery && (
+          <Gallery groups={[{ ...service.gallery, description: "" }]} />
+        )
       )}
 
       {faqItems.length > 0 && (
