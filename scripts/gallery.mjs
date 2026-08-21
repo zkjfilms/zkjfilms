@@ -4,7 +4,7 @@
 // Usage (via npm scripts — these already load .env.local):
 //   npm run gallery:list
 //   npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]
-//   npm run gallery:upload -- <slug> <local-folder>
+//   npm run gallery:upload -- <slug> <local-folder> | <file> [file2...]
 //   npm run gallery:set-expiry -- <slug> <date|none>
 //   npm run gallery:archive -- <slug>
 //   npm run gallery:unarchive -- <slug>
@@ -36,7 +36,7 @@
 import { randomInt } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { extname, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import {
@@ -213,9 +213,9 @@ async function create(slug, title, clientName, expiresAtArg) {
   }
 }
 
-async function upload(slug, folderPath) {
-  if (!slug || !folderPath) {
-    console.error("Usage: npm run gallery:upload -- <slug> <local-folder>");
+async function upload(slug, paths) {
+  if (!slug || !paths || paths.length === 0) {
+    console.error("Usage: npm run gallery:upload -- <slug> <local-folder> | <file> [file2...]");
     process.exit(1);
   }
 
@@ -237,12 +237,40 @@ async function upload(slug, folderPath) {
     process.exit(1);
   }
 
-  let entries;
-  try {
-    entries = readdirSync(folderPath, { withFileTypes: true });
-  } catch (err) {
-    console.error(`Failed to read folder "${folderPath}":`, err.message);
-    process.exit(1);
+  // Each given path can be a folder (every file inside it is included,
+  // same as the original folder-only behavior) or a specific file
+  // (uploaded on its own) — mixing both in one call is fine too, e.g.
+  // `gallery:upload -- slug ./folder ./one-more-file.jpg`. Resolved up
+  // front into a flat list so the upload loop below doesn't need to care
+  // which kind of path each file came from.
+  const filesToConsider = [];
+  for (const p of paths) {
+    let stat;
+    try {
+      stat = statSync(p);
+    } catch (err) {
+      console.error(`Skipping "${p}": ${err.message}`);
+      continue;
+    }
+
+    if (stat.isDirectory()) {
+      let entries;
+      try {
+        entries = readdirSync(p, { withFileTypes: true });
+      } catch (err) {
+        console.error(`Failed to read folder "${p}":`, err.message);
+        continue;
+      }
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          filesToConsider.push({ name: entry.name, filePath: join(p, entry.name) });
+        }
+      }
+    } else if (stat.isFile()) {
+      filesToConsider.push({ name: basename(p), filePath: p });
+    } else {
+      console.error(`Skipping "${p}": not a file or folder.`);
+    }
   }
 
   const client = getR2Client();
@@ -252,29 +280,26 @@ async function upload(slug, folderPath) {
   let skipped = 0;
   let failed = 0;
 
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-
-    if (entry.name.startsWith(".")) {
-      console.log(`Skipping "${entry.name}" (dotfile — likely a sidecar/system file, not a photo).`);
+  for (const { name, filePath } of filesToConsider) {
+    if (name.startsWith(".")) {
+      console.log(`Skipping "${name}" (dotfile — likely a sidecar/system file, not a photo).`);
       skipped += 1;
       continue;
     }
 
-    const ext = extname(entry.name).toLowerCase();
+    const ext = extname(name).toLowerCase();
     const contentType = UPLOAD_CONTENT_TYPES[ext];
 
     if (!contentType) {
-      console.log(`Skipping "${entry.name}" (not a recognized image type).`);
+      console.log(`Skipping "${name}" (not a recognized image type).`);
       skipped += 1;
       continue;
     }
 
-    const filePath = join(folderPath, entry.name);
     const { size } = statSync(filePath);
     if (size > MAX_UPLOAD_BYTES) {
       console.log(
-        `Skipping "${entry.name}" (${(size / (1024 * 1024)).toFixed(1)}MB exceeds ${
+        `Skipping "${name}" (${(size / (1024 * 1024)).toFixed(1)}MB exceeds ${
           MAX_UPLOAD_BYTES / (1024 * 1024)
         }MB sanity limit).`,
       );
@@ -282,7 +307,7 @@ async function upload(slug, folderPath) {
       continue;
     }
 
-    const key = `galleries/${slug}/${entry.name}`;
+    const key = `galleries/${slug}/${name}`;
 
     try {
       const body = readFileSync(filePath);
@@ -294,10 +319,10 @@ async function upload(slug, folderPath) {
           ContentType: contentType,
         }),
       );
-      console.log(`Uploaded ${entry.name} -> ${key}`);
+      console.log(`Uploaded ${name} -> ${key}`);
       uploaded += 1;
     } catch (err) {
-      console.error(`Failed to upload "${entry.name}":`, err.message);
+      console.error(`Failed to upload "${name}":`, err.message);
       failed += 1;
       continue;
     }
@@ -703,7 +728,7 @@ const [, , command, ...args] = process.argv;
 if (command === "list") {
   await list();
 } else if (command === "upload") {
-  await upload(args[0], args[1]);
+  await upload(args[0], args.slice(1));
 } else if (command === "create") {
   await create(args[0], args[1], args[2], args[3]);
 } else if (command === "set") {
@@ -726,7 +751,7 @@ if (command === "list") {
       "Usage:",
       "  npm run gallery:list",
       '  npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]',
-      "  npm run gallery:upload -- <slug> <local-folder>",
+      "  npm run gallery:upload -- <slug> <local-folder> | <file> [file2...]",
       "  npm run gallery:set-expiry -- <slug> <date|none>",
       "  npm run gallery:archive -- <slug>",
       "  npm run gallery:unarchive -- <slug>",
