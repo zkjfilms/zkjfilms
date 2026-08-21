@@ -6,17 +6,21 @@ import Gallery, {
   type GalleryGroup,
   type GalleryImage,
 } from "@/components/Gallery";
-import { HEADSHOTS_GALLERY, CREATIVE_PORTRAITS_GALLERY } from "@/lib/services";
+import {
+  HEADSHOTS_GALLERY,
+  CREATIVE_PORTRAITS_GALLERY,
+  MUSIC_GALLERY,
+} from "@/lib/services";
 
-const TITLE = "Portrait & Boudoir Gallery";
+const TITLE = "Photography Gallery";
 const DESCRIPTION =
-  "Browse portrait, headshot, boudoir, and fine art photography from a Columbia, Missouri photographer serving clients throughout Mid-Missouri.";
+  "Browse portrait, headshot, boudoir, concert, and fine art photography from a Columbia, Missouri photographer serving clients throughout Mid-Missouri.";
 
 export function generateMetadata(): Metadata {
   return buildPageMetadata({
     title: TITLE,
     description: DESCRIPTION,
-    path: "/portraits",
+    path: "/photos",
   });
 }
 
@@ -50,12 +54,12 @@ const editorialGroup: GalleryGroup = {
   ],
 };
 
-// HEADSHOTS_GALLERY/CREATIVE_PORTRAITS_GALLERY are shared with the
-// standalone /headshots and /creative-portraits pages, where each gallery
-// numbers its own captions starting at 1. On this page all three groups
-// share one continuous 1-8 sequence, so their captions are renumbered
-// here at render time — the shared lib/services.ts data itself is never
-// mutated (spread copies only), so the standalone pages are unaffected.
+// HEADSHOTS_GALLERY/CREATIVE_PORTRAITS_GALLERY/MUSIC_GALLERY are shared with
+// their own standalone pages, where each gallery numbers its own captions
+// starting at 1. On this page every group shares one continuous sequence,
+// so their captions are renumbered here at render time — the shared
+// lib/services.ts data itself is never mutated (spread copies only), so the
+// standalone pages are unaffected.
 function renumberGroup(group: GalleryGroup, startIndex: number): GalleryGroup {
   let counter = startIndex;
   return {
@@ -84,14 +88,22 @@ const creativePortraitsGroup: GalleryGroup = {
   link: { href: "/creative-portraits", label: "View Creative Portraits →" },
 };
 
-export default function PortraitsPage() {
+// Placed after editorialGroup (whose indices 6-8 are hand-written above,
+// not dynamically renumbered) so editorialGroup's own numbering never has
+// to shift.
+const musicGroup: GalleryGroup = {
+  ...renumberGroup(MUSIC_GALLERY, 9),
+  link: { href: "/music", label: "View Music →" },
+};
+
+export default function PhotosPage() {
   return (
     <div className="flex flex-col">
       {/* Opening */}
       <section className="relative -mt-20 flex min-h-[70vh] items-end overflow-hidden">
         <Image
           src="https://picsum.photos/seed/nocturne-portrait-00/1800/1200"
-          alt="Columbia, Missouri portrait and creative photography session — Zach K. Johnson"
+          alt="Columbia, Missouri portrait, concert, and creative photography — Zach K. Johnson"
           fill
           priority
           quality={90}
@@ -111,23 +123,24 @@ export default function PortraitsPage() {
       </section>
 
       <p className="mx-auto max-w-2xl px-6 py-16 text-center text-muted sm:px-10">
-        A collection of portrait and creative photography sessions shot in
-        and around Columbia, Missouri &mdash; headshots, individual
-        portraits, and collaborative creative work. Each session is built
-        around the person in front of the camera, not a formula. Below is a
+        A collection of stills shot in and around Columbia, Missouri &mdash;
+        headshots, individual portraits, collaborative creative work, and
+        live concert and performance photography. Each session is built
+        around what&rsquo;s in front of the camera, not a formula. Below is a
         look at the range: clean and professional when that&rsquo;s the
-        goal, textured and cinematic when it&rsquo;s not.
+        goal, textured and cinematic when it&rsquo;s not, and full of raw
+        energy on stage.
       </p>
 
       {/* Gallery */}
-      <Gallery groups={[headshotsGroup, creativePortraitsGroup, editorialGroup]} />
+      <Gallery groups={[headshotsGroup, creativePortraitsGroup, editorialGroup, musicGroup]} />
 
       <div className="mx-auto -mt-12 mb-24 flex w-full max-w-2xl justify-center px-6 sm:px-10">
         <Link
           href="/contact#booking"
           className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
         >
-          Book a Portrait Session
+          Book a Session
         </Link>
       </div>
     </div>
