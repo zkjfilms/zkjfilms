@@ -6,6 +6,11 @@ import type { MasonryPhoto } from "@/lib/masonryPhotos";
 
 export default function MasonryGallery({ photos }: { photos: MasonryPhoto[] }) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [failedKeys, setFailedKeys] = useState<Set<string>>(new Set());
+
+  function markFailed(key: string) {
+    setFailedKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+  }
 
   useEffect(() => {
     if (selectedIndex === null) return;
@@ -38,15 +43,25 @@ export default function MasonryGallery({ photos }: { photos: MasonryPhoto[] }) {
             onClick={() => setSelectedIndex(index)}
             className="mb-3 block w-full break-inside-avoid overflow-hidden bg-surface"
           >
-            <Image
-              src={photo.src}
-              alt={photo.alt}
-              width={photo.width}
-              height={photo.height}
-              quality={90}
-              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-              className="w-full transition-transform duration-500 ease-out hover:scale-[1.02]"
-            />
+            {failedKeys.has(photo.key) ? (
+              <div
+                style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
+                className="flex w-full items-center justify-center text-xs text-muted"
+              >
+                Image unavailable
+              </div>
+            ) : (
+              <Image
+                src={photo.src}
+                alt={photo.alt}
+                width={photo.width}
+                height={photo.height}
+                quality={90}
+                sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                className="w-full transition-transform duration-500 ease-out hover:scale-[1.02]"
+                onError={() => markFailed(photo.key)}
+              />
+            )}
           </button>
         ))}
       </div>
@@ -90,15 +105,22 @@ export default function MasonryGallery({ photos }: { photos: MasonryPhoto[] }) {
             className="relative max-h-full max-w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            <Image
-              src={selected.src}
-              alt={selected.alt}
-              width={selected.width}
-              height={selected.height}
-              quality={90}
-              sizes="90vw"
-              className="max-h-[90vh] w-auto max-w-full object-contain"
-            />
+            {failedKeys.has(selected.key) ? (
+              <div className="flex h-[50vh] w-[50vw] items-center justify-center text-sm text-white/70">
+                Image unavailable
+              </div>
+            ) : (
+              <Image
+                src={selected.src}
+                alt={selected.alt}
+                width={selected.width}
+                height={selected.height}
+                quality={90}
+                sizes="90vw"
+                className="max-h-[90vh] w-auto max-w-full object-contain"
+                onError={() => markFailed(selected.key)}
+              />
+            )}
           </div>
         </div>
       )}
