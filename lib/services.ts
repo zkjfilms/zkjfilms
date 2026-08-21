@@ -1,7 +1,7 @@
 import type { GalleryGroup } from "@/components/Gallery";
 import { publicImageUrl } from "@/lib/media";
 import type { MasonryPhoto } from "@/lib/masonryPhotos";
-import { HEADSHOTS_MASONRY_PHOTOS, CREATIVE_PORTRAITS_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
+import { HEADSHOTS_MASONRY_PHOTOS, CREATIVE_PORTRAITS_MASONRY_PHOTOS, MUSIC_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
 
 export type Service = {
   slug: string;
@@ -78,6 +78,34 @@ export const CREATIVE_PORTRAITS_GALLERY: GalleryGroup = {
   ],
 };
 
+export const MUSIC_GALLERY: GalleryGroup = {
+  title: "Music & Performance",
+  description:
+    "Concert and live-performance photography — bands, solo artists, and venues, captured in the moment.",
+  blocks: [
+    {
+      type: "single",
+      items: [
+        {
+          seed: "nocturne-music-01",
+          index: 1,
+          alt: "Concert photography, live band performance, Columbia, Missouri",
+        },
+      ],
+    },
+    {
+      type: "single",
+      items: [
+        {
+          seed: "nocturne-music-02",
+          index: 2,
+          alt: "Live performance photography, solo artist on stage",
+        },
+      ],
+    },
+  ],
+};
+
 export const HEADSHOTS_SERVICE: Service = {
   slug: "headshots",
   name: "Headshots",
@@ -121,8 +149,23 @@ export const BOUDOIR_SERVICE: Service = {
   faqIds: ["privacy-boudoir", "sign-anything"],
 };
 
+export const MUSIC_SERVICE: Service = {
+  slug: "music",
+  name: "Music & Performance",
+  appointmentTypeName: "Music & Performance Photography",
+  tagline: "Live energy, captured from the pit.",
+  description:
+    "Concert and live-performance photography — bands, solo artists, and venues, shot in the moment. Booked directly by artists, venues, or labels for promo, press, and archival use.",
+  heroImageSeed: "nocturne-music-hero",
+  heroImageAlt: "Concert and live performance photography session.",
+  gallery: null,
+  masonryPhotos: MUSIC_MASONRY_PHOTOS,
+  faqIds: ["session-length", "music-venue-access", "music-usage-rights"],
+};
+
 export const SERVICES: Service[] = [
   HEADSHOTS_SERVICE,
   CREATIVE_PORTRAITS_SERVICE,
   BOUDOIR_SERVICE,
+  MUSIC_SERVICE,
 ];
