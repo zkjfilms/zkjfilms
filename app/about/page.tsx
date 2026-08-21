@@ -100,7 +100,7 @@ export default function AboutPage() {
               Available For
             </dt>
             <dd className="mt-2 text-sm text-foreground">
-              Portraits, Headshots &amp; Boudoir
+              Portraits, Headshots, Boudoir &amp; Music
             </dd>
           </div>
         </dl>
