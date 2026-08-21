@@ -117,3 +117,48 @@ export const CREATIVE_PORTRAITS_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: "https://pub-a78d2319f08941ff9a3249390ab8f644.r2.dev/ocean-of-slumber.jpg",
   },
 ];
+
+export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
+  {
+    key: "music-placeholder-01",
+    width: 1800,
+    height: 1200,
+    alt: "Concert and live performance photography, wide stage shot",
+    src: "https://picsum.photos/seed/music-placeholder-01/1800/1200",
+  },
+  {
+    key: "music-placeholder-02",
+    width: 1067,
+    height: 1600,
+    alt: "Live music performance photography, vertical stage shot",
+    src: "https://picsum.photos/seed/music-placeholder-02/1067/1600",
+  },
+  {
+    key: "music-placeholder-03",
+    width: 1600,
+    height: 1067,
+    alt: "Concert photography capturing a live band performance",
+    src: "https://picsum.photos/seed/music-placeholder-03/1600/1067",
+  },
+  {
+    key: "music-placeholder-04",
+    width: 1400,
+    height: 1400,
+    alt: "Live performance photography, close crowd and stage lighting",
+    src: "https://picsum.photos/seed/music-placeholder-04/1400/1400",
+  },
+  {
+    key: "music-placeholder-05",
+    width: 1200,
+    height: 1800,
+    alt: "Concert photography, vertical shot of a solo performer",
+    src: "https://picsum.photos/seed/music-placeholder-05/1200/1800",
+  },
+  {
+    key: "music-placeholder-06",
+    width: 1800,
+    height: 1200,
+    alt: "Live music photography, wide shot of stage lighting and performer",
+    src: "https://picsum.photos/seed/music-placeholder-06/1800/1200",
+  },
+];
