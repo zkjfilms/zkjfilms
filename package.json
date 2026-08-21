@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint app components lib scripts",
     "gallery:list": "node --env-file=.env.local scripts/gallery.mjs list",
     "gallery:create": "node --env-file=.env.local scripts/gallery.mjs create",
     "gallery:upload": "node --env-file=.env.local scripts/gallery.mjs upload",
