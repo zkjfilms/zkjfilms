@@ -90,6 +90,18 @@ export default function Navbar() {
   const portraitsRef = useRef<HTMLDivElement>(null);
   const [mobileAccordionOpen, setMobileAccordionOpen] = useState(false);
   const scrolled = !hasHero || scrolledPastHero;
+
+  // Close the mobile menu on any route change — covers direct link taps
+  // as well as back/forward navigation. Adjusting state during render
+  // (rather than in an effect) avoids the extra post-navigation paint
+  // where the stale menu would otherwise still be visible.
+  // See: https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setMobileMenuOpen(false);
+    setPortraitsDropdownOpen(false);
+  }
   // The overlay always renders on the light `bg-background`, so the header
   // content needs the dark/foreground treatment whenever it's open — even
   // on an unscrolled hero route where the header itself stays transparent.
@@ -105,13 +117,6 @@ export default function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [hasHero]);
-
-  // Close the mobile menu on any route change — covers direct link taps
-  // as well as back/forward navigation.
-  useEffect(() => {
-    setMobileMenuOpen(false);
-    setPortraitsDropdownOpen(false);
-  }, [pathname]);
 
   // Lock background scroll while the full-screen overlay is open, and let
   // Escape close it as a defense-in-depth affordance.
@@ -165,9 +170,11 @@ export default function Navbar() {
 
   // Reset the accordion every time the mobile menu itself closes, so
   // reopening it never shows a stale expanded state.
-  useEffect(() => {
+  const [prevMobileMenuOpen, setPrevMobileMenuOpen] = useState(mobileMenuOpen);
+  if (mobileMenuOpen !== prevMobileMenuOpen) {
+    setPrevMobileMenuOpen(mobileMenuOpen);
     if (!mobileMenuOpen) setMobileAccordionOpen(false);
-  }, [mobileMenuOpen]);
+  }
 
   return (
     <>
