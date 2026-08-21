@@ -98,7 +98,7 @@ export default async function Home() {
           web display size — directly hurt this image's load time.
         */}
         <Image
-          src={publicImageUrl("hero.jpg")}
+          src={publicImageUrl("hero.jpg", "20260821211739")}
           alt="Extreme close-up of a woman's downturned face with dark bangs, eyes closed, nose ring, and dry curling branches crossing in front of her nose and shoulders in warm amber light."
           fill
           priority

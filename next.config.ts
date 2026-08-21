@@ -74,7 +74,10 @@ const nextConfig: NextConfig = {
         hostname: r2PublicHost,
         port: "",
         pathname: "/**",
-        search: "",
+        // No `search` restriction (unlike the picsum patterns above) —
+        // publicImageUrl()'s optional cache-bust `?v=...` param (see
+        // lib/media.ts) needs to pass through for fixed-name keys like
+        // hero.jpg that get their content swapped in place.
       },
     ],
   },

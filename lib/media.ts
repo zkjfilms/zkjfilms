@@ -14,6 +14,18 @@
 export const PUBLIC_IMAGES_BASE_URL =
   "https://pub-a78d2319f08941ff9a3249390ab8f644.r2.dev";
 
-export function publicImageUrl(key: string): string {
-  return `${PUBLIC_IMAGES_BASE_URL}/${key}`;
+// `version` is a manual cache-buster for the handful of *fixed-name* keys
+// referenced directly in code (e.g. "hero.jpg", "second.jpg" in
+// app/page.tsx) that get their content swapped in place from time to time
+// via `npm run image:upload`. Vercel's image-optimization cache and CDN
+// edge network key on the exact request URL, per edge region, with up to
+// a 4-hour TTL — swapping a fixed key's content without changing the URL
+// means some regions can keep serving the old image for hours after the
+// swap. Bump `version` to any new string (the upload script prints one)
+// whenever you replace one of these in place; MasonryPhoto/GalleryImage
+// entries don't need this, since each new upload already gets its own
+// unique key.
+export function publicImageUrl(key: string, version?: string): string {
+  const base = `${PUBLIC_IMAGES_BASE_URL}/${key}`;
+  return version ? `${base}?v=${version}` : base;
 }

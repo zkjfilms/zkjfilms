@@ -207,11 +207,20 @@ await client.send(
 
 const altText = await generateAltText(body, contentType, anthropicApiKey);
 
+const cacheBustVersion = new Date().toISOString().replace(/[^0-9]/g, "");
+
 console.log(`Uploaded ${filePath} -> ${key}`);
 if (backupPath) {
   console.log(`Backed up the previous "${key}" to ${backupPath} before overwriting.`);
+  console.log(
+    `\nThis key already existed — if it's referenced directly in code with a fixed\n` +
+      `src (e.g. app/page.tsx's hero.jpg/second.jpg), update that call to\n` +
+      `publicImageUrl("${key}", "${cacheBustVersion}") so every CDN edge region fetches\n` +
+      `the new file immediately instead of possibly serving the old one for up to\n` +
+      `4 hours. New MasonryPhoto/GalleryImage entries don't need this.`,
+  );
 }
-console.log(`${PUBLIC_IMAGES_BASE_URL}/${key}`);
+console.log(`\n${PUBLIC_IMAGES_BASE_URL}/${key}`);
 console.log(`Suggested alt text: ${altText}`);
 console.log("");
 console.log("Paste into a MasonryPhoto list (lib/masonryPhotos.ts):");
