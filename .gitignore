@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Claude Code worktrees and session-local state
 .claude/
+
+# Local backups of overwritten R2 uploads (scripts/uploadImage.mjs)
+/uploads-backup/

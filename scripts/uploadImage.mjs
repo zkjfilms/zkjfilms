@@ -8,18 +8,44 @@
 // destination-key defaults to the file's own name (e.g. hero.jpg). Pass one
 // to nest it under a prefix, e.g. `npm run image:upload -- ./photo.jpg
 // portraits/river-session-01.jpg`. Uploading to a key that already exists
-// overwrites it.
+// overwrites it — if something is already there, this script downloads it
+// to ./uploads-backup/ first (gitignored, local only) so an overwrite is
+// never a one-way door.
 //
 // This bucket ("zkjfilms-public") is separate from the private client-
 // gallery bucket (lib/r2.ts, "zk-client-galleries") and has R2's Public
 // Development URL enabled, so anything uploaded here is immediately and
 // permanently public — never point this script at client photos.
 
-import { readFileSync } from "node:fs";
-import { basename, extname } from "node:path";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, extname, join } from "node:path";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import Anthropic from "@anthropic-ai/sdk";
 import sharp from "sharp";
+
+const BACKUP_DIR = "uploads-backup";
+
+// Downloads the object currently at `key` (if any) to BACKUP_DIR before it
+// gets overwritten. Returns the local backup path, or null if there was
+// nothing at that key yet (a fresh key is not an error — just nothing to
+// back up).
+async function backupExistingObject(client, bucket, key) {
+  let response;
+  try {
+    response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  } catch (err) {
+    if (err.name === "NoSuchKey") return null;
+    throw err;
+  }
+
+  const bytes = await response.Body.transformToByteArray();
+  mkdirSync(BACKUP_DIR, { recursive: true });
+  const safeName = key.replace(/\//g, "__");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupPath = join(BACKUP_DIR, `${safeName}.${timestamp}${extname(key)}`);
+  writeFileSync(backupPath, Buffer.from(bytes));
+  return backupPath;
+}
 
 // Keep in sync with lib/media.ts — see that file's comment for why this
 // can't just be imported (this script runs as plain Node, not through
@@ -167,9 +193,12 @@ const client = new S3Client({
   },
 });
 
+const bucket = requireEnv("R2_PUBLIC_BUCKET_NAME");
+const backupPath = await backupExistingObject(client, bucket, key);
+
 await client.send(
   new PutObjectCommand({
-    Bucket: requireEnv("R2_PUBLIC_BUCKET_NAME"),
+    Bucket: bucket,
     Key: key,
     Body: body,
     ContentType: contentType,
@@ -179,6 +208,9 @@ await client.send(
 const altText = await generateAltText(body, contentType, anthropicApiKey);
 
 console.log(`Uploaded ${filePath} -> ${key}`);
+if (backupPath) {
+  console.log(`Backed up the previous "${key}" to ${backupPath} before overwriting.`);
+}
 console.log(`${PUBLIC_IMAGES_BASE_URL}/${key}`);
 console.log(`Suggested alt text: ${altText}`);
 console.log("");
