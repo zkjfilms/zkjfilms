@@ -30,7 +30,7 @@ export default function NotFound() {
           Back to Home
         </Link>
         <Link
-          href="/portraits"
+          href="/photos"
           className="text-xs uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
         >
           Browse the Portfolio

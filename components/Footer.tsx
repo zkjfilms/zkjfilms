@@ -61,8 +61,9 @@ export default function Footer() {
                 photographer
               </em>{" "}
               based in Columbia, Missouri, offering creative portrait
-              sessions, headshots, boudoir photography, and fine
-              art/editorial work for clients across Mid-Missouri.
+              sessions, headshots, boudoir photography, concert and live
+              performance photography, and fine art/editorial work for
+              clients across Mid-Missouri.
             </p>
           </div>
 

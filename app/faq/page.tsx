@@ -11,7 +11,7 @@ export const revalidate = 300;
 
 const TITLE = "Frequently Asked Questions";
 const DESCRIPTION =
-  "Answers to common questions about booking a portrait, headshot, boudoir, or fine art photography session with a Columbia, Missouri photographer.";
+  "Answers to common questions about booking a portrait, headshot, boudoir, music/performance, or fine art photography session with a Columbia, Missouri photographer.";
 
 export function generateMetadata(): Metadata {
   return buildPageMetadata({

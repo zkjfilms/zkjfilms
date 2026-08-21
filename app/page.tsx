@@ -164,7 +164,7 @@ export default async function Home() {
             Have a look &mdash; the work says more than I can.
           </p>
           <Link
-            href="/portraits"
+            href="/photos"
             className="mt-2 border-b border-white/50 pb-1 text-xs uppercase tracking-[0.2em] text-white transition-colors hover:border-white"
           >
             View Portfolio →
@@ -181,10 +181,11 @@ export default async function Home() {
           04 — What I Offer
         </h2>
         <p className="mx-auto max-w-xl text-base leading-relaxed text-muted">
-          My work spans creative portraits, professional headshots, and
-          boudoir photography for clients across Columbia and Mid-Missouri,
-          along with an ongoing body of fine art and nude photographic work
-          exploring intimacy, form, and narrative. If you&rsquo;re looking
+          My work spans creative portraits, professional headshots, boudoir
+          photography, and concert/live performance work for clients across
+          Columbia and Mid-Missouri, along with an ongoing body of fine art
+          and nude photographic work exploring intimacy, form, and
+          narrative. If you&rsquo;re looking
           for a Columbia photographer who treats a session as genuine
           collaboration rather than a transaction, I&rsquo;d love to work
           with you.

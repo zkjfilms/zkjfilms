@@ -105,6 +105,11 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: "/portraits", destination: "/photos", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

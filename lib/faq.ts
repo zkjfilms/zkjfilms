@@ -90,6 +90,20 @@ export const FAQ_ITEMS: FaqItem[] = [
     answer:
       "Sessions can be booked online starting 24 hours out and up to a year in advance. Need to cancel or reschedule? You can do that yourself online up to 48 hours before your session for a full refund — inside that window, just reach out directly.",
   },
+  {
+    id: "music-venue-access",
+    category: "Logistics",
+    question: "Do you need photo pit or backstage access?",
+    answer:
+      "For ticketed venue shows, photo pit or backstage access is typically arranged through the venue or artist's management ahead of time — let me know your venue and I can coordinate whatever credentials are needed.",
+  },
+  {
+    id: "music-usage-rights",
+    category: "Pricing",
+    question: "Can I use the photos for press or promotional purposes?",
+    answer:
+      "Yes — sessions booked for press, promo, or archival use include a usage license for that purpose. Reach out if you need something broader (album art, paid advertising, etc.) and we can work out terms.",
+  },
 ];
 
 function formatWholeDollars(cents: number): string {
@@ -119,11 +133,17 @@ function buildSessionCostAnswer(types: AppointmentTypeRow[]): string | null {
   const boudoir = find("boudoir");
   if (!headshots || !creative || !boudoir) return null;
 
+  const music = find("music");
+  const musicClause = music
+    ? ` Music & Performance Photography sessions start at ${formatWholeDollars(music.price_cents)} (${formatDuration(music.duration_minutes)}).`
+    : "";
+
   return (
     `Professional Headshots start at ${formatWholeDollars(headshots.price_cents)} (${formatDuration(headshots.duration_minutes)}); ` +
     `Creative Portraits sessions start at ${formatWholeDollars(creative.price_cents)} (${formatDuration(creative.duration_minutes)}); ` +
-    `Fine Art Boudoir & Nude sessions start at ${formatWholeDollars(boudoir.price_cents)} (${formatDuration(boudoir.duration_minutes)}). ` +
-    "Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote."
+    `Fine Art Boudoir & Nude sessions start at ${formatWholeDollars(boudoir.price_cents)} (${formatDuration(boudoir.duration_minutes)}).` +
+    musicClause +
+    " Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote."
   );
 }
 

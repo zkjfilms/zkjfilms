@@ -1,7 +1,7 @@
 import Gallery, { type GalleryGroup } from "@/components/Gallery";
 
 // Placeholder seeds/copy only — swap the images below for real work once
-// it's ready. Structure mirrors the public /portraits gallery via the
+// it's ready. Structure mirrors the public /photos gallery via the
 // shared Gallery component.
 const groups: GalleryGroup[] = [
   {

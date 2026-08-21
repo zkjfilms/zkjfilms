@@ -9,7 +9,7 @@ const routes: Array<{
   priority: number;
 }> = [
   { path: "", changeFrequency: "monthly", priority: 1 },
-  { path: "/portraits", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/photos", changeFrequency: "weekly", priority: 0.9 },
   { path: "/book", changeFrequency: "daily", priority: 0.8 },
   { path: "/contact", changeFrequency: "yearly", priority: 0.8 },
   { path: "/about", changeFrequency: "yearly", priority: 0.6 },
@@ -17,6 +17,7 @@ const routes: Array<{
   { path: "/headshots", changeFrequency: "monthly", priority: 0.8 },
   { path: "/creative-portraits", changeFrequency: "monthly", priority: 0.8 },
   { path: "/boudoir", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/music", changeFrequency: "monthly", priority: 0.8 },
   { path: "/films", changeFrequency: "monthly", priority: 0.8 },
 ];
 

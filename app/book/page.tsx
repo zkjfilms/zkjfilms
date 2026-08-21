@@ -21,7 +21,7 @@ const TEASER_FAQ_IDS = [
 export function generateMetadata(): Metadata {
   return buildPageMetadata({
     title: "Book a Session",
-    description: "Book a portrait, headshot, or boudoir photography session with a Columbia, Missouri photographer serving Mid-Missouri.",
+    description: "Book a portrait, headshot, boudoir, or music/performance photography session with a Columbia, Missouri photographer serving Mid-Missouri.",
     path: "/book",
   });
 }
