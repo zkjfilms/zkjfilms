@@ -164,7 +164,7 @@ export default async function Home() {
             Have a look &mdash; the work says more than I can.
           </p>
           <Link
-            href="/portraits"
+            href="/photos"
             className="mt-2 border-b border-white/50 pb-1 text-xs uppercase tracking-[0.2em] text-white transition-colors hover:border-white"
           >
             View Portfolio →

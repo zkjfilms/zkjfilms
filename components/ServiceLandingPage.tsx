@@ -97,10 +97,10 @@ export default function ServiceLandingPage({
             </Link>
           ))}
           <Link
-            href="/portraits"
+            href="/photos"
             className="text-sm text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
           >
-            All Portraits
+            All Photos
           </Link>
         </div>
       </div>
