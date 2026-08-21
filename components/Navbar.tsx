@@ -6,17 +6,18 @@ import { useEffect, useRef, useState } from "react";
 
 const links = [
   { href: "/", label: "Home" },
-  { href: "/portraits", label: "Portraits" },
+  { href: "/photos", label: "Photos" },
   { href: "/films", label: "Films" },
   { href: "/about", label: "About" },
   { href: "/book", label: "Book" },
   { href: "/contact", label: "Contact" },
 ];
 
-const PORTRAITS_SUBLINKS = [
+const PHOTOS_SUBLINKS = [
   { href: "/headshots", label: "Headshots" },
   { href: "/creative-portraits", label: "Creative Portraits" },
   { href: "/boudoir", label: "Boudoir" },
+  { href: "/music", label: "Music" },
 ];
 
 // Routes that open with a full-bleed hero image the navbar can float over.
@@ -24,10 +25,11 @@ const PORTRAITS_SUBLINKS = [
 // at the very top for transparent white text to sit on.
 const HERO_ROUTES = new Set([
   "/",
-  "/portraits",
+  "/photos",
   "/headshots",
   "/creative-portraits",
   "/boudoir",
+  "/music",
 ]);
 
 function MenuIcon({ open }: { open: boolean }) {
@@ -86,8 +88,8 @@ export default function Navbar() {
   const hasHero = HERO_ROUTES.has(pathname);
   const [scrolledPastHero, setScrolledPastHero] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [portraitsDropdownOpen, setPortraitsDropdownOpen] = useState(false);
-  const portraitsRef = useRef<HTMLDivElement>(null);
+  const [photosDropdownOpen, setPhotosDropdownOpen] = useState(false);
+  const photosRef = useRef<HTMLDivElement>(null);
   const [mobileAccordionOpen, setMobileAccordionOpen] = useState(false);
   const scrolled = !hasHero || scrolledPastHero;
 
@@ -100,7 +102,7 @@ export default function Navbar() {
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
     setMobileMenuOpen(false);
-    setPortraitsDropdownOpen(false);
+    setPhotosDropdownOpen(false);
   }
   // The overlay always renders on the light `bg-background`, so the header
   // content needs the dark/foreground treatment whenever it's open — even
@@ -136,13 +138,13 @@ export default function Navbar() {
   // The desktop dropdown gets its own Escape/outside-click handling,
   // independent of the mobile menu's — it doesn't need a scroll lock.
   useEffect(() => {
-    if (!portraitsDropdownOpen) return;
+    if (!photosDropdownOpen) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setPortraitsDropdownOpen(false);
+      if (e.key === "Escape") setPhotosDropdownOpen(false);
     }
     function onClickOutside(e: MouseEvent) {
-      if (portraitsRef.current && !portraitsRef.current.contains(e.target as Node)) {
-        setPortraitsDropdownOpen(false);
+      if (photosRef.current && !photosRef.current.contains(e.target as Node)) {
+        setPhotosDropdownOpen(false);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -151,7 +153,7 @@ export default function Navbar() {
       window.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("mousedown", onClickOutside);
     };
-  }, [portraitsDropdownOpen]);
+  }, [photosDropdownOpen]);
 
   // The overlay is hidden at md+ purely via CSS (`md:hidden`); if the
   // viewport crosses that breakpoint while it's open (e.g. rotating a
@@ -202,7 +204,7 @@ export default function Navbar() {
                   : "text-white/80 hover:text-white"
               }`;
 
-              if (link.href !== "/portraits") {
+              if (link.href !== "/photos") {
                 return (
                   <Link key={link.href} href={link.href} className={linkClass}>
                     {link.label}
@@ -213,31 +215,31 @@ export default function Navbar() {
               return (
                 <div
                   key={link.href}
-                  ref={portraitsRef}
+                  ref={photosRef}
                   className="relative flex items-center gap-1.5"
                   onMouseEnter={() => {
                     if (window.matchMedia("(hover: hover)").matches) {
-                      setPortraitsDropdownOpen(true);
+                      setPhotosDropdownOpen(true);
                     }
                   }}
-                  onMouseLeave={() => setPortraitsDropdownOpen(false)}
+                  onMouseLeave={() => setPhotosDropdownOpen(false)}
                 >
                   <Link href={link.href} className={linkClass}>
                     {link.label}
                   </Link>
                   <button
                     type="button"
-                    onClick={() => setPortraitsDropdownOpen((open) => !open)}
-                    aria-expanded={portraitsDropdownOpen}
-                    aria-label="Show portrait categories"
+                    onClick={() => setPhotosDropdownOpen((open) => !open)}
+                    aria-expanded={photosDropdownOpen}
+                    aria-label="Show photo categories"
                     className={`${linkClass} p-2 -my-2 -mr-2`}
                   >
-                    <CaretIcon open={portraitsDropdownOpen} />
+                    <CaretIcon open={photosDropdownOpen} />
                   </button>
-                  {portraitsDropdownOpen && (
+                  {photosDropdownOpen && (
                     <div className="absolute top-full left-0 pt-2">
                       <div className="min-w-[180px] border border-border bg-background/95 py-2 backdrop-blur-md">
-                        {PORTRAITS_SUBLINKS.map((sub) => (
+                        {PHOTOS_SUBLINKS.map((sub) => (
                           <Link
                             key={sub.href}
                             href={sub.href}
@@ -270,7 +272,7 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-8 bg-background md:hidden">
           {links.map((link) => {
-            if (link.href !== "/portraits") {
+            if (link.href !== "/photos") {
               return (
                 <Link
                   key={link.href}
@@ -295,7 +297,7 @@ export default function Navbar() {
                     type="button"
                     onClick={() => setMobileAccordionOpen((open) => !open)}
                     aria-expanded={mobileAccordionOpen}
-                    aria-label="Show portrait categories"
+                    aria-label="Show photo categories"
                     className="text-foreground p-3 -my-3 -mr-3"
                   >
                     <CaretIcon open={mobileAccordionOpen} />
@@ -303,7 +305,7 @@ export default function Navbar() {
                 </div>
                 {mobileAccordionOpen && (
                   <div className="flex flex-col items-center gap-5">
-                    {PORTRAITS_SUBLINKS.map((sub) => (
+                    {PHOTOS_SUBLINKS.map((sub) => (
                       <Link
                         key={sub.href}
                         href={sub.href}
