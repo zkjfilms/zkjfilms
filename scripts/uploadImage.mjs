@@ -46,32 +46,90 @@ function requireEnv(name) {
   return value;
 }
 
+// Alt text that trips this is generic enough it could describe almost any
+// portrait — a sign the model (or a human) phoned it in rather than
+// describing what's actually in the frame. Used as a last-resort check
+// after the model has already been asked to self-critique its own draft.
+const LAZY_ALT_TEXT_PATTERNS = [
+  /\bimage of\b/i,
+  /\bphoto(graph)? of\b/i,
+  /\bpicture of\b/i,
+  /\bstock photo\b/i,
+  /\bprofessional headshot\b/i,
+  /\bposing for( the)?( a)? camera\b/i,
+  /\b(beautiful|stunning|amazing|wonderful|gorgeous|lovely)\b/i,
+];
+
+function isLazyAltText(altText) {
+  const wordCount = altText.trim().split(/\s+/).length;
+  if (wordCount < 8) return true;
+  return LAZY_ALT_TEXT_PATTERNS.some((pattern) => pattern.test(altText));
+}
+
+const ALT_TEXT_DRAFT_PROMPT = `Write SEO alt text for this photo from a Columbia, Missouri portrait/headshot photography portfolio.
+
+Describe only what's literally visible: pose, framing, clothing/styling, setting, and lighting. Be specific enough that this sentence couldn't just as well describe a different headshot from the same shoot.
+
+Bad (too generic): "A woman smiling for a professional headshot."
+Good (specific): "Woman in a navy blazer leaning against a brick wall, laughing mid-turn with soft window light across one side of her face."
+
+Rules:
+- One sentence, roughly 12-25 words.
+- Never use: "image of", "photo of", "picture of", "photograph of", "stock photo", "professional headshot", "posing for the camera".
+- Never use vague superlatives: "beautiful", "stunning", "amazing", "wonderful", "gorgeous", "lovely".
+- Do not invent details you can't actually see in the image.`;
+
+// Two calls, not one: the first drafts, the second asks the model to judge
+// its own draft against a concrete "could this describe a different photo
+// in the shoot?" test and rewrite if it fails. Plain instructions alone
+// tend to still produce safely generic text; an explicit self-critique pass
+// catches that a lot more reliably than a longer prompt would on its own.
 async function generateAltText(imageBuffer, mediaType, anthropicApiKey) {
   const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-  const response = await anthropic.messages.create({
+  const imageBlock = {
+    type: "image",
+    source: { type: "base64", media_type: mediaType, data: imageBuffer.toString("base64") },
+  };
+
+  const draftResponse = await anthropic.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 200,
     messages: [
+      { role: "user", content: [imageBlock, { type: "text", text: ALT_TEXT_DRAFT_PROMPT }] },
+    ],
+  });
+  const draftBlock = draftResponse.content[0];
+  if (draftBlock.type !== "text") {
+    throw new Error("Unexpected response content type from Anthropic API.");
+  }
+  const draft = draftBlock.text.trim();
+
+  const reviseResponse = await anthropic.messages.create({
+    model: "claude-sonnet-5",
+    max_tokens: 200,
+    messages: [
+      { role: "user", content: [imageBlock, { type: "text", text: ALT_TEXT_DRAFT_PROMPT }] },
+      { role: "assistant", content: draft },
       {
         role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: mediaType, data: imageBuffer.toString("base64") },
-          },
-          {
-            type: "text",
-            text: "Write concise, specific SEO alt text for this photo from a Columbia, Missouri portrait/headshot photography portfolio. One sentence, no marketing fluff, describe what's actually visible — pose, setting, mood. Do not include phrases like \"image of\" or \"photo of\".",
-          },
-        ],
+        content:
+          "Would a sighted person, reading only that sentence, be able to picture this exact photo and tell it apart from another headshot in the same shoot? If it's generic or could describe almost any portrait, rewrite it with more specific, concrete visual detail actually visible in the image. Reply with only the final alt text — no preamble, no quotes, no explanation.",
       },
     ],
   });
-  const block = response.content[0];
-  if (block.type !== "text") {
+  const reviseBlock = reviseResponse.content[0];
+  if (reviseBlock.type !== "text") {
     throw new Error("Unexpected response content type from Anthropic API.");
   }
-  return block.text.trim();
+  const altText = reviseBlock.text.trim();
+
+  if (isLazyAltText(altText)) {
+    console.warn(
+      "\n⚠ Suggested alt text still reads as generic after review — read it carefully and rewrite by hand before pasting if it doesn't actually distinguish this photo.",
+    );
+  }
+
+  return altText;
 }
 
 const [, , filePath, destinationKeyArg] = process.argv;
