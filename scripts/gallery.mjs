@@ -35,7 +35,7 @@
 
 import { randomInt } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
@@ -119,6 +119,10 @@ const SLUG_PATTERN = /^[a-z0-9-]+$/;
 // Kept in sync with CONTENT_TYPES in uploadImage.mjs by hand — same
 // reasoning as SITE_URL above (this file isn't compiled, so it can't
 // import a shared TS constant).
+// Sanity cap against accidentally pointing this at a folder of full-res
+// RAW/TIFF exports (or the wrong folder entirely) — not a hard product limit.
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
 const UPLOAD_CONTENT_TYPES = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -266,10 +270,22 @@ async function upload(slug, folderPath) {
       continue;
     }
 
+    const filePath = join(folderPath, entry.name);
+    const { size } = statSync(filePath);
+    if (size > MAX_UPLOAD_BYTES) {
+      console.log(
+        `Skipping "${entry.name}" (${(size / (1024 * 1024)).toFixed(1)}MB exceeds ${
+          MAX_UPLOAD_BYTES / (1024 * 1024)
+        }MB sanity limit).`,
+      );
+      skipped += 1;
+      continue;
+    }
+
     const key = `galleries/${slug}/${entry.name}`;
 
     try {
-      const body = readFileSync(join(folderPath, entry.name));
+      const body = readFileSync(filePath);
       await client.send(
         new PutObjectCommand({
           Bucket: bucket,
