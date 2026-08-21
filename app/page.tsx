@@ -99,7 +99,7 @@ export default async function Home() {
         */}
         <Image
           src={publicImageUrl("hero.jpg")}
-          alt="Close-up portrait of a woman with dark bangs and closed eyes, bare shoulders and a fern tattoo across her collarbone, dried branches held in front of her face in warm, low light"
+          alt="Extreme close-up of a woman's downturned face with dark bangs, eyes closed, nose ring, and dry curling branches crossing in front of her nose and shoulders in warm amber light."
           fill
           priority
           className="object-cover"
