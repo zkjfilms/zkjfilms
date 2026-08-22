@@ -1,7 +1,7 @@
 import type { GalleryGroup } from "@/components/Gallery";
 import { publicImageUrl } from "@/lib/media";
 import type { MasonryPhoto } from "@/lib/masonryPhotos";
-import { HEADSHOTS_MASONRY_PHOTOS, CREATIVE_PORTRAITS_MASONRY_PHOTOS, MUSIC_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
+import { HEADSHOTS_MASONRY_PHOTOS, CREATIVE_PORTRAITS_MASONRY_PHOTOS, BOUDOIR_MASONRY_PHOTOS, MUSIC_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
 
 export type Service = {
   slug: string;
@@ -146,6 +146,7 @@ export const BOUDOIR_SERVICE: Service = {
   heroImageSeed: "nocturne-boudoir-hero",
   heroImageAlt: "Fine art boudoir photography session in Columbia, Missouri.",
   gallery: null,
+  masonryPhotos: BOUDOIR_MASONRY_PHOTOS,
   faqIds: ["privacy-boudoir", "sign-anything"],
 };
 

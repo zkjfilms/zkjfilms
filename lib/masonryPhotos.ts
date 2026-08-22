@@ -146,6 +146,51 @@ export const CREATIVE_PORTRAITS_MASONRY_PHOTOS: MasonryPhoto[] = [
   },
 ];
 
+export const BOUDOIR_MASONRY_PHOTOS: MasonryPhoto[] = [
+  {
+    key: "boudoir-placeholder-01",
+    width: 1067,
+    height: 1600,
+    alt: "Fine art boudoir photography session in Columbia, Missouri",
+    src: "https://picsum.photos/seed/boudoir-placeholder-01/1067/1600",
+  },
+  {
+    key: "boudoir-placeholder-02",
+    width: 1600,
+    height: 1067,
+    alt: "Intimate boudoir photography, Mid-Missouri photographer",
+    src: "https://picsum.photos/seed/boudoir-placeholder-02/1600/1067",
+  },
+  {
+    key: "boudoir-placeholder-03",
+    width: 1200,
+    height: 1800,
+    alt: "Fine art nude photography session in Columbia, MO",
+    src: "https://picsum.photos/seed/boudoir-placeholder-03/1200/1800",
+  },
+  {
+    key: "boudoir-placeholder-04",
+    width: 1500,
+    height: 1000,
+    alt: "Boudoir photography styled with natural light, Mid-Missouri",
+    src: "https://picsum.photos/seed/boudoir-placeholder-04/1500/1000",
+  },
+  {
+    key: "boudoir-placeholder-05",
+    width: 1400,
+    height: 1400,
+    alt: "Intimate portrait session, Columbia, Missouri photographer",
+    src: "https://picsum.photos/seed/boudoir-placeholder-05/1400/1400",
+  },
+  {
+    key: "boudoir-placeholder-06",
+    width: 1800,
+    height: 1200,
+    alt: "Fine art boudoir and nude photography, Mid-Missouri",
+    src: "https://picsum.photos/seed/boudoir-placeholder-06/1800/1200",
+  },
+];
+
 export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
   {
     key: "music-placeholder-01",
