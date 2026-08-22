@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo";
+import AgeGate from "@/components/AgeGate";
 import ServiceLandingPage from "@/components/ServiceLandingPage";
 import { BOUDOIR_SERVICE } from "@/lib/services";
 
@@ -13,5 +14,10 @@ export function generateMetadata(): Metadata {
 }
 
 export default function BoudoirPage() {
-  return <ServiceLandingPage service={BOUDOIR_SERVICE} />;
+  return (
+    <>
+      <AgeGate />
+      <ServiceLandingPage service={BOUDOIR_SERVICE} />
+    </>
+  );
 }
