@@ -119,11 +119,22 @@ Rules:
 // in the shoot?" test and rewrite if it fails. Plain instructions alone
 // tend to still produce safely generic text; an explicit self-critique pass
 // catches that a lot more reliably than a longer prompt would on its own.
-async function generateAltText(imageBuffer, mediaType, anthropicApiKey) {
+// The Anthropic API rejects any image over 10MB once base64-encoded, and
+// vision models don't benefit from more than ~1568px on the long edge
+// anyway (Claude downscales internally regardless of what's sent) — a real
+// full-res DSLR export easily exceeds that (a 9MB source photo becomes a
+// 12MB base64 payload, well past the cap). Downscale a copy specifically
+// for this call; the original passed to the R2 upload elsewhere in this
+// script is never touched.
+async function generateAltText(imageBuffer, anthropicApiKey) {
   const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+  const visionImage = await sharp(imageBuffer)
+    .resize({ width: 1568, height: 1568, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 85 })
+    .toBuffer();
   const imageBlock = {
     type: "image",
-    source: { type: "base64", media_type: mediaType, data: imageBuffer.toString("base64") },
+    source: { type: "base64", media_type: "image/jpeg", data: visionImage.toString("base64") },
   };
 
   const draftResponse = await anthropic.messages.create({
@@ -220,7 +231,7 @@ await client.send(
   }),
 );
 
-const altText = await generateAltText(body, contentType, anthropicApiKey);
+const altText = await generateAltText(body, anthropicApiKey);
 
 const cacheBustVersion = new Date().toISOString().replace(/[^0-9]/g, "");
 
