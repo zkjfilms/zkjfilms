@@ -25,6 +25,15 @@ import sharp from "sharp";
 
 const BACKUP_DIR = "uploads-backup";
 
+// hero.jpg and second.jpg (app/page.tsx) are full-bleed background images
+// (`fill` + `sizes="100vw"`) that serve a 3840px-wide variant on large/
+// retina screens — next/image can't upscale past a source's native
+// resolution, so anything narrower than that gets stretched by the browser
+// and looks visibly soft. Not enforced elsewhere: MasonryPhoto/GalleryImage
+// entries render at fixed, much smaller tile sizes and don't need this.
+const FULL_BLEED_MIN_WIDTH = 3840;
+const FULL_BLEED_KEYS = new Set(["hero.jpg", "second.jpg"]);
+
 // Downloads the object currently at `key` (if any) to BACKUP_DIR before it
 // gets overwritten. Returns the local backup path, or null if there was
 // nothing at that key yet (a fresh key is not an error — just nothing to
@@ -178,6 +187,12 @@ const { width, height } = await sharp(body).metadata();
 if (!width || !height) {
   console.error("Could not read image dimensions — the file may be corrupt or an unsupported format for sharp.");
   process.exit(1);
+}
+
+if (FULL_BLEED_KEYS.has(key) && width < FULL_BLEED_MIN_WIDTH) {
+  console.warn(
+    `\n⚠ "${key}" is a full-bleed hero image (fill + sizes="100vw" in app/page.tsx) but this file is only ${width}px wide — below the ${FULL_BLEED_MIN_WIDTH}px needed to look sharp on large/retina screens. It will render upscaled and visibly soft on wide viewports. Re-export at a higher resolution if this needs to look sharp full-width.\n`,
+  );
 }
 
 // Validate before the R2 upload — a missing key here should never let the
