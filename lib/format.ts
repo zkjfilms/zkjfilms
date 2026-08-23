@@ -77,3 +77,15 @@ export function formatPriceRange(pricesCents: number[]): string | null {
   const max = Math.max(...pricesCents);
   return min === max ? whole(min) : `${whole(min)}-${whole(max)}`;
 }
+
+// Podcast episode/video runtime — e.g. 2136 -> "35:36", 4106 -> "1:08:26".
+export function formatDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  const paddedSeconds = String(seconds).padStart(2, "0");
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${paddedSeconds}`;
+  }
+  return `${minutes}:${paddedSeconds}`;
+}

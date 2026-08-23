@@ -28,11 +28,22 @@ function buildCspHeader(isDev: boolean): string {
     // already visible in every signed URL a gallery viewer's browser
     // requests), so a wildcard is used rather than hardcoding it.
     `img-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://${r2PublicHost}`,
-    `media-src 'self' https://*.r2.cloudflarestorage.com https://${r2PublicHost}`,
+    // /podcast's <audio> elements point directly at RSS.com's CDN for the
+    // episode MP3s — not proxied through our own origin (there's no
+    // next/image-style proxy for audio), so media-src needs it explicitly,
+    // same reasoning as the R2 hosts above. content.rss.com 307-redirects
+    // to Triton Digital's podcast delivery network (a signed, expiring
+    // URL) to actually serve the file — Chrome enforces media-src against
+    // each redirect hop, not just the initial request, so both hosts are
+    // required or playback silently fails with no visible error beyond
+    // a console CSP violation.
+    `media-src 'self' https://*.r2.cloudflarestorage.com https://${r2PublicHost} https://content.rss.com https://rsscom.pdn.tritondigital.com`,
     // app/about/page.tsx embeds the studio location as a Google Maps
     // iframe; without this the map silently fails to load (falls back to
     // default-src 'self') with no visible error beyond the console.
-    `frame-src 'self' https://www.google.com https://challenges.cloudflare.com`,
+    // /podcast embeds individual YouTube videos (YouTubeEmbedFacade) —
+    // without youtube.com here those iframes fail the same way.
+    `frame-src 'self' https://www.google.com https://challenges.cloudflare.com https://www.youtube.com`,
     `font-src 'self'`,
     // lib/supabaseBrowser.ts connects directly from the browser for
     // Realtime Broadcast (live booking-availability updates) — the only
@@ -78,6 +89,24 @@ const nextConfig: NextConfig = {
         // publicImageUrl()'s optional cache-bust `?v=...` param (see
         // lib/media.ts) needs to pass through for fixed-name keys like
         // hero.jpg that get their content swapped in place.
+      },
+      // /podcast's cover art (RSS.com's CDN) and YouTube video thumbnails —
+      // both rendered via next/image, which proxies through our own origin
+      // (`/_next/image?url=...`), so (unlike the <audio> src above) these
+      // don't need a CSP img-src addition, only this allowlist entry.
+      {
+        protocol: "https",
+        hostname: "media.rss.com",
+        port: "",
+        pathname: "/**",
+        search: "",
+      },
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+        port: "",
+        pathname: "/**",
+        search: "",
       },
     ],
   },
