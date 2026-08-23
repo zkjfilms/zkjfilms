@@ -11,6 +11,12 @@ export type Service = {
   description: string;
   heroImageSeed: string;
   heroImageUrl?: string;
+  // CSS object-position for the hero <Image> (e.g. "center 15%") — the hero
+  // section is a tall (min-h-[70vh]) object-cover crop, so a real photo
+  // whose subject isn't near the vertical center needs this or the subject
+  // gets cropped out entirely. Unused (defaults to center) for the
+  // picsum.photos placeholders, whose framing doesn't matter.
+  heroImagePosition?: string;
   heroImageAlt: string;
   gallery: GalleryGroup | null;
   masonryPhotos?: MasonryPhoto[];
@@ -115,8 +121,10 @@ export const HEADSHOTS_SERVICE: Service = {
   description:
     "Professional portraits for people who need to show up polished — LinkedIn, business branding, personal websites, and professional profiles. Clean, confident, and ready for wherever you need to make a first impression.",
   heroImageSeed: "nocturne-headshots-hero",
+  heroImageUrl: publicImageUrl("headshots/lucas.jpg"),
+  heroImagePosition: "center 10%",
   heroImageAlt:
-    "Professional headshot photography session in Columbia, Missouri.",
+    "Black-and-white portrait of a man with dark tousled hair, faint forehead crease, and light stubble, dramatic side lighting on the left half of his face fading to black on the right, wearing a dark crewneck top against a pure black background.",
   gallery: null,
   masonryPhotos: HEADSHOTS_MASONRY_PHOTOS,
   faqIds: ["what-to-wear", "session-length"],

@@ -55,13 +55,6 @@ export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("headshots/toriamos-44551.jpg"),
   },
   {
-    key: "headshots/lucas.jpg",
-    width: 6048,
-    height: 4024,
-    alt: "Black-and-white portrait of a man with dark tousled hair, faint forehead crease, and light stubble, dramatic side lighting on the left half of his face fading to black on the right, wearing a dark crewneck top against a pure black background.",
-    src: publicImageUrl("headshots/lucas.jpg"),
-  },
-  {
     key: "headshots/toriamos-80391.jpg",
     width: 2734,
     height: 4109,
