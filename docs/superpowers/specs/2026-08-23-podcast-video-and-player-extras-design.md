@@ -23,15 +23,26 @@ web page.
 
 ## Decisions
 
-- **Video placement:** an expand-in-place panel, not an always-visible
-  inline embed and not a modal. Each episode row that has a paired
-  `videoId` gets a small "Watch" toggle; clicking it reveals the existing
-  `YouTubeEmbedFacade` (click-to-load, unchanged) directly below the row's
-  description, collapsed by default. This keeps the row list's compact,
-  scannable rhythm intact while making video available on demand.
-  Fullscreen playback needs no custom work — `YouTubeEmbedFacade`'s
-  iframe already has `allowFullScreen`, and YouTube's own embedded player
-  chrome provides the fullscreen control.
+- **Video placement (revised from an earlier expand-in-place draft of
+  this spec):** always visible, full-width, not collapsed behind a
+  toggle. The show is video-first (published to YouTube as the primary
+  format, audio as a secondary channel) with only a handful of episodes
+  today, so hiding the video undersold the content and didn't match the
+  large-imagery editorial feel the rest of this site uses (`/music`,
+  `/films`, `/headshots`). `EpisodeRow` changes from the shipped compact
+  horizontal row (small square thumbnail + text + play button, one line)
+  to a taller card: an eyebrow line (date · duration · Explicit badge),
+  the title, a full-width video area (the existing `YouTubeEmbedFacade`,
+  click-to-load, unchanged — or the episode's cover art when no video is
+  paired), the description, then a bottom row with the season/episode
+  label and a separate **"Listen" button** (the existing
+  `EpisodePlayButton`, unchanged, just repositioned) so a visitor can
+  start the episode in the shared audio player without first opening the
+  video — watching and listening are two independent, equally-visible
+  choices per row, not one hidden behind the other. Fullscreen playback
+  needs no custom work — `YouTubeEmbedFacade`'s iframe already has
+  `allowFullScreen`, and YouTube's own embedded player chrome provides
+  the fullscreen control.
 - **Playback speed:** a cycle button on `PlayerBar` (not a dropdown/menu)
   stepping through `1x → 1.25x → 1.5x → 1.75x → 2x → 1x …`, displaying
   the current rate as its own label. Applies to the shared `<audio>`
@@ -56,59 +67,86 @@ web page.
 
 ## 1. Restore the video embed
 
-### `EpisodeVideoPanel.tsx` (new, client component)
+No new component is needed — `EpisodeRow.tsx` is restructured directly.
+This replaces its current compact-row layout entirely.
 
-A small, self-contained component that owns its own expand/collapse
-state and renders nothing when the episode has no paired video:
+### `EpisodeRow.tsx` (rewritten)
 
 ```tsx
-"use client";
-
-import { useState } from "react";
+import Image from "next/image";
 import type { PodcastEpisode } from "@/lib/podcast";
+import { formatBusinessDate, formatDuration } from "@/lib/format";
+import EpisodePlayButton from "./EpisodePlayButton";
 import YouTubeEmbedFacade from "@/components/YouTubeEmbedFacade";
-import { VideoIcon, CaretIcon } from "./icons";
 
-export default function EpisodeVideoPanel({ episode }: { episode: PodcastEpisode }) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (!episode.videoId) return null;
-
+export default function EpisodeRow({ episode }: { episode: PodcastEpisode }) {
   return (
-    <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
-        aria-expanded={expanded}
-        className="flex items-center gap-1.5 text-xs uppercase tracking-[0.15em] text-muted transition-colors hover:text-accent"
-      >
-        <VideoIcon />
-        {expanded ? "Hide Video" : "Watch"}
-        <CaretIcon open={expanded} />
-      </button>
-      {expanded && (
-        <div className="mt-3">
-          <YouTubeEmbedFacade
-            videoId={episode.videoId}
-            thumbnailUrl={episode.videoThumbnailUrl ?? episode.imageUrl}
-            title={episode.title}
-          />
-        </div>
+    <article className="border-b border-border py-10 first:pt-0">
+      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-muted">
+        <span>{formatBusinessDate(episode.pubDate)}</span>
+        {episode.durationSeconds !== null && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>{formatDuration(episode.durationSeconds)}</span>
+          </>
+        )}
+        {episode.explicit && (
+          <span className="border border-border px-2 py-0.5 text-[10px] tracking-[0.15em] text-muted">
+            Explicit
+          </span>
+        )}
+      </div>
+
+      <h3 className="mb-5 font-serif text-2xl italic text-foreground sm:text-3xl">
+        {episode.title}
+      </h3>
+
+      {episode.videoId ? (
+        <YouTubeEmbedFacade
+          videoId={episode.videoId}
+          thumbnailUrl={episode.videoThumbnailUrl ?? episode.imageUrl}
+          title={episode.title}
+        />
+      ) : (
+        episode.imageUrl && (
+          <div className="relative aspect-video w-full overflow-hidden bg-surface">
+            <Image
+              src={episode.imageUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="(min-width: 768px) 700px, 100vw"
+            />
+          </div>
+        )
       )}
-    </div>
+
+      <p className="mt-5 text-sm text-muted">{episode.description}</p>
+
+      <div className="mt-5 flex items-center justify-between gap-4">
+        {episode.season !== null && episode.episode !== null ? (
+          <span className="text-xs uppercase tracking-[0.2em] text-muted">
+            S{episode.season} · E{episode.episode}
+          </span>
+        ) : (
+          <span />
+        )}
+        <EpisodePlayButton episode={episode} />
+      </div>
+    </article>
   );
 }
 ```
 
-`icons.tsx` needs one new export, `VideoIcon` (a small play-in-frame
-glyph — hand-drawn inline SVG, same convention as the rest of this set,
-14-16px, `aria-hidden="true"`).
-
-### `EpisodeRow.tsx`
-
-Render `<EpisodeVideoPanel episode={episode} />` between the description
-and the date/duration metadata row (it self-guards on `episode.videoId`,
-so the call site doesn't need its own conditional).
+Notable changes from the shipped version: no square thumbnail column, no
+`line-clamp-2` (the description reads in full now that each episode gets
+its own tall card instead of a scannable row), no `CalendarIcon`/
+`ClockIcon` (the eyebrow line reverts to plain text with a `·` separator,
+matching the original pre-redesign page's treatment — remove both icons'
+exports from `components/podcast/icons.tsx` since nothing will reference
+them after this change). `EpisodePlayButton` itself is unchanged, just
+moved from the row's trailing column to the bottom-right of the new
+bottom row.
 
 ## 2. Playback speed control
 
