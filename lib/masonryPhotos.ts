@@ -21,6 +21,10 @@ export type MasonryPhoto = {
 // Order below is deliberately randomized (not upload order or filename
 // order) per request — re-shuffle by hand if you add/remove entries and
 // want a fresh order, there's no automatic randomization at render time.
+// You don't need to hand-balance the tail so a column doesn't hang past
+// its neighbors, though — MasonryGallery places photos with a greedy
+// shortest-column-first algorithm that keeps this order but evens out
+// column heights on its own. Just add/remove/shuffle for variety.
 export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
   {
     key: "headshots/toriamos-22991.jpg",
@@ -273,7 +277,7 @@ export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
     key: "music/RC_D_B-838432.jpg",
     width: 6048,
     height: 4024,
-    alt: "Black-and-white low-angle stage shot of a bearded, long-haired bassist mid-shout with head tilted back toward the mic, gripping the neck of his bass, tattooed forearm visible, another musician blurred in shadow at bottom left and a drum kit lit at right.",
+    alt: "Bearded, long-haired bassist mid-scream at a low-angle stage shot, tattooed forearm gripping the fretboard, drum kit and flame-patterned backdrop blurred behind him.",
     src: publicImageUrl("music/RC_D_B-838432.jpg"),
   },
   {
