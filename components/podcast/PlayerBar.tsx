@@ -14,6 +14,13 @@ import {
   VolumeMuteIcon,
 } from "./icons";
 
+const PLAYBACK_RATES = [1, 1.25, 1.5, 1.75, 2];
+
+function cyclePlaybackRate(current: number): number {
+  const idx = PLAYBACK_RATES.indexOf(current);
+  return PLAYBACK_RATES[(idx + 1) % PLAYBACK_RATES.length];
+}
+
 export default function PlayerBar() {
   const {
     currentEpisode,
@@ -22,6 +29,7 @@ export default function PlayerBar() {
     duration,
     volume,
     muted,
+    playbackRate,
     togglePlay,
     seek,
     skip,
@@ -29,6 +37,7 @@ export default function PlayerBar() {
     prev,
     setVolume,
     toggleMute,
+    setPlaybackRate,
   } = usePodcastPlayer();
 
   const barRef = useRef<HTMLDivElement>(null);
@@ -107,6 +116,15 @@ export default function PlayerBar() {
               </button>
             </div>
 
+            <button
+              type="button"
+              onClick={() => setPlaybackRate(cyclePlaybackRate(playbackRate))}
+              aria-label={`Playback speed: ${playbackRate}x. Click to change.`}
+              className="hidden w-10 flex-shrink-0 text-xs font-medium text-foreground hover:text-accent sm:block"
+            >
+              {playbackRate}x
+            </button>
+
             <div className="hidden items-center gap-2 sm:flex">
               <button
                 type="button"
@@ -147,7 +165,6 @@ export default function PlayerBar() {
           </div>
         </div>
       </div>
-      <div className="h-24" aria-hidden="true" />
     </>
   );
 }
