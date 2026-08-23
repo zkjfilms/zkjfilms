@@ -118,13 +118,16 @@ Top to bottom:
    channel description from the feed. If the feed fetch fails, this falls
    back to a static title + tagline (no cover art) so the page never has an
    empty header.
-2. **Subscribe row** — inline-SVG icon links (matching the icon style
-   already used in `Navbar.tsx`) to Apple Podcasts, Spotify, the raw RSS
-   feed URL (labeled "RSS"), and the full YouTube playlist (labeled
-   "YouTube") — the last one matters now that individual episodes only
-   embed one video each; this is where someone goes to browse everything
-   on YouTube directly. Plain `<a>` tags, `target="_blank"`,
-   `rel="noopener noreferrer"`.
+2. **Subscribe row** — plain text links (not icons — `Footer.tsx` already
+   establishes and documents this site's convention: no brand-icon library
+   is installed, every external platform link falls back to text, styled
+   `text-[11px] uppercase tracking-[0.15em] text-muted hover:text-accent`)
+   to Apple Podcasts, Spotify, the raw RSS feed URL (labeled "RSS"), and
+   the full YouTube playlist (labeled "YouTube") — the last one matters
+   now that individual episodes only embed one video each; this is where
+   someone goes to browse everything on YouTube directly. `target="_blank"`,
+   `rel="noopener noreferrer"`, matching `Footer.tsx`'s `SOCIAL_LINKS`
+   pattern exactly.
 3. **Episodes section** — heading ("Episodes"), then a single list,
    newest-first, merging what would otherwise be separate "Watch" and
    "Listen" sections. Each episode card renders:
