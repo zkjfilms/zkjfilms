@@ -60,7 +60,7 @@ export default function PodcastExperience({ show }: { show: PodcastShow | null }
 
   return (
     <PodcastPlayerProvider episodes={show?.episodes ?? []}>
-      <div className="mx-auto w-full max-w-5xl px-6 pb-32 pt-16 sm:px-10">
+      <div className="mx-auto w-full max-w-5xl px-6 pb-24 pt-16 sm:px-10">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start">
           <div className="relative h-40 w-40 flex-shrink-0 overflow-hidden bg-surface sm:h-48 sm:w-48">
             {show?.imageUrl && (

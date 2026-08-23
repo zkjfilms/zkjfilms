@@ -133,7 +133,10 @@ export function PodcastPlayerProvider({
 
   const setVolume = useCallback((v: number) => {
     const audio = audioRef.current;
-    if (audio) audio.volume = v;
+    if (audio) {
+      audio.volume = v;
+      if (v > 0) audio.muted = false;
+    }
     setVolumeState(v);
     if (v > 0) setMuted(false);
   }, []);
@@ -183,6 +186,15 @@ export function PodcastPlayerProvider({
   return (
     <PodcastPlayerContext.Provider value={value}>
       {children}
+      {/* No `controls` attribute — this is deliberate, not an oversight.
+          The site's product requirement is to discourage casual/native
+          audio downloads: a native <audio controls> element exposes a
+          browser download button, and this one must not. onContextMenu
+          blocks the obvious right-click "Save Audio As" path too. This
+          is a UX deterrent, not a security boundary — a visitor reading
+          the Network tab in devtools can still find the direct MP3 URL,
+          which is unavoidable for audio that must play in the browser.
+          Do not add `controls` back without revisiting that requirement. */}
       <audio
         ref={audioRef}
         onPlay={() => setIsPlaying(true)}

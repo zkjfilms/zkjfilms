@@ -7,6 +7,7 @@ import { CaretIcon } from "./icons";
 const PLATFORMS: Array<{ label: string; href: string }> = [
   { label: "Apple Podcasts", href: PODCAST_LINKS.apple },
   { label: "Spotify", href: PODCAST_LINKS.spotify },
+  { label: "YouTube", href: PODCAST_LINKS.youtube },
   { label: "RSS Feed", href: PODCAST_LINKS.rss },
 ];
 

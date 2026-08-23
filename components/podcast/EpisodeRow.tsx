@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { PodcastEpisode } from "@/lib/podcast";
-import { formatDate, formatDuration } from "@/lib/format";
+import { formatBusinessDate, formatDuration } from "@/lib/format";
 import EpisodePlayButton from "./EpisodePlayButton";
 import { CalendarIcon, ClockIcon } from "./icons";
 
@@ -35,7 +35,7 @@ export default function EpisodeRow({ episode }: { episode: PodcastEpisode }) {
           )}
           <span className="flex items-center gap-1.5">
             <CalendarIcon />
-            {formatDate(episode.pubDate)}
+            {formatBusinessDate(episode.pubDate)}
           </span>
           {episode.durationSeconds !== null && (
             <span className="flex items-center gap-1.5">
