@@ -19,6 +19,7 @@ const routes: Array<{
   { path: "/boudoir", changeFrequency: "monthly", priority: 0.8 },
   { path: "/music", changeFrequency: "monthly", priority: 0.8 },
   { path: "/films", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/podcast", changeFrequency: "weekly", priority: 0.8 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
