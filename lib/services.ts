@@ -10,6 +10,7 @@ export type Service = {
   tagline: string;
   description: string;
   heroImageSeed: string;
+  heroImageUrl?: string;
   heroImageAlt: string;
   gallery: GalleryGroup | null;
   masonryPhotos?: MasonryPhoto[];
@@ -158,7 +159,9 @@ export const MUSIC_SERVICE: Service = {
   description:
     "Concert and live-performance photography — bands, solo artists, and venues, shot in the moment. Booked directly by artists, venues, or labels for promo, press, and archival use.",
   heroImageSeed: "nocturne-music-hero",
-  heroImageAlt: "Concert and live performance photography session.",
+  heroImageUrl: publicImageUrl("music/ZJ7_2203.jpg"),
+  heroImageAlt:
+    "Long-haired, bearded man in a fedora hat plays pedal steel guitar with a mallet, blue-lit from below against a dark red wall strung with colorful fairy lights.",
   gallery: null,
   masonryPhotos: MUSIC_MASONRY_PHOTOS,
   faqIds: ["session-length", "music-venue-access", "music-usage-rights"],

@@ -291,13 +291,6 @@ export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("music/ZJ7_6290.jpg"),
   },
   {
-    key: "music/ZJ7_2203.jpg",
-    width: 6048,
-    height: 4024,
-    alt: "Long-haired, bearded man in a fedora hat plays pedal steel guitar with a mallet, blue-lit from below against a dark red wall strung with colorful fairy lights.",
-    src: publicImageUrl("music/ZJ7_2203.jpg"),
-  },
-  {
     key: "music/ZJ7_9441-2.jpg",
     width: 1638,
     height: 2048,

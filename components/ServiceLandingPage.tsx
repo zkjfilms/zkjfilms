@@ -21,7 +21,10 @@ export default function ServiceLandingPage({
     <div className="flex flex-col">
       <section className="relative -mt-20 flex min-h-[70vh] items-end overflow-hidden">
         <Image
-          src={`https://picsum.photos/seed/${service.heroImageSeed}/1800/1200`}
+          src={
+            service.heroImageUrl ??
+            `https://picsum.photos/seed/${service.heroImageSeed}/1800/1200`
+          }
           alt={service.heroImageAlt}
           fill
           priority
