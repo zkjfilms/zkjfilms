@@ -42,11 +42,11 @@ export default async function PodcastPage() {
         url: "https://zkjfilms.com/podcast",
         webFeed: PODCAST_LINKS.rss,
         author: { "@type": "Person", name: "Zach K. Johnson" },
-        associatedMedia: show.episodes.map((episode) => ({
+        hasPart: show.episodes.map((episode) => ({
           "@type": "PodcastEpisode",
           name: episode.title,
           datePublished: episode.pubDate,
-          url: PODCAST_LINKS.rss,
+          url: episode.link || PODCAST_LINKS.rss,
           associatedMedia: {
             "@type": "MediaObject",
             contentUrl: episode.audioUrl,
@@ -171,7 +171,12 @@ export default async function PodcastPage() {
                 <p className="mb-4 text-sm text-muted">{episode.description}</p>
 
                 {episode.audioUrl && (
-                  <audio controls preload="none" className="w-full">
+                  <audio
+                    controls
+                    preload="none"
+                    className="w-full"
+                    aria-label={`Listen to ${episode.title}`}
+                  >
                     <source src={episode.audioUrl} type="audio/mpeg" />
                   </audio>
                 )}

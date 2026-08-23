@@ -19,6 +19,7 @@ export type PodcastEpisode = {
   durationSeconds: number | null;
   imageUrl: string;
   audioUrl: string;
+  link: string;
   season: number | null;
   episode: number | null;
   explicit: boolean;
@@ -78,6 +79,7 @@ type RawItem = {
   title?: unknown;
   description?: unknown;
   guid?: unknown;
+  link?: unknown;
   pubDate?: string;
   enclosure?: { "@_url"?: string };
   "itunes:duration"?: unknown;
@@ -123,6 +125,7 @@ async function fetchRssShow(): Promise<{
       durationSeconds: parseItunesDuration(item["itunes:duration"]),
       imageUrl: item["itunes:image"]?.["@_href"] ?? channelImageUrl,
       audioUrl: item.enclosure?.["@_url"] ?? "",
+      link: textOf(item.link),
       season: item["itunes:season"] != null ? Number(item["itunes:season"]) : null,
       episode: item["itunes:episode"] != null ? Number(item["itunes:episode"]) : null,
       explicit:
@@ -144,7 +147,15 @@ async function fetchRssShow(): Promise<{
   };
 }
 
-type PlaylistVideo = { videoId: string; thumbnailUrl: string; publishedAt: string };
+type PlaylistVideo = { videoId: string; title: string; thumbnailUrl: string; publishedAt: string };
+
+// Normalizes a title for matching by lowercasing and collapsing everything
+// that isn't a letter or digit to a single space — so punctuation/quote
+// differences (e.g. curly vs. straight quotes) and stray whitespace don't
+// break an otherwise-identical title match.
+function titleKey(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
 
 async function fetchPlaylistVideos(): Promise<PlaylistVideo[]> {
   const apiKey = process.env.YOUTUBE_API_KEY;
@@ -166,13 +177,14 @@ async function fetchPlaylistVideos(): Promise<PlaylistVideo[]> {
     .map((item): PlaylistVideo | null => {
       const videoId = item.contentDetails?.videoId ?? item.snippet?.resourceId?.videoId;
       const publishedAt = item.contentDetails?.videoPublishedAt ?? item.snippet?.publishedAt;
+      const title = item.snippet?.title ?? "";
       const thumbnailUrl =
         item.snippet?.thumbnails?.high?.url ??
         item.snippet?.thumbnails?.medium?.url ??
         item.snippet?.thumbnails?.default?.url ??
         "";
       if (!videoId || !publishedAt) return null;
-      return { videoId, thumbnailUrl, publishedAt };
+      return { videoId, title, thumbnailUrl, publishedAt };
     })
     .filter((v): v is PlaylistVideo => v !== null);
 
@@ -183,11 +195,13 @@ async function fetchPlaylistVideos(): Promise<PlaylistVideo[]> {
   return videos;
 }
 
-// Pairs RSS episodes with YouTube videos by publish order (both sorted
-// newest-first) rather than any shared ID — the show publishes video and
-// audio together per episode, so position-matching is reliable today. If
-// that ever stops holding, the fix is an explicit per-episode video ID
-// field, not a smarter matching heuristic here.
+// Pairs RSS episodes with YouTube videos by matching normalized title
+// (both sources carry the same episode title verbatim) rather than by
+// position — the RSS feed and YouTube playlist are independently sorted
+// and can lag each other, so index-pairing has no way to detect a
+// mismatch. An episode with no title match keeps videoId/videoThumbnailUrl
+// as null, which renders as a fully supported audio-only card, rather
+// than ever attaching the wrong video.
 export async function getPodcastShow(): Promise<PodcastShow | null> {
   const [rssResult, videosResult] = await Promise.allSettled([
     fetchRssShow(),
@@ -205,8 +219,9 @@ export async function getPodcastShow(): Promise<PodcastShow | null> {
   const videos = videosResult.status === "fulfilled" ? videosResult.value : [];
 
   const { episodes: rawEpisodes, ...show } = rssResult.value;
-  const episodes = rawEpisodes.map((episode, index) => {
-    const video = videos[index];
+  const byTitle = new Map(videos.map((v) => [titleKey(v.title), v]));
+  const episodes = rawEpisodes.map((episode) => {
+    const video = byTitle.get(titleKey(episode.title));
     return video
       ? { ...episode, videoId: video.videoId, videoThumbnailUrl: video.thumbnailUrl }
       : episode;
