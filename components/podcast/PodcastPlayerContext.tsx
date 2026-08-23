@@ -18,6 +18,7 @@ type PlayerState = {
   duration: number;
   volume: number;
   muted: boolean;
+  playbackRate: number;
 };
 
 type PlayerActions = {
@@ -29,6 +30,7 @@ type PlayerActions = {
   prev: () => void;
   setVolume: (volume: number) => void;
   toggleMute: () => void;
+  setPlaybackRate: (rate: number) => void;
 };
 
 type PodcastPlayerValue = PlayerState & PlayerActions;
@@ -49,6 +51,8 @@ export function PodcastPlayerProvider({
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(1);
   const [muted, setMuted] = useState(false);
+  const [playbackRate, setPlaybackRateState] = useState(1);
+  const playbackRateRef = useRef(1);
 
   const currentIndex = currentEpisode
     ? episodes.findIndex((e) => e.guid === currentEpisode.guid)
@@ -85,6 +89,7 @@ export function PodcastPlayerProvider({
     const audio = audioRef.current;
     if (!audio || !currentEpisode) return;
     audio.src = currentEpisode.audioUrl;
+    audio.playbackRate = playbackRateRef.current;
     audio.play().catch(() => {
       // Autoplay can be blocked by the browser without a prior user
       // gesture — isPlaying stays correct via the audio element's own
@@ -148,6 +153,13 @@ export function PodcastPlayerProvider({
     setMuted(audio.muted);
   }, []);
 
+  const setPlaybackRate = useCallback((rate: number) => {
+    const audio = audioRef.current;
+    if (audio) audio.playbackRate = rate;
+    playbackRateRef.current = rate;
+    setPlaybackRateState(rate);
+  }, []);
+
   const value = useMemo<PodcastPlayerValue>(
     () => ({
       currentEpisode,
@@ -156,6 +168,7 @@ export function PodcastPlayerProvider({
       duration,
       volume,
       muted,
+      playbackRate,
       playEpisode,
       togglePlay,
       seek,
@@ -164,6 +177,7 @@ export function PodcastPlayerProvider({
       prev,
       setVolume,
       toggleMute,
+      setPlaybackRate,
     }),
     [
       currentEpisode,
@@ -172,6 +186,7 @@ export function PodcastPlayerProvider({
       duration,
       volume,
       muted,
+      playbackRate,
       playEpisode,
       togglePlay,
       seek,
@@ -180,6 +195,7 @@ export function PodcastPlayerProvider({
       prev,
       setVolume,
       toggleMute,
+      setPlaybackRate,
     ],
   );
 
