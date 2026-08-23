@@ -31,8 +31,13 @@ function buildCspHeader(isDev: boolean): string {
     // /podcast's <audio> elements point directly at RSS.com's CDN for the
     // episode MP3s — not proxied through our own origin (there's no
     // next/image-style proxy for audio), so media-src needs it explicitly,
-    // same reasoning as the R2 hosts above.
-    `media-src 'self' https://*.r2.cloudflarestorage.com https://${r2PublicHost} https://content.rss.com`,
+    // same reasoning as the R2 hosts above. content.rss.com 307-redirects
+    // to Triton Digital's podcast delivery network (a signed, expiring
+    // URL) to actually serve the file — Chrome enforces media-src against
+    // each redirect hop, not just the initial request, so both hosts are
+    // required or playback silently fails with no visible error beyond
+    // a console CSP violation.
+    `media-src 'self' https://*.r2.cloudflarestorage.com https://${r2PublicHost} https://content.rss.com https://rsscom.pdn.tritondigital.com`,
     // app/about/page.tsx embeds the studio location as a Google Maps
     // iframe; without this the map silently fails to load (falls back to
     // default-src 'self') with no visible error beyond the console.
