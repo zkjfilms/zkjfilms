@@ -214,6 +214,13 @@ export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("music/ZJ7_8365.jpg"),
   },
   {
+    key: "music/ZJ7_1511-2.jpg",
+    width: 6048,
+    height: 4024,
+    alt: "Trumpet player with green-painted face and shaved head plays mid-note beside a spike-crowned, mask-wearing guitarist lit in dim red-orange stage light.",
+    src: publicImageUrl("music/ZJ7_1511-2.jpg"),
+  },
+  {
     key: "music/ZJ7_2204.jpg",
     width: 6048,
     height: 4024,
@@ -270,6 +277,13 @@ export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("music/ZJ7_9269.jpg"),
   },
   {
+    key: "music/RC_D_B-838432.jpg",
+    width: 6048,
+    height: 4024,
+    alt: "Black-and-white low-angle stage shot of a bearded, long-haired bassist mid-shout with head tilted back toward the mic, gripping the neck of his bass, tattooed forearm visible, another musician blurred in shadow at bottom left and a drum kit lit at right.",
+    src: publicImageUrl("music/RC_D_B-838432.jpg"),
+  },
+  {
     key: "music/ZJ7_5851.jpg",
     width: 5291,
     height: 3520,
@@ -296,6 +310,13 @@ export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
     height: 2048,
     alt: "Silhouetted metal vocalist in profile, head tilted back, hair flying upward, one knee raised on stage riser, gripping a mic wrapped in frayed fabric against hazy backlit fog.",
     src: publicImageUrl("music/ZJ7_9441-2.jpg"),
+  },
+  {
+    key: "music/ZJ7_1330-2.jpg",
+    width: 6048,
+    height: 4024,
+    alt: "Long-exposure blur of a musician swinging their head, orange stage light trailing through hair like flames, a hand gripping a guitar neck in the dark foreground, small red light glowing bottom right.",
+    src: publicImageUrl("music/ZJ7_1330-2.jpg"),
   },
   {
     key: "music/ZJ7_5642.jpg",
@@ -338,5 +359,12 @@ export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
     height: 4024,
     alt: "Male performer with a bird-and-rattlesnake tattoo on his forearm sings into a microphone, head tilted down, one arm outstretched, under vivid purple stage lighting with a chain necklace visible.",
     src: publicImageUrl("music/ZJ7_5998.jpg"),
+  },
+  {
+    key: "music/RC_D_B-101443615.jpg",
+    width: 5580,
+    height: 3713,
+    alt: "Black-and-white low-angle shot of a bearded, long-haired musician screaming into a mic stand while gripping an angled guitar neck, \"metal\" tattooed on his raised forearm, a single round stage light glowing over his shoulder.",
+    src: publicImageUrl("music/RC_D_B-101443615.jpg"),
   },
 ];
