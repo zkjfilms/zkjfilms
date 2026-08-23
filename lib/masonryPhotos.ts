@@ -256,13 +256,6 @@ export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("music/P1033695.jpg"),
   },
   {
-    key: "music/ZJ7_5746.jpg",
-    width: 2048,
-    height: 1363,
-    alt: "Black-and-white concert photo of a wild-haired, corpse-painted vocalist screaming with head tilted back, raising a spike-studded armband to a microphone stand as smoke rises from a stage prop and bright backlighting silhouettes the haze.",
-    src: publicImageUrl("music/ZJ7_5746.jpg"),
-  },
-  {
     key: "music/ZJ7_0909.jpg",
     width: 6048,
     height: 4024,
