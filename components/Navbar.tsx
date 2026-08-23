@@ -31,7 +31,6 @@ const HERO_ROUTES = new Set([
   "/creative-portraits",
   "/boudoir",
   "/music",
-  "/podcast",
 ]);
 
 function MenuIcon({ open }: { open: boolean }) {
