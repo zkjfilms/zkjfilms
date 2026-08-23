@@ -32,24 +32,6 @@ export function ShareIcon() {
   );
 }
 
-export function CalendarIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <rect x="3" y="4.5" width="14" height="12" rx="1.5" />
-      <path d="M3 8h14M7 2.5v3M13 2.5v3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-export function ClockIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <circle cx="10" cy="10" r="7" />
-      <path d="M10 6v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 export function PlayIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
