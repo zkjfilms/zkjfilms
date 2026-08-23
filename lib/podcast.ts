@@ -31,6 +31,8 @@ export type PodcastShow = {
   title: string;
   description: string;
   imageUrl: string;
+  categories: string[];
+  fundingUrl: string | null;
   episodes: PodcastEpisode[];
 };
 
@@ -93,6 +95,8 @@ async function fetchRssShow(): Promise<{
   title: string;
   description: string;
   imageUrl: string;
+  categories: string[];
+  fundingUrl: string | null;
   episodes: PodcastEpisode[];
 }> {
   const res = await fetch(RSS_FEED_URL, { next: { revalidate: 300 } });
@@ -115,6 +119,27 @@ async function fetchRssShow(): Promise<{
 
   const channelImage = channel["itunes:image"] as { "@_href"?: string } | undefined;
   const channelImageUrl = channelImage?.["@_href"] ?? "";
+
+  // The feed nests sub-categories inside a top-level category, e.g.
+  // <itunes:category text="Society &amp; Culture">
+  //   <itunes:category text="Documentary"/>
+  //   <itunes:category text="Relationships"/>
+  // </itunes:category>
+  // Only the sub-categories are shown on the page (not the top-level one).
+  const rawCategory = channel["itunes:category"] as
+    | { "itunes:category"?: unknown }
+    | undefined;
+  const categories = toArray(
+    rawCategory?.["itunes:category"] as
+      | { "@_text"?: string }
+      | { "@_text"?: string }[]
+      | undefined,
+  )
+    .map((c) => c["@_text"])
+    .filter((t): t is string => Boolean(t));
+
+  const funding = channel["podcast:funding"] as { "@_url"?: string } | undefined;
+  const fundingUrl = funding?.["@_url"] ?? null;
 
   const episodes: PodcastEpisode[] = toArray(channel.item as RawItem | RawItem[] | undefined).map(
     (item) => ({
@@ -143,6 +168,8 @@ async function fetchRssShow(): Promise<{
     title: textOf(channel.title),
     description: stripHtml(textOf(channel.description)),
     imageUrl: channelImageUrl,
+    categories,
+    fundingUrl,
     episodes,
   };
 }
