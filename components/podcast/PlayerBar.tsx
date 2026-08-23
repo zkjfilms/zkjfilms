@@ -1,0 +1,125 @@
+"use client";
+
+import Image from "next/image";
+import { usePodcastPlayer } from "./PodcastPlayerContext";
+import { formatDuration } from "@/lib/format";
+import {
+  PlayIcon,
+  PauseIcon,
+  SkipBackIcon,
+  SkipForwardIcon,
+  SkipArc,
+  VolumeIcon,
+  VolumeMuteIcon,
+} from "./icons";
+
+export default function PlayerBar() {
+  const {
+    currentEpisode,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    muted,
+    togglePlay,
+    seek,
+    skip,
+    next,
+    prev,
+    setVolume,
+    toggleMute,
+  } = usePodcastPlayer();
+
+  if (!currentEpisode) return null;
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-4">
+          <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden bg-background">
+            {currentEpisode.imageUrl && (
+              <Image
+                src={currentEpisode.imageUrl}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="48px"
+              />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">
+              {currentEpisode.season !== null && currentEpisode.episode !== null
+                ? `S${currentEpisode.season} E${String(currentEpisode.episode).padStart(2, "0")} — `
+                : ""}
+              {currentEpisode.title}
+            </p>
+            <p className="truncate text-xs text-muted">What Comes Next by Zach K. Johnson</p>
+          </div>
+
+          <div className="flex items-center gap-3 text-foreground">
+            <button type="button" onClick={prev} aria-label="Previous episode" className="p-1 hover:text-accent">
+              <SkipBackIcon />
+            </button>
+            <button type="button" onClick={() => skip(-15)} aria-label="Rewind 15 seconds" className="p-1 hover:text-accent">
+              <SkipArc direction="back" seconds={15} />
+            </button>
+            <button
+              type="button"
+              onClick={togglePlay}
+              aria-label={isPlaying ? "Pause" : "Play"}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-background hover:opacity-90"
+            >
+              {isPlaying ? <PauseIcon /> : <PlayIcon />}
+            </button>
+            <button type="button" onClick={() => skip(30)} aria-label="Forward 30 seconds" className="p-1 hover:text-accent">
+              <SkipArc direction="forward" seconds={30} />
+            </button>
+            <button type="button" onClick={next} aria-label="Next episode" className="p-1 hover:text-accent">
+              <SkipForwardIcon />
+            </button>
+          </div>
+
+          <div className="hidden items-center gap-2 sm:flex">
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute" : "Mute"}
+              className="p-1 text-foreground hover:text-accent"
+            >
+              {muted || volume === 0 ? <VolumeMuteIcon /> : <VolumeIcon />}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={muted ? 0 : volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              aria-label="Volume"
+              className="w-16 accent-accent"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] text-muted">
+          <span className="w-9 text-right tabular-nums">{formatDuration(Math.floor(currentTime))}</span>
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step={1}
+            value={Math.min(currentTime, duration || 0)}
+            onChange={(e) => seek(Number(e.target.value))}
+            aria-label="Seek"
+            className="flex-1 accent-accent"
+          />
+          <span className="w-9 tabular-nums">
+            {duration ? formatDuration(Math.floor(duration)) : "--:--"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
