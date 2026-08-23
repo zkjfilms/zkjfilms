@@ -11,6 +11,37 @@ import {
 } from "react";
 import type { PodcastEpisode } from "@/lib/podcast";
 
+const RESUME_KEY_PREFIX = "podcast-resume:";
+const RESUME_SKIP_LAST_SECONDS = 5;
+
+function readResumePosition(guid: string): number | null {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY_PREFIX + guid);
+    if (!raw) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeResumePosition(guid: string, time: number): void {
+  try {
+    localStorage.setItem(RESUME_KEY_PREFIX + guid, String(time));
+  } catch {
+    // Private browsing / storage disabled — resume is a nice-to-have,
+    // fail silently.
+  }
+}
+
+function clearResumePosition(guid: string): void {
+  try {
+    localStorage.removeItem(RESUME_KEY_PREFIX + guid);
+  } catch {
+    // Same as above.
+  }
+}
+
 type PlayerState = {
   currentEpisode: PodcastEpisode | null;
   isPlaying: boolean;
@@ -97,6 +128,20 @@ export function PodcastPlayerProvider({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentEpisode?.guid]);
+
+  useEffect(() => {
+    if (!isPlaying || !currentEpisode) return;
+    const id = setInterval(() => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (audio.duration && audio.currentTime > audio.duration - RESUME_SKIP_LAST_SECONDS) {
+        clearResumePosition(currentEpisode.guid);
+      } else {
+        writeResumePosition(currentEpisode.guid, audio.currentTime);
+      }
+    }, 10_000);
+    return () => clearInterval(id);
+  }, [isPlaying, currentEpisode]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -214,9 +259,28 @@ export function PodcastPlayerProvider({
       <audio
         ref={audioRef}
         onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPause={() => {
+          setIsPlaying(false);
+          const audio = audioRef.current;
+          if (audio && currentEpisode) {
+            if (audio.duration && audio.currentTime > audio.duration - RESUME_SKIP_LAST_SECONDS) {
+              clearResumePosition(currentEpisode.guid);
+            } else {
+              writeResumePosition(currentEpisode.guid, audio.currentTime);
+            }
+          }
+        }}
         onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        onLoadedMetadata={(e) => {
+          const audio = e.currentTarget;
+          setDuration(audio.duration);
+          if (currentEpisode) {
+            const saved = readResumePosition(currentEpisode.guid);
+            if (saved !== null && saved < audio.duration - RESUME_SKIP_LAST_SECONDS) {
+              audio.currentTime = saved;
+            }
+          }
+        }}
         onEnded={next}
         onContextMenu={(e) => e.preventDefault()}
         preload="metadata"
