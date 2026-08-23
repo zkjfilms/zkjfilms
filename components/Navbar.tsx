@@ -8,6 +8,7 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/photos", label: "Photos" },
   { href: "/films", label: "Films" },
+  { href: "/podcast", label: "Podcast" },
   { href: "/about", label: "About" },
   { href: "/book", label: "Book" },
   { href: "/contact", label: "Contact" },
@@ -30,6 +31,7 @@ const HERO_ROUTES = new Set([
   "/creative-portraits",
   "/boudoir",
   "/music",
+  "/podcast",
 ]);
 
 function MenuIcon({ open }: { open: boolean }) {
