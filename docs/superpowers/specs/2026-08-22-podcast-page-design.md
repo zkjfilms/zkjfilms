@@ -35,15 +35,23 @@ ISR), it calls `getPodcastShow()`, which fetches two sources in parallel:
    client). Returns each video's ID, title, thumbnail, and position in the
    playlist.
 
-The two lists are then **paired by publish order** (both newest/oldest-first
-after sorting each independently) — zipped index-for-index into a single
-`PodcastEpisode[]`, since the show publishes video and audio together per
-episode. If the two lists have different lengths (a video without a matching
-RSS item, or vice versa), only the paired positions get a `videoId`; extras
-are dropped from the pairing but the RSS item still renders audio-only.
-This is a heuristic, not a guaranteed-correct mapping — acceptable given the
-show publishes in lockstep today; if that ever proves unreliable, the fix is
-adding an explicit per-episode video ID field, not revisiting this design.
+**Superseded during implementation** (final whole-branch review, 2026-08-23):
+this section originally specified pairing by publish order — zipping both
+lists index-for-index after independently sorting each newest-first — on
+the assumption that the show publishes video and audio together per
+episode, with an explicit note not to revisit the design if that ever
+proved unreliable. That premise was checked against live data during the
+final review and found false on first contact: the RSS feed lags the
+YouTube channel by two episodes (only "Episode 1: Dennis" was in the RSS
+feed while YouTube already had Episodes 1–3), so index-pairing attached
+Episode 3 "Traci"'s video to the "Episode 1: Dennis" card. The design was
+revisited — the actual, shipped implementation pairs episodes to videos by
+**matching normalized episode title** (both sources carry the identical
+title string, e.g. `What Comes Next | Episode 1: "Dennis"`) via a
+`Map<titleKey, video>` lookup, and **fails closed**: an episode with no
+matching title keeps `videoId: null`, rendering as the already-supported
+audio-only card rather than ever attaching a wrong video. See
+`lib/podcast.ts`'s `titleKey()`/`getPodcastShow()` for the implementation.
 
 Sorts episodes newest-first by `pubDate` and passes everything to the page
 for rendering.
