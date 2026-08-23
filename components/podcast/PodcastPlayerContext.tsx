@@ -60,7 +60,11 @@ export function PodcastPlayerProvider({
       if (!audio) return;
       if (currentEpisode?.guid === episode.guid) {
         if (audio.paused) {
-          audio.play();
+          audio.play().catch(() => {
+            // Autoplay can be blocked by the browser without a prior user
+            // gesture — isPlaying stays correct via the audio element's own
+            // "play"/"pause" events, so no extra handling is needed here.
+          });
         } else {
           audio.pause();
         }
@@ -93,7 +97,11 @@ export function PodcastPlayerProvider({
     const audio = audioRef.current;
     if (!audio || !currentEpisode) return;
     if (audio.paused) {
-      audio.play();
+      audio.play().catch(() => {
+        // Autoplay can be blocked by the browser without a prior user
+        // gesture — isPlaying stays correct via the audio element's own
+        // "play"/"pause" events, so no extra handling is needed here.
+      });
     } else {
       audio.pause();
     }
