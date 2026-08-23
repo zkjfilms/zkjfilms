@@ -14,10 +14,10 @@ const links = [
 ];
 
 const PHOTOS_SUBLINKS = [
-  { href: "/headshots", label: "Headshots" },
   { href: "/creative-portraits", label: "Creative Portraits" },
   { href: "/boudoir", label: "Boudoir" },
   { href: "/music", label: "Music" },
+  { href: "/headshots", label: "Headshots" },
 ];
 
 // Routes that open with a full-bleed hero image the navbar can float over.
