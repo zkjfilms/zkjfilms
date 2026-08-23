@@ -1,15 +1,11 @@
 import { XMLParser } from "fast-xml-parser";
 import { google } from "googleapis";
+import { PODCAST_LINKS } from "./podcastLinks";
 
-const RSS_FEED_URL = "https://media.rss.com/what-comes-next/feed.xml";
+const RSS_FEED_URL = PODCAST_LINKS.rss;
 const YOUTUBE_PLAYLIST_ID = "PL_TKznejt1qTg-spopGgooR2EB08AnQ2K";
 
-export const PODCAST_LINKS = {
-  apple: "https://podcasts.apple.com/us/podcast/what-comes-next/id1836518475",
-  spotify: "https://open.spotify.com/show/2J7dRHRjd5uivNVMq8N68Z",
-  rss: RSS_FEED_URL,
-  youtube: `https://www.youtube.com/playlist?list=${YOUTUBE_PLAYLIST_ID}`,
-};
+export { PODCAST_LINKS };
 
 export type PodcastEpisode = {
   guid: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PODCAST_LINKS } from "@/lib/podcast";
+import { PODCAST_LINKS } from "@/lib/podcastLinks";
 import { CaretIcon } from "./icons";
 
 const PLATFORMS: Array<{ label: string; href: string }> = [
