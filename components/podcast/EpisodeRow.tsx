@@ -56,7 +56,12 @@ export default function EpisodeRow({ episode }: { episode: PodcastEpisode }) {
         ) : (
           <span />
         )}
-        <EpisodePlayButton episode={episode} />
+        <div className="flex items-center gap-3">
+          <span className="text-xs uppercase tracking-[0.2em] text-muted">
+            Listen Here
+          </span>
+          <EpisodePlayButton episode={episode} />
+        </div>
       </div>
     </article>
   );
