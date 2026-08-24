@@ -120,7 +120,7 @@ export default function PlayerBar() {
               type="button"
               onClick={() => setPlaybackRate(cyclePlaybackRate(playbackRate))}
               aria-label={`Playback speed: ${playbackRate}x. Click to change.`}
-              className="hidden w-10 flex-shrink-0 text-xs font-medium text-foreground hover:text-accent sm:block"
+              className="w-10 flex-shrink-0 text-xs font-medium text-foreground hover:text-accent"
             >
               {playbackRate}x
             </button>
