@@ -1,10 +1,31 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { PodcastEpisode } from "@/lib/podcast";
 import { formatBusinessDate, formatDuration } from "@/lib/format";
 import EpisodePlayButton from "./EpisodePlayButton";
 import YouTubeEmbedFacade from "@/components/YouTubeEmbedFacade";
+import { usePodcastPlayer } from "./PodcastPlayerContext";
 
 export default function EpisodeRow({ episode }: { episode: PodcastEpisode }) {
+  const { currentEpisode, isPlaying } = usePodcastPlayer();
+  const isAudioPlaying = currentEpisode?.guid === episode.guid && isPlaying;
+
+  // One-way handoff: the moment this episode's audio starts, force the
+  // video facade to remount (discarding its iframe, resetting to the
+  // thumbnail state) so the two don't play over each other. Keyed off
+  // the false->true transition only — pausing audio later must never
+  // resume the video, and re-watching afterward is a deliberate click.
+  const [videoResetKey, setVideoResetKey] = useState(0);
+  const wasAudioPlaying = useRef(false);
+  useEffect(() => {
+    if (isAudioPlaying && !wasAudioPlaying.current) {
+      setVideoResetKey((key) => key + 1);
+    }
+    wasAudioPlaying.current = isAudioPlaying;
+  }, [isAudioPlaying]);
+
   return (
     <article className="border-b border-border py-10 first:pt-0">
       <div className="mb-3 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-muted">
@@ -28,6 +49,7 @@ export default function EpisodeRow({ episode }: { episode: PodcastEpisode }) {
 
       {episode.videoId ? (
         <YouTubeEmbedFacade
+          key={videoResetKey}
           videoId={episode.videoId}
           thumbnailUrl={episode.videoThumbnailUrl ?? episode.imageUrl}
           title={episode.title}
