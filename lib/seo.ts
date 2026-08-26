@@ -14,6 +14,9 @@ export const DEFAULT_OG_IMAGE = {
   alt: "Zach K. Johnson — Columbia, Missouri portrait and boudoir photographer",
 };
 
+export const LATE_NIGHT_LISTENING_URL = "https://latenightlistening.com";
+export const GCC_STUDIO_URL = "https://www.thegccstudio.com";
+
 export const SOCIALS = {
   instagram: "https://www.instagram.com/zach_k_johnson",
   youtube: "https://www.youtube.com/@zkjfilms",

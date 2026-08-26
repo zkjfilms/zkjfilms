@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { LATE_NIGHT_LISTENING_URL } from "@/lib/seo";
 
 const links = [
   { href: "/", label: "Home" },
@@ -12,6 +13,7 @@ const links = [
   { href: "/about", label: "About" },
   { href: "/book", label: "Book" },
   { href: "/contact", label: "Contact" },
+  { href: LATE_NIGHT_LISTENING_URL, label: "Events" },
 ];
 
 const PHOTOS_SUBLINKS = [

@@ -49,9 +49,19 @@ export default function ServiceLandingPage({
         </div>
       </section>
 
-      <p className="mx-auto max-w-2xl px-6 py-16 text-center text-muted sm:px-10">
-        {service.description}
-      </p>
+      <div className="mx-auto max-w-2xl px-6 py-16 text-center sm:px-10">
+        <p className="text-muted">{service.description}</p>
+        {service.relatedLink && (
+          <a
+            href={service.relatedLink.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-block text-sm text-muted underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+          >
+            {service.relatedLink.label}
+          </a>
+        )}
+      </div>
 
       {/* masonryPhotos takes precedence over gallery when both are present;
           check length (not just truthiness) so an emptied array falls

@@ -2,6 +2,7 @@ import type { GalleryGroup } from "@/components/Gallery";
 import { publicImageUrl } from "@/lib/media";
 import type { MasonryPhoto } from "@/lib/masonryPhotos";
 import { HEADSHOTS_MASONRY_PHOTOS, CREATIVE_PORTRAITS_MASONRY_PHOTOS, BOUDOIR_MASONRY_PHOTOS, MUSIC_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
+import { LATE_NIGHT_LISTENING_URL } from "@/lib/seo";
 
 export type Service = {
   slug: string;
@@ -21,6 +22,7 @@ export type Service = {
   gallery: GalleryGroup | null;
   masonryPhotos?: MasonryPhoto[];
   faqIds: string[];
+  relatedLink?: { label: string; href: string };
 };
 
 export const HEADSHOTS_GALLERY: GalleryGroup = {
@@ -173,6 +175,10 @@ export const MUSIC_SERVICE: Service = {
   gallery: null,
   masonryPhotos: MUSIC_MASONRY_PHOTOS,
   faqIds: ["session-length", "music-venue-access", "music-usage-rights"],
+  relatedLink: {
+    label: "See it in action → Late Night Listening",
+    href: LATE_NIGHT_LISTENING_URL,
+  },
 };
 
 export const SERVICES: Service[] = [

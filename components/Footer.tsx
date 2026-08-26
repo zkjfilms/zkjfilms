@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BUSINESS, SOCIALS } from "@/lib/seo";
+import { BUSINESS, SOCIALS, GCC_STUDIO_URL, LATE_NIGHT_LISTENING_URL } from "@/lib/seo";
 
 // lucide-react has no brand/logo icons at all (confirmed against the
 // installed package — it's a generic icon set, not a brand-icon library
@@ -73,6 +73,14 @@ export default function Footer() {
             </p>
             <div className="mt-4 space-y-2 text-sm">
               <a
+                href={GCC_STUDIO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+              >
+                GCC Studio
+              </a>
+              <a
                 href="https://www.google.com/maps/dir/?api=1&destination=2101+W+Broadway+Ave+Suite+208+Columbia+MO+65203"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -118,6 +126,16 @@ export default function Footer() {
             >
               Frequently Asked Questions
             </Link>
+
+            <p className="mt-6 text-xs uppercase tracking-[0.3em] text-muted">Also</p>
+            <a
+              href={LATE_NIGHT_LISTENING_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block text-sm text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
+            >
+              Late Night Listening — ambient events at the studio
+            </a>
           </div>
         </div>
 
