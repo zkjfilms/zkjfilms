@@ -9,11 +9,10 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/photos", label: "Photos" },
   { href: "/films", label: "Films" },
-  { href: "/podcast", label: "Podcast" },
   { href: "/about", label: "About" },
-  { href: "/book", label: "Book" },
   { href: "/contact", label: "Contact" },
   { href: LATE_NIGHT_LISTENING_URL, label: "Events" },
+  { href: "/book", label: "Book" },
 ];
 
 const PHOTOS_SUBLINKS = [
@@ -22,6 +21,32 @@ const PHOTOS_SUBLINKS = [
   { href: "/music", label: "Music" },
   { href: "/headshots", label: "Headshots" },
 ];
+
+// Unlike Photos (which has its own overview page plus separate category
+// links), Films has no content of its own beyond the dropdown — its own
+// page is listed as a dropdown option alongside Podcast, so the parent nav
+// item is dropdown-only (see DROPDOWN_ONLY below) rather than a direct link.
+const FILMS_SUBLINKS = [
+  { href: "/films", label: "Films" },
+  { href: "/podcast", label: "Podcast" },
+];
+
+// Keyed by the parent link's href — any link with an entry here renders
+// with a dropdown caret instead of as a plain link.
+const DROPDOWNS: Record<string, { href: string; label: string }[]> = {
+  "/photos": PHOTOS_SUBLINKS,
+  "/films": FILMS_SUBLINKS,
+};
+
+// Parent links in this set render as a dropdown trigger only — no direct
+// navigation from the top-level label, since the destination itself is one
+// of the dropdown options.
+const DROPDOWN_ONLY = new Set(["/films"]);
+
+const DROPDOWN_ARIA_LABEL: Record<string, string> = {
+  "/photos": "Show photo categories",
+  "/films": "Show films menu",
+};
 
 // Routes that open with a full-bleed hero image the navbar can float over.
 // Every other route gets the solid navbar immediately — there's no image
@@ -91,9 +116,11 @@ export default function Navbar() {
   const hasHero = HERO_ROUTES.has(pathname);
   const [scrolledPastHero, setScrolledPastHero] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [photosDropdownOpen, setPhotosDropdownOpen] = useState(false);
-  const photosRef = useRef<HTMLDivElement>(null);
-  const [mobileAccordionOpen, setMobileAccordionOpen] = useState(false);
+  // Which dropdown (keyed by parent link href) is currently open — only one
+  // at a time, desktop and mobile share the same key space.
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [mobileAccordionOpen, setMobileAccordionOpen] = useState<string | null>(null);
   const scrolled = !hasHero || scrolledPastHero;
 
   // Close the mobile menu on any route change — covers direct link taps
@@ -105,7 +132,7 @@ export default function Navbar() {
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
     setMobileMenuOpen(false);
-    setPhotosDropdownOpen(false);
+    setOpenDropdown(null);
   }
   // The overlay always renders on the light `bg-background`, so the header
   // content needs the dark/foreground treatment whenever it's open — even
@@ -141,13 +168,14 @@ export default function Navbar() {
   // The desktop dropdown gets its own Escape/outside-click handling,
   // independent of the mobile menu's — it doesn't need a scroll lock.
   useEffect(() => {
-    if (!photosDropdownOpen) return;
+    if (!openDropdown) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setPhotosDropdownOpen(false);
+      if (e.key === "Escape") setOpenDropdown(null);
     }
     function onClickOutside(e: MouseEvent) {
-      if (photosRef.current && !photosRef.current.contains(e.target as Node)) {
-        setPhotosDropdownOpen(false);
+      const el = openDropdown ? dropdownRefs.current[openDropdown] : null;
+      if (el && !el.contains(e.target as Node)) {
+        setOpenDropdown(null);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -156,7 +184,7 @@ export default function Navbar() {
       window.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("mousedown", onClickOutside);
     };
-  }, [photosDropdownOpen]);
+  }, [openDropdown]);
 
   // The overlay is hidden at md+ purely via CSS (`md:hidden`); if the
   // viewport crosses that breakpoint while it's open (e.g. rotating a
@@ -178,7 +206,7 @@ export default function Navbar() {
   const [prevMobileMenuOpen, setPrevMobileMenuOpen] = useState(mobileMenuOpen);
   if (mobileMenuOpen !== prevMobileMenuOpen) {
     setPrevMobileMenuOpen(mobileMenuOpen);
-    if (!mobileMenuOpen) setMobileAccordionOpen(false);
+    if (!mobileMenuOpen) setMobileAccordionOpen(null);
   }
 
   return (
@@ -207,7 +235,20 @@ export default function Navbar() {
                   : "text-white/80 hover:text-white"
               }`;
 
-              if (link.href !== "/photos") {
+              if (link.href === "/book") {
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="rounded-sm bg-accent px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-white transition-colors duration-300 hover:bg-accent/90"
+                  >
+                    {link.label}
+                  </Link>
+                );
+              }
+
+              const sublinks = DROPDOWNS[link.href];
+              if (!sublinks) {
                 return (
                   <Link key={link.href} href={link.href} className={linkClass}>
                     {link.label}
@@ -215,34 +256,55 @@ export default function Navbar() {
                 );
               }
 
+              const isOpen = openDropdown === link.href;
+              const dropdownOnly = DROPDOWN_ONLY.has(link.href);
+
               return (
                 <div
                   key={link.href}
-                  ref={photosRef}
+                  ref={(el) => {
+                    dropdownRefs.current[link.href] = el;
+                  }}
                   className="relative flex items-center gap-1.5"
                   onMouseEnter={() => {
                     if (window.matchMedia("(hover: hover)").matches) {
-                      setPhotosDropdownOpen(true);
+                      setOpenDropdown(link.href);
                     }
                   }}
-                  onMouseLeave={() => setPhotosDropdownOpen(false)}
+                  onMouseLeave={() => setOpenDropdown(null)}
                 >
-                  <Link href={link.href} className={linkClass}>
-                    {link.label}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setPhotosDropdownOpen((open) => !open)}
-                    aria-expanded={photosDropdownOpen}
-                    aria-label="Show photo categories"
-                    className={`${linkClass} p-2 -my-2 -mr-2`}
-                  >
-                    <CaretIcon open={photosDropdownOpen} />
-                  </button>
-                  {photosDropdownOpen && (
+                  {dropdownOnly ? (
+                    <button
+                      type="button"
+                      onClick={() => setOpenDropdown((open) => (open === link.href ? null : link.href))}
+                      aria-expanded={isOpen}
+                      aria-haspopup="true"
+                      aria-label={DROPDOWN_ARIA_LABEL[link.href]}
+                      className={`${linkClass} flex items-center gap-1.5`}
+                    >
+                      {link.label}
+                      <CaretIcon open={isOpen} />
+                    </button>
+                  ) : (
+                    <>
+                      <Link href={link.href} className={linkClass}>
+                        {link.label}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setOpenDropdown((open) => (open === link.href ? null : link.href))}
+                        aria-expanded={isOpen}
+                        aria-label={DROPDOWN_ARIA_LABEL[link.href]}
+                        className={`${linkClass} p-2 -my-2 -mr-2`}
+                      >
+                        <CaretIcon open={isOpen} />
+                      </button>
+                    </>
+                  )}
+                  {isOpen && (
                     <div className="absolute top-full left-0 pt-2">
                       <div className="min-w-[180px] border border-border bg-background/95 py-2 backdrop-blur-md">
-                        {PHOTOS_SUBLINKS.map((sub) => (
+                        {sublinks.map((sub) => (
                           <Link
                             key={sub.href}
                             href={sub.href}
@@ -275,7 +337,20 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-8 bg-background md:hidden">
           {links.map((link) => {
-            if (link.href !== "/photos") {
+            if (link.href === "/book") {
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="rounded-sm bg-accent px-6 py-3 text-lg uppercase tracking-[0.2em] text-white transition-colors hover:bg-accent/90"
+                >
+                  {link.label}
+                </Link>
+              );
+            }
+
+            const sublinks = DROPDOWNS[link.href];
+            if (!sublinks) {
               return (
                 <Link
                   key={link.href}
@@ -287,28 +362,44 @@ export default function Navbar() {
               );
             }
 
+            const isOpen = mobileAccordionOpen === link.href;
+            const dropdownOnly = DROPDOWN_ONLY.has(link.href);
+
             return (
               <div key={link.href} className="flex flex-col items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={link.href}
-                    className="text-lg uppercase tracking-[0.2em] text-foreground transition-colors hover:text-accent"
-                  >
-                    {link.label}
-                  </Link>
+                {dropdownOnly ? (
                   <button
                     type="button"
-                    onClick={() => setMobileAccordionOpen((open) => !open)}
-                    aria-expanded={mobileAccordionOpen}
-                    aria-label="Show photo categories"
-                    className="text-foreground p-3 -my-3 -mr-3"
+                    onClick={() => setMobileAccordionOpen((open) => (open === link.href ? null : link.href))}
+                    aria-expanded={isOpen}
+                    aria-haspopup="true"
+                    className="flex items-center gap-2 text-lg uppercase tracking-[0.2em] text-foreground transition-colors hover:text-accent"
                   >
-                    <CaretIcon open={mobileAccordionOpen} />
+                    {link.label}
+                    <CaretIcon open={isOpen} />
                   </button>
-                </div>
-                {mobileAccordionOpen && (
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={link.href}
+                      className="text-lg uppercase tracking-[0.2em] text-foreground transition-colors hover:text-accent"
+                    >
+                      {link.label}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setMobileAccordionOpen((open) => (open === link.href ? null : link.href))}
+                      aria-expanded={isOpen}
+                      aria-label={DROPDOWN_ARIA_LABEL[link.href]}
+                      className="text-foreground p-3 -my-3 -mr-3"
+                    >
+                      <CaretIcon open={isOpen} />
+                    </button>
+                  </div>
+                )}
+                {isOpen && (
                   <div className="flex flex-col items-center gap-5">
-                    {PHOTOS_SUBLINKS.map((sub) => (
+                    {sublinks.map((sub) => (
                       <Link
                         key={sub.href}
                         href={sub.href}
