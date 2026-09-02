@@ -65,6 +65,18 @@ const nextConfig: NextConfig = {
     // erroring, which is what made components/ServiceLandingPage.tsx's
     // (and others') quality={90} appear to have no effect in production.
     qualities: [75, 90],
+    // Vercel bills Image Optimization per cache MISS/STALE transformation,
+    // not per source image. These photos are published once per shoot and
+    // never edited in place (uploadImage.mjs backs up + overwrites the R2
+    // object only on an intentional re-upload), so there's no freshness
+    // need for the default short TTL — a long one just stops Vercel from
+    // silently re-transforming the same image over and over.
+    minimumCacheTTL: 2678400, // 31 days
+    // Serving both avif and webp doubles the transformation count for
+    // every width/quality combo. webp support is effectively universal and
+    // visually indistinguishable from avif for this site's photography, so
+    // drop avif rather than pay 2x for it.
+    formats: ["image/webp"],
     remotePatterns: [
       {
         protocol: "https",
