@@ -149,8 +149,8 @@ export default async function Home() {
       >
         {/* Same reasoning as the hero image above — no quality override. */}
         <Image
-          src={publicImageUrl("second.jpg")}
-          alt="Extreme close-up artistic portrait with one eye in sharp focus, the rest of the face softened behind an out-of-focus lace pattern, bathed in warm amber light"
+          src={publicImageUrl("second.jpg", "20260908175153144")}
+          alt="Woman with long wavy dark hair tilted back, off-shoulder white blouse with puff sleeves, standing between two tree trunks with arms outstretched touching the bark, golden backlight filtering through leaves above."
           fill
           className="object-cover"
           sizes="100vw"
