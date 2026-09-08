@@ -56,7 +56,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: "What to Wear",
     question: "What should I wear or bring?",
     answer:
-      "Come in whatever you're comfortable traveling in — you'll change on-site. For the actual session, bring something suited to the style: more formal for professional headshots or portraits, simple pieces or costume looks for creative portraits, and lingerie or kink-style pieces for boudoir and nude sessions.",
+      "Come in whatever you're comfortable traveling in — you'll change on-site. For the actual session, bring something suited to the style: more formal for professional headshots, or simple pieces and costume looks for creative portraits.",
   },
   {
     id: "privacy-boudoir",
