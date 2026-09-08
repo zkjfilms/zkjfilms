@@ -98,15 +98,15 @@ export default async function Home() {
           web display size — directly hurt this image's load time.
         */}
         <Image
-          src={publicImageUrl("hero.jpg", "20260821211739")}
-          alt="Extreme close-up of a woman's downturned face with dark bangs, eyes closed, nose ring, and dry curling branches crossing in front of her nose and shoulders in warm amber light."
+          src={publicImageUrl("hero.jpg", "20260908151510070")}
+          alt="Woman with dark wavy hair and a nose ring smiling and looking off to the side, framed through out-of-focus green leaves and branches in warm forest light."
           fill
           priority
           className="object-cover"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/5" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/5 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/5 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         <div className="relative z-10 mx-auto w-full max-w-4xl px-6 pb-24 sm:px-10 lg:pl-16">
           <p className="mb-5 text-[11px] uppercase tracking-[0.3em] text-white/70">
             Fine art and intimate photography in Columbia, Missouri
