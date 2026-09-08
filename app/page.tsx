@@ -126,19 +126,19 @@ export default async function Home() {
           02 — The Story
         </h2>
         <p className="font-serif text-3xl italic leading-snug text-foreground sm:text-4xl">
-          I&rsquo;m Zach &mdash; a Columbia, Missouri photographer working at
-          the intersection of portraiture, boudoir, and fine art.
+          I&rsquo;m Zach &mdash; a Columbia, Missouri photographer drawn to
+          the look and feel of classic film.
         </p>
         <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-muted">
           My work is about the moment someone stops performing for the
-          camera and just is. Whether that&rsquo;s a confident headshot, a
-          quiet boudoir session, or something more artistic and unguarded,
-          I&rsquo;m drawn to images that feel honest rather than staged.
-          I&rsquo;ve spent years building a practice around portrait and
-          boudoir photography in Mid-Missouri &mdash; for people who want to
-          be seen clearly, and photographed with real care. Every session
-          starts as a conversation, not a checklist. My goal is a set of
-          images that actually feels like you.
+          camera and just is. Whether that&rsquo;s a confident headshot or
+          something more artistic and unguarded, I&rsquo;m drawn to images
+          that feel honest rather than staged, shaped by the mood and light
+          of the films I grew up on. I&rsquo;ve spent years building a
+          practice around portrait photography in Mid-Missouri &mdash; for
+          people who want to be seen clearly, and photographed with real
+          care. Every session starts as a conversation, not a checklist. My
+          goal is a set of images that actually feels like you.
         </p>
       </section>
 
@@ -182,13 +182,11 @@ export default async function Home() {
         </h2>
         <p className="mx-auto max-w-xl text-base leading-relaxed text-muted">
           My work spans creative portraits, professional headshots, boudoir
-          photography, and concert/live performance work for clients across
-          Columbia and Mid-Missouri, along with an ongoing body of fine art
-          and nude photographic work exploring intimacy, form, and
-          narrative. If you&rsquo;re looking
-          for a Columbia photographer who treats a session as genuine
-          collaboration rather than a transaction, I&rsquo;d love to work
-          with you.
+          and fine art nude photography, and concert/live performance work
+          for clients across Columbia and Mid-Missouri. If you&rsquo;re
+          looking for a Columbia photographer who treats a session as
+          genuine collaboration rather than a transaction, I&rsquo;d love to
+          work with you.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
