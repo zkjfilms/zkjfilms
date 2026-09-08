@@ -153,6 +153,7 @@ export default async function Home() {
           alt="Woman with long wavy dark hair tilted back, off-shoulder white blouse with puff sleeves, standing between two tree trunks with arms outstretched touching the bark, golden backlight filtering through leaves above."
           fill
           className="object-cover"
+          style={{ objectPosition: "center 15%" }}
           sizes="100vw"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
