@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import Gallery from "@/components/Gallery";
+import Gallery, { type GalleryGroup } from "@/components/Gallery";
 import MasonryGallery from "@/components/MasonryGallery";
 import FaqAccordion from "@/components/FaqAccordion";
 import { FAQ_ITEMS, type FaqItem } from "@/lib/faq";
@@ -8,8 +8,13 @@ import { SERVICES, type Service } from "@/lib/services";
 
 export default function ServiceLandingPage({
   service,
+  extraGallery,
 }: {
   service: Service;
+  // A gallery group that isn't part of the static service definition —
+  // e.g. boudoir's masonry section, built at request time from whatever
+  // files currently sit in public/images/boudoir/.
+  extraGallery?: GalleryGroup | null;
 }) {
   const faqItems = service.faqIds
     .map((id) => FAQ_ITEMS.find((item) => item.id === id))
@@ -73,6 +78,8 @@ export default function ServiceLandingPage({
           <Gallery groups={[{ ...service.gallery, description: "" }]} />
         )
       )}
+
+      {extraGallery && <Gallery groups={[extraGallery]} />}
 
       {faqItems.length > 0 && (
         <section className="mx-auto w-full max-w-2xl px-6 sm:px-10">
