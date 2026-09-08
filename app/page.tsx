@@ -109,10 +109,10 @@ export default async function Home() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         <div className="relative z-10 mx-auto w-full max-w-4xl px-6 pb-24 sm:px-10 lg:pl-16">
           <p className="mb-5 text-[11px] uppercase tracking-[0.3em] text-white/70">
-            Fine art and intimate photography in Columbia, Missouri
+            Portrait photography inspired by classic cinema, Columbia, Missouri
           </p>
           <h1 className="max-w-2xl font-serif text-4xl leading-tight text-white sm:text-5xl md:text-6xl">
-            Portraits, <em className="italic text-accent">uncovered</em>.
+            Every portrait, its own <em className="italic text-accent">still frame</em>.
           </h1>
         </div>
       </section>
