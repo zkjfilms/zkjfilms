@@ -24,13 +24,17 @@ export async function POST(request: Request) {
     return new Response("Invalid signature.", { status: 400 });
   }
 
+  let retry = false;
   if (event.type === "invoice.paid") {
-    await handleInvoicePaid(event.data.object as Stripe.Invoice);
+    ({ retry } = await handleInvoicePaid(event.data.object as Stripe.Invoice));
   } else if (event.type === "invoice.voided") {
-    await handleInvoiceVoided(event.data.object as Stripe.Invoice);
+    ({ retry } = await handleInvoiceVoided(event.data.object as Stripe.Invoice));
   } else if (event.type === "invoice.marked_uncollectible") {
-    await handleInvoiceMarkedUncollectible(event.data.object as Stripe.Invoice);
+    ({ retry } = await handleInvoiceMarkedUncollectible(event.data.object as Stripe.Invoice));
   }
 
+  if (retry) {
+    return new Response("Transient error, please retry.", { status: 500 });
+  }
   return Response.json({ received: true });
 }

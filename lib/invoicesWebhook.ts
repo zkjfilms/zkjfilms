@@ -6,7 +6,7 @@
 import type Stripe from "stripe";
 import { getSupabaseClient } from "@/lib/supabase";
 
-export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
+export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retry: boolean }> {
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("invoices")
@@ -14,10 +14,12 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> 
     .eq("stripe_invoice_id", invoice.id);
   if (error) {
     console.error("Failed to mark invoice paid:", error);
+    return { retry: true };
   }
+  return { retry: false };
 }
 
-export async function handleInvoiceVoided(invoice: Stripe.Invoice): Promise<void> {
+export async function handleInvoiceVoided(invoice: Stripe.Invoice): Promise<{ retry: boolean }> {
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("invoices")
@@ -25,10 +27,12 @@ export async function handleInvoiceVoided(invoice: Stripe.Invoice): Promise<void
     .eq("stripe_invoice_id", invoice.id);
   if (error) {
     console.error("Failed to mark invoice void:", error);
+    return { retry: true };
   }
+  return { retry: false };
 }
 
-export async function handleInvoiceMarkedUncollectible(invoice: Stripe.Invoice): Promise<void> {
+export async function handleInvoiceMarkedUncollectible(invoice: Stripe.Invoice): Promise<{ retry: boolean }> {
   const supabase = getSupabaseClient();
   const { error } = await supabase
     .from("invoices")
@@ -36,5 +40,7 @@ export async function handleInvoiceMarkedUncollectible(invoice: Stripe.Invoice):
     .eq("stripe_invoice_id", invoice.id);
   if (error) {
     console.error("Failed to mark invoice uncollectible:", error);
+    return { retry: true };
   }
+  return { retry: false };
 }
