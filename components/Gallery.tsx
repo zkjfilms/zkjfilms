@@ -6,9 +6,20 @@ import Link from "next/link";
 // required either way — it's also the React key for pair blocks below.
 export type GalleryImage = { seed: string; index: number; alt: string; src?: string };
 
+// A real, already-hosted photo — used by the masonry block instead of a
+// picsum seed. width/height are the source file's intrinsic dimensions so
+// next/image can reserve the right aspect ratio without cropping.
+export type MasonryImage = {
+  src: string;
+  width: number;
+  height: number;
+  alt: string;
+};
+
 export type GalleryBlock =
   | { type: "single"; items: [GalleryImage] }
-  | { type: "pair"; items: [GalleryImage, GalleryImage] };
+  | { type: "pair"; items: [GalleryImage, GalleryImage] }
+  | { type: "masonry"; items: MasonryImage[] };
 
 export type GalleryGroup = {
   title: string;
@@ -52,7 +63,28 @@ export default function Gallery({ groups }: { groups: GalleryGroup[] }) {
           </div>
 
           {group.blocks.map((block, blockIndex) =>
-            block.type === "single" ? (
+            block.type === "masonry" ? (
+              <div
+                key={blockIndex}
+                className="columns-2 gap-3 px-3 sm:columns-3 lg:columns-4"
+              >
+                {block.items.map((item) => (
+                  <div
+                    key={item.src}
+                    className="group relative mb-3 break-inside-avoid overflow-hidden bg-surface"
+                  >
+                    <Image
+                      src={item.src}
+                      alt={item.alt}
+                      width={item.width}
+                      height={item.height}
+                      className="w-full transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                      sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : block.type === "single" ? (
               <div
                 key={blockIndex}
                 className="group relative h-[80vh] w-full overflow-hidden bg-surface"

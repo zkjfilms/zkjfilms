@@ -56,7 +56,7 @@ export default function Footer() {
               >
                 Zach K. Johnson
               </Link>{" "}
-              is a portrait, boudoir, and fine art{" "}
+              is a portrait &amp; fine art{" "}
               <em className="font-serif italic text-foreground">
                 photographer
               </em>{" "}

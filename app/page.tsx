@@ -98,21 +98,21 @@ export default async function Home() {
           web display size — directly hurt this image's load time.
         */}
         <Image
-          src={publicImageUrl("hero.jpg", "20260821211739")}
-          alt="Extreme close-up of a woman's downturned face with dark bangs, eyes closed, nose ring, and dry curling branches crossing in front of her nose and shoulders in warm amber light."
+          src={publicImageUrl("hero.jpg", "20260908151510070")}
+          alt="Woman with dark wavy hair and a nose ring smiling and looking off to the side, framed through out-of-focus green leaves and branches in warm forest light."
           fill
           priority
           className="object-cover"
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/5" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/5 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/5 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
         <div className="relative z-10 mx-auto w-full max-w-4xl px-6 pb-24 sm:px-10 lg:pl-16">
           <p className="mb-5 text-[11px] uppercase tracking-[0.3em] text-white/70">
-            Fine art and intimate photography in Columbia, Missouri
+            Portrait photography inspired by classic cinema, Columbia, Missouri
           </p>
           <h1 className="max-w-2xl font-serif text-4xl leading-tight text-white sm:text-5xl md:text-6xl">
-            Portraits, <em className="italic text-accent">uncovered</em>.
+            Every portrait, its own <em className="italic text-accent">still frame</em>.
           </h1>
         </div>
       </section>
@@ -126,19 +126,19 @@ export default async function Home() {
           02 — The Story
         </h2>
         <p className="font-serif text-3xl italic leading-snug text-foreground sm:text-4xl">
-          I&rsquo;m Zach &mdash; a Columbia, Missouri photographer working at
-          the intersection of portraiture, boudoir, and fine art.
+          I&rsquo;m Zach &mdash; a Columbia, Missouri photographer drawn to
+          the look and feel of classic film.
         </p>
         <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-muted">
           My work is about the moment someone stops performing for the
-          camera and just is. Whether that&rsquo;s a confident headshot, a
-          quiet boudoir session, or something more artistic and unguarded,
-          I&rsquo;m drawn to images that feel honest rather than staged.
-          I&rsquo;ve spent years building a practice around portrait and
-          boudoir photography in Mid-Missouri &mdash; for people who want to
-          be seen clearly, and photographed with real care. Every session
-          starts as a conversation, not a checklist. My goal is a set of
-          images that actually feels like you.
+          camera and just is. Whether that&rsquo;s a confident headshot or
+          something more artistic and unguarded, I&rsquo;m drawn to images
+          that feel honest rather than staged, shaped by the mood and light
+          of the films I grew up on. I&rsquo;ve spent years building a
+          practice around portrait photography in Mid-Missouri &mdash; for
+          people who want to be seen clearly, and photographed with real
+          care. Every session starts as a conversation, not a checklist. My
+          goal is a set of images that actually feels like you.
         </p>
       </section>
 
@@ -149,10 +149,11 @@ export default async function Home() {
       >
         {/* Same reasoning as the hero image above — no quality override. */}
         <Image
-          src={publicImageUrl("second.jpg")}
-          alt="Extreme close-up artistic portrait with one eye in sharp focus, the rest of the face softened behind an out-of-focus lace pattern, bathed in warm amber light"
+          src={publicImageUrl("second.jpg", "20260908175153144")}
+          alt="Woman with long wavy dark hair tilted back, off-shoulder white blouse with puff sleeves, standing between two tree trunks with arms outstretched touching the bark, golden backlight filtering through leaves above."
           fill
           className="object-cover"
+          style={{ objectPosition: "center 15%" }}
           sizes="100vw"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
@@ -182,13 +183,11 @@ export default async function Home() {
         </h2>
         <p className="mx-auto max-w-xl text-base leading-relaxed text-muted">
           My work spans creative portraits, professional headshots, boudoir
-          photography, and concert/live performance work for clients across
-          Columbia and Mid-Missouri, along with an ongoing body of fine art
-          and nude photographic work exploring intimacy, form, and
-          narrative. If you&rsquo;re looking
-          for a Columbia photographer who treats a session as genuine
-          collaboration rather than a transaction, I&rsquo;d love to work
-          with you.
+          and fine art nude photography, and concert/live performance work
+          for clients across Columbia and Mid-Missouri. If you&rsquo;re
+          looking for a Columbia photographer who treats a session as
+          genuine collaboration rather than a transaction, I&rsquo;d love to
+          work with you.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link

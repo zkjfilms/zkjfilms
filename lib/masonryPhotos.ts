@@ -27,6 +27,13 @@ export type MasonryPhoto = {
 // column heights on its own. Just add/remove/shuffle for variety.
 export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
   {
+    key: "headshots/anon-054601.jpg",
+    width: 3235,
+    height: 4852,
+    alt: "Close-cropped headshot of a mustached man in black-framed glasses and gray suit, dramatic side lighting illuminating his face against a nearly black background.",
+    src: publicImageUrl("headshots/anon-054601.jpg"),
+  },
+  {
     key: "headshots/toriamos-22991.jpg",
     width: 2996,
     height: 4503,
