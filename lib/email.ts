@@ -301,3 +301,48 @@ export async function sendSessionReminderEmail(params: {
     return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
   }
 }
+
+// Sent from the admin invoice create/resend actions
+// (app/api/admin/invoices/route.ts, app/api/admin/invoices/[id]/resend/route.ts)
+// once Stripe has finalized the invoice and generated its hosted payment
+// page. We send our own branded email rather than Stripe's default invoice
+// notification — Stripe still handles the actual payment page, PDF, and its
+// own automatic payment-reminder emails for unpaid invoices as the due date
+// approaches; this only replaces the first notification.
+export async function sendInvoiceEmail(params: {
+  clientName: string;
+  clientEmail: string;
+  hostedInvoiceUrl: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [params.clientEmail],
+      subject: "Your invoice",
+      text: [
+        `Hi ${params.clientName},`,
+        "",
+        "You have a new invoice. You can view and pay it here:",
+        params.hostedInvoiceUrl,
+        "",
+        "Thanks,",
+        BUSINESS.name,
+      ].join("\n"),
+      html: `
+        <p>Hi ${escapeHtml(params.clientName)},</p>
+        <p>You have a new invoice. You can view and pay it here:</p>
+        <p><a href="${params.hostedInvoiceUrl}">${params.hostedInvoiceUrl}</a></p>
+        <p>Thanks,<br />${escapeHtml(BUSINESS.name)}</p>
+      `,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
