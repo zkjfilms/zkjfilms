@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
-import { businessLocalToUtcIso, addMinutesToTime } from "@/lib/scheduling";
+import { businessLocalToUtcIso, addMinutesToTime, EMAIL_REGEX } from "@/lib/scheduling";
 import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
 
@@ -9,8 +9,6 @@ async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
   return isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value);
 }
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Payload = {
   appointmentTypeId: string;

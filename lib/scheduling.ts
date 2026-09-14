@@ -1,4 +1,5 @@
 export const BUSINESS_TIME_ZONE = "America/Chicago";
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type AvailabilityRule = {
   dayOfWeek: number; // 0-6, Sunday-Saturday

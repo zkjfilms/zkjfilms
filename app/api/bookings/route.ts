@@ -7,9 +7,7 @@ import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
 import { turnstileFailureResponse, verifyTurnstileToken } from "@/lib/turnstile";
 import { computeDiscountedAmountCents, isDiscountCodeApplicable, type DiscountCode } from "@/lib/discountCodes";
-import { businessLocalToUtcIso, addMinutesToTime } from "@/lib/scheduling";
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { businessLocalToUtcIso, addMinutesToTime, EMAIL_REGEX } from "@/lib/scheduling";
 
 type Payload = {
   appointmentTypeId: string;
