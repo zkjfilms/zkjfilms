@@ -238,3 +238,22 @@ function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
   );
   return asUtc - date.getTime();
 }
+
+// Anchored with "Z" so this parses as a UTC instant regardless of the
+// host process's own timezone. Without the "Z", `new Date(...)` parses
+// the string as local time in the *host's* timezone, which happens to
+// produce the right answer when the process's TZ is UTC (true on
+// Vercel/Lambda by default) but silently shifts every booking's stored
+// time by the business-timezone offset — doubled — whenever the host
+// isn't UTC (e.g. `next dev` on a laptop set to America/Chicago).
+export function businessLocalToUtcIso(date: string, time: string): string {
+  const naive = new Date(`${date}T${time}:00Z`);
+  const offsetMs = getTimeZoneOffsetMs(naive, BUSINESS_TIME_ZONE);
+  return new Date(naive.getTime() - offsetMs).toISOString();
+}
+
+export function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + minutes;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}

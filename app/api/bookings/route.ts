@@ -7,6 +7,7 @@ import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
 import { turnstileFailureResponse, verifyTurnstileToken } from "@/lib/turnstile";
 import { computeDiscountedAmountCents, isDiscountCodeApplicable, type DiscountCode } from "@/lib/discountCodes";
+import { businessLocalToUtcIso, addMinutesToTime } from "@/lib/scheduling";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -245,44 +246,4 @@ export async function POST(request: Request) {
     await supabase.from("bookings").update({ status: "canceled" }).eq("id", booking.id);
     return Response.json({ error: "Something went wrong starting checkout." }, { status: 500 });
   }
-}
-
-function businessLocalToUtcIso(date: string, time: string): string {
-  // Anchored with "Z" so this parses as a UTC instant regardless of the
-  // host process's own timezone (mirrors businessDayUtcBounds/
-  // formatSlotForDisplay in lib/scheduling.ts, which use the same
-  // technique). Without the "Z", `new Date(...)` parses the string as
-  // local time in the *host's* timezone, which happens to produce the
-  // right answer when the process's TZ is UTC (true on Vercel/Lambda by
-  // default) but silently shifts every booking's stored time by the
-  // business-timezone offset — doubled — whenever the host isn't UTC
-  // (e.g. `next dev` on a laptop set to America/Chicago).
-  const naive = new Date(`${date}T${time}:00Z`);
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  const parts = Object.fromEntries(formatter.formatToParts(naive).map((p) => [p.type, p.value]));
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  const offsetMs = asUtc - naive.getTime();
-  return new Date(naive.getTime() - offsetMs).toISOString();
-}
-
-function addMinutesToTime(time: string, minutes: number): string {
-  const [h, m] = time.split(":").map(Number);
-  const total = h * 60 + m + minutes;
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
