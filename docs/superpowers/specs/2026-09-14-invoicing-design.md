@@ -125,7 +125,9 @@ export async function createInvoice(params: {
 
 `/admin/invoices`, matching every other admin page's conventions — same `AdminGate.tsx` session, same list/detail visual style as `/admin/contracts`.
 
-- **List view:** every invoice — client, status (colored the same way `/admin/contracts`' signed/unsigned states already are), amount (sum of its line items), due date, linked booking if any (as a clickable reference).
+- **List view:** every invoice — client, status (colored the same way `/admin/contracts`' signed/unsigned states already are), amount (sum of its line items), due date, linked booking if any (as a clickable reference). Each `draft`/`open` row gets two row-level actions:
+  - **Void** — calls a new `app/api/admin/invoices/[id]/void/route.ts` (`POST`, same `requireAdmin()` pattern), which calls `stripe.invoices.voidInvoice(stripeInvoiceId)`. No local status write here — the existing `invoice.voided` webhook listener (already planned above) is what flips `invoices.status` to `void`, so voiding has exactly one code path regardless of whether it's triggered from our admin UI or directly in Stripe's own dashboard.
+  - **Resend email** — calls a new `app/api/admin/invoices/[id]/resend/route.ts` (`POST`, same auth), which re-sends `sendInvoiceEmail` using the `hosted_invoice_url` already stored on the row. No Stripe API call at all — this only re-sends our own notification, it doesn't ask Stripe to do anything.
 - **Create form** (`app/admin/invoices/InvoiceForm.tsx`, client component, `POST`s to a new `app/api/admin/invoices/route.ts`):
   1. Client name + email.
   2. A booking section with three states: **link an existing booking** (search by client name/email, matching the pattern `/admin/clients` or `/admin/leads` already uses for lookups), **create a new one** (appointment-type dropdown + date/time pickers, calling `app/api/admin/bookings/route.ts` above before the invoice itself is created, so the resulting `booking_id` is available to pass into the invoice), or **none** (fully standalone).
@@ -145,7 +147,7 @@ Set up the same way the existing bookings webhook was — a second Stripe webhoo
 
 ### Out of scope
 
-- Editing or voiding an invoice after it's sent (Stripe's own dashboard already covers manual voiding if ever needed; not worth duplicating in our admin UI for a first version).
+- Editing line items after an invoice is finalized (Stripe invoices are immutable by design once finalized — the correction path is void, then create a fresh one through the same form, which the admin UI already supports without special-casing). Voiding itself, and resending the notification email, are in scope — see the admin UI section above.
 - Partial payments on a single invoice (Stripe invoices are pay-in-full by default; splitting one invoice into installments is a materially different feature).
 - Recurring/subscription invoicing — every invoice here is a one-off.
 - Changing anything about the existing `createFullPaymentCheckoutSession` pay-at-booking flow — invoicing is additive, not a replacement.
@@ -163,3 +165,6 @@ Set up the same way the existing bookings webhook was — a second Stripe webhoo
 - Confirm the invoice email actually arrives (via Resend) and its link opens Stripe's real hosted invoice page.
 - Pay a test invoice with a Stripe test card; confirm the webhook fires and `invoices.status` flips to `paid` in the admin list view without a page reload being required to see stale data (or on next load, at minimum).
 - Void a test invoice directly in the Stripe dashboard; confirm the webhook updates `invoices.status` to `void`.
+- Void a test invoice from the admin UI's **Void** button; confirm the same webhook path updates `invoices.status` to `void` (proving the UI action and a direct-in-Stripe void both resolve through the identical code path).
+- Click **Resend email** on an open invoice; confirm a second email arrives with the same working `hosted_invoice_url`, and confirm no new Stripe invoice or customer object is created by doing so.
+- Confirm **Void**/**Resend** are not shown (or are disabled) for an invoice already in `paid`, `void`, or `uncollectible` status.
