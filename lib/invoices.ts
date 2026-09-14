@@ -14,26 +14,34 @@ export async function createInvoice(params: {
     existing.data[0] ??
     (await stripe.customers.create({ email: params.clientEmail, name: params.clientName }));
 
-  for (const item of params.lineItems) {
-    await stripe.invoiceItems.create({
-      customer: customer.id,
-      amount: item.amountCents,
-      currency: "usd",
-      description: item.description,
-    });
-  }
-
   const daysUntilDue = params.dueDate
     ? Math.max(1, Math.ceil((new Date(`${params.dueDate}T00:00:00Z`).getTime() - Date.now()) / 86_400_000))
     : 30;
 
+  // Create the invoice first, then attach line items directly to it by ID.
+  // Creating items on the customer before the invoice exists would make them
+  // "pending invoice items" — Stripe's default pending_invoice_items_behavior
+  // is "include", which sweeps in every pending item on the customer,
+  // including ones left over from a prior failed attempt. pending_invoice_items_behavior:
+  // "exclude" is defense-in-depth in case any pending items exist on this customer.
   const invoice = await stripe.invoices.create({
     customer: customer.id,
     collection_method: "send_invoice",
     days_until_due: daysUntilDue,
     auto_advance: false,
+    pending_invoice_items_behavior: "exclude",
     metadata: params.bookingId ? { bookingId: params.bookingId } : {},
   });
+
+  for (const item of params.lineItems) {
+    await stripe.invoiceItems.create({
+      customer: customer.id,
+      invoice: invoice.id,
+      amount: item.amountCents,
+      currency: "usd",
+      description: item.description,
+    });
+  }
 
   const finalized = await stripe.invoices.finalizeInvoice(invoice.id!);
 

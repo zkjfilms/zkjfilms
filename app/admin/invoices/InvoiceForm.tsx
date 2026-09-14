@@ -70,24 +70,35 @@ export default function InvoiceForm({
       return;
     }
 
-    const parsedLineItems = lineItems
-      .filter((item) => item.description.trim())
-      .map((item) => {
-        const amount = Number(item.amount);
-        return { description: item.description.trim(), amountCents: Math.round(amount * 100) };
-      });
+    const nonEmptyLineItems = lineItems.filter(
+      (item) => item.description.trim() || item.amount.trim(),
+    );
 
-    if (
-      parsedLineItems.length === 0 ||
-      parsedLineItems.some((item) => !Number.isFinite(item.amountCents) || item.amountCents <= 0)
-    ) {
-      setError("Add at least one line item with a valid amount.");
+    if (nonEmptyLineItems.length === 0) {
+      setError("Add at least one line item with a description and amount.");
       setStatus("error");
       return;
     }
 
+    const parsedLineItems: { description: string; amountCents: number }[] = [];
+    for (const item of nonEmptyLineItems) {
+      const amount = Number(item.amount);
+      if (!item.description.trim() || !Number.isFinite(amount) || amount <= 0) {
+        setError("Every line item needs a description and a valid amount.");
+        setStatus("error");
+        return;
+      }
+      parsedLineItems.push({ description: item.description.trim(), amountCents: Math.round(amount * 100) });
+    }
+
     if (bookingMode === "new" && (!newBookingAppointmentTypeId || !newBookingDate || !newBookingTime)) {
       setError("Fill out the new booking's appointment type, date, and time.");
+      setStatus("error");
+      return;
+    }
+
+    if (bookingMode === "existing" && !selectedBookingId) {
+      setError('Select a booking to link, or choose "None".');
       setStatus("error");
       return;
     }

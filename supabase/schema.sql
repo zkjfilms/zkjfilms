@@ -625,4 +625,7 @@ create table if not exists invoice_line_items (
   sort_order integer not null default 0
 );
 
+create index if not exists invoice_line_items_invoice_id_idx
+  on invoice_line_items (invoice_id);
+
 alter table invoice_line_items enable row level security;

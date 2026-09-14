@@ -179,7 +179,9 @@ export default function InvoiceList({
                 </p>
                 <p className="text-sm text-muted">
                   {formatCents(invoiceTotalCents(invoice))}
-                  {invoice.due_date ? ` · due ${new Date(invoice.due_date).toLocaleDateString("en-US")}` : ""}
+                  {invoice.due_date
+                    ? ` · due ${new Date(`${invoice.due_date}T00:00:00`).toLocaleDateString("en-US")}`
+                    : ""}
                 </p>
               </div>
               <div className="flex items-center gap-4">
