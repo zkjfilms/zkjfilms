@@ -590,3 +590,39 @@ A few things to keep in mind:
 Looking forward to it,
 Zach K. Johnson'
 ) on conflict (template_type) do nothing;
+
+-- Invoicing (see docs/superpowers/specs/2026-09-14-invoicing-design.md).
+-- Purely additive — never reads or writes bookings.amount_paid_cents /
+-- payment_intent_id, which keep meaning exactly what they mean today for
+-- the existing pay-at-booking Checkout Session flow. status mirrors
+-- Stripe's own invoice status exactly and is only ever written by the
+-- stripe-invoices webhook (lib/invoicesWebhook.ts) — never by an admin
+-- API route directly.
+create table if not exists invoices (
+  id uuid primary key default gen_random_uuid(),
+  client_name text not null,
+  client_email text not null,
+  booking_id uuid references bookings(id),
+  stripe_invoice_id text not null unique,
+  stripe_customer_id text not null,
+  status text not null default 'draft'
+    check (status in ('draft', 'open', 'paid', 'void', 'uncollectible')),
+  due_date date,
+  hosted_invoice_url text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists invoices_booking_id_idx on invoices (booking_id);
+create index if not exists invoices_status_idx on invoices (status);
+
+alter table invoices enable row level security;
+
+create table if not exists invoice_line_items (
+  id uuid primary key default gen_random_uuid(),
+  invoice_id uuid not null references invoices(id) on delete cascade,
+  description text not null,
+  amount_cents integer not null check (amount_cents > 0),
+  sort_order integer not null default 0
+);
+
+alter table invoice_line_items enable row level security;
