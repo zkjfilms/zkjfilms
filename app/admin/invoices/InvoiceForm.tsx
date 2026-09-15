@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AppointmentType } from "@/app/admin/appointment-types/AppointmentTypeList";
 import { addMinutesToTime, businessLocalToUtcIso } from "@/lib/scheduling";
@@ -59,32 +59,39 @@ export default function InvoiceForm({
   });
 
   // "Link existing": selecting a booking fills in what's already known about
-  // that client — still editable afterward. Re-fires only when the selection
-  // itself changes, so it never fights a manual edit the admin makes after
-  // picking a booking.
-  useEffect(() => {
-    if (bookingMode !== "existing") return;
+  // that client — still editable afterward. Adjusted during render (not in an effect)
+  // per React's own guidance for syncing state when a prop/selection changes —
+  // avoids the extra render an effect-based sync would cause, and the lint rule
+  // that flags setState inside effects for exactly this reason.
+  const [syncedBookingId, setSyncedBookingId] = useState<string | null>(null);
+  if (bookingMode === "existing" && selectedBookingId !== syncedBookingId) {
+    setSyncedBookingId(selectedBookingId);
     const booking = bookings.find((b) => b.id === selectedBookingId);
-    if (!booking) return;
-    setClientName(booking.client_name);
-    setClientEmail(booking.client_email);
-    setPhone(booking.client_phone ?? "");
-    setSessionDateTime(formatTimeRange(booking.start_time, booking.end_time));
-  }, [bookingMode, selectedBookingId, bookings]);
+    if (booking) {
+      setClientName(booking.client_name);
+      setClientEmail(booking.client_email);
+      setPhone(booking.client_phone ?? "");
+      setSessionDateTime(formatTimeRange(booking.start_time, booking.end_time));
+    }
+  }
 
   // "Create new": recompute the session date/time display string whenever
   // the new booking's appointment type, date, or time changes. Uses the same
   // duration + timezone helpers the admin-booking-creation endpoint itself
   // uses, so the displayed range matches what actually gets booked.
-  useEffect(() => {
-    if (bookingMode !== "new") return;
-    if (!newBookingAppointmentTypeId || !newBookingDate || !newBookingTime) return;
-    const type = appointmentTypes.find((t) => t.id === newBookingAppointmentTypeId);
-    if (!type) return;
-    const startIso = businessLocalToUtcIso(newBookingDate, newBookingTime);
-    const endIso = businessLocalToUtcIso(newBookingDate, addMinutesToTime(newBookingTime, type.duration_minutes));
-    setSessionDateTime(formatTimeRange(startIso, endIso));
-  }, [bookingMode, newBookingAppointmentTypeId, newBookingDate, newBookingTime, appointmentTypes]);
+  const newBookingKey = `${newBookingAppointmentTypeId}|${newBookingDate}|${newBookingTime}`;
+  const [syncedNewBookingKey, setSyncedNewBookingKey] = useState("");
+  if (bookingMode === "new" && newBookingKey !== syncedNewBookingKey) {
+    setSyncedNewBookingKey(newBookingKey);
+    if (newBookingAppointmentTypeId && newBookingDate && newBookingTime) {
+      const type = appointmentTypes.find((t) => t.id === newBookingAppointmentTypeId);
+      if (type) {
+        const startIso = businessLocalToUtcIso(newBookingDate, newBookingTime);
+        const endIso = businessLocalToUtcIso(newBookingDate, addMinutesToTime(newBookingTime, type.duration_minutes));
+        setSessionDateTime(formatTimeRange(startIso, endIso));
+      }
+    }
+  }
 
   function updateLineItem(index: number, field: keyof LineItem, value: string) {
     setLineItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
