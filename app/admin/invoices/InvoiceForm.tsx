@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AppointmentType } from "@/app/admin/appointment-types/AppointmentTypeList";
 import { addMinutesToTime, businessLocalToUtcIso } from "@/lib/scheduling";
@@ -47,8 +47,10 @@ export default function InvoiceForm({
   const [newBookingDate, setNewBookingDate] = useState("");
   const [newBookingTime, setNewBookingTime] = useState("");
   const [notes, setNotes] = useState("");
+  const [pricingAppointmentTypeId, setPricingAppointmentTypeId] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([{ description: "", amount: "" }]);
   const [dueDate, setDueDate] = useState("");
+  const [conflictWarning, setConflictWarning] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
 
@@ -108,6 +110,76 @@ export default function InvoiceForm({
       }
     }
   }
+
+  // Appointment-type-driven line-item auto-fill: fires whenever the relevant
+  // appointment-type selection changes — the "Create new" mode dropdown
+  // above (reused for this second purpose) or the standalone pricing-only
+  // dropdown rendered near Line Items in "None"/"Link existing" modes.
+  // Deliberately keyed only on the appointment-type id, not date/time, so
+  // changing the date in "Create new" mode doesn't re-trigger a price
+  // overwrite. Same render-time-sync pattern as the two blocks above; only
+  // ever touches line item 0, leaving any additional line items alone.
+  const priceAppointmentTypeId = bookingMode === "new" ? newBookingAppointmentTypeId : pricingAppointmentTypeId;
+  const [syncedPriceAppointmentTypeId, setSyncedPriceAppointmentTypeId] = useState(priceAppointmentTypeId);
+  if (priceAppointmentTypeId !== syncedPriceAppointmentTypeId) {
+    setSyncedPriceAppointmentTypeId(priceAppointmentTypeId);
+    const type = appointmentTypes.find((t) => t.id === priceAppointmentTypeId);
+    if (type) {
+      setLineItems((prev) => {
+        const next = [...prev];
+        next[0] = { description: type.name, amount: (type.price_cents / 100).toFixed(2) };
+        return next;
+      });
+    }
+  }
+
+  // Non-blocking heads-up for "Create new" mode: since the slot is no longer
+  // held while the invoice is unpaid, check whether the picked time already
+  // has a confirmed/pending booking, so the admin isn't caught by surprise
+  // later — informational only, never blocks submission. The trigger key
+  // resets the warning during render (same pattern as the sync blocks
+  // above) whenever the underlying selection changes, so leaving "Create
+  // new" mode or clearing a field clears the warning immediately with no
+  // extra render. The actual network fetch below still needs a real
+  // useEffect — it's reaching out to an external system — but its body
+  // never calls setState synchronously (only inside the async .then()),
+  // since ESLint's react-hooks/set-state-in-effect rule flags any
+  // synchronous setState directly in an effect body, even ones that are
+  // just resetting to a default before async work starts.
+  const conflictCheckKey =
+    bookingMode === "new" ? `${newBookingAppointmentTypeId}|${newBookingDate}|${newBookingTime}` : "";
+  const [syncedConflictCheckKey, setSyncedConflictCheckKey] = useState(conflictCheckKey);
+  if (conflictCheckKey !== syncedConflictCheckKey) {
+    setSyncedConflictCheckKey(conflictCheckKey);
+    setConflictWarning(false);
+  }
+
+  useEffect(() => {
+    if (bookingMode !== "new" || !newBookingAppointmentTypeId || !newBookingDate || !newBookingTime) {
+      return;
+    }
+    const type = appointmentTypes.find((t) => t.id === newBookingAppointmentTypeId);
+    if (!type) return;
+    const endTime = addMinutesToTime(newBookingTime, type.duration_minutes);
+    const [endHours] = endTime.split(":").map(Number);
+    if (endHours >= 24) return;
+    const startIso = businessLocalToUtcIso(newBookingDate, newBookingTime);
+    const endIso = businessLocalToUtcIso(newBookingDate, endTime);
+    let cancelled = false;
+    fetch(`/api/admin/day-view?date=${newBookingDate}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { bookings?: { start_time: string; end_time: string }[] | null } | null) => {
+        if (cancelled || !data?.bookings) return;
+        const overlaps = data.bookings.some(
+          (b) => new Date(b.start_time) < new Date(endIso) && new Date(b.end_time) > new Date(startIso),
+        );
+        setConflictWarning(overlaps);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingMode, newBookingAppointmentTypeId, newBookingDate, newBookingTime, appointmentTypes]);
 
   function updateLineItem(index: number, field: keyof LineItem, value: string) {
     setLineItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
@@ -198,34 +270,28 @@ export default function InvoiceForm({
           }
         : null;
 
+    let bookingId: string | null = null;
+    let newBooking: {
+      appointmentTypeId: string;
+      date: string;
+      startTime: string;
+      clientPhone: string;
+      notes: string;
+    } | null = null;
+
+    if (bookingMode === "existing") {
+      bookingId = selectedBookingId || null;
+    } else if (bookingMode === "new") {
+      newBooking = {
+        appointmentTypeId: newBookingAppointmentTypeId,
+        date: newBookingDate,
+        startTime: newBookingTime,
+        clientPhone: phone.trim(),
+        notes: notes.trim(),
+      };
+    }
+
     try {
-      let bookingId: string | null = null;
-
-      if (bookingMode === "existing") {
-        bookingId = selectedBookingId || null;
-      } else if (bookingMode === "new") {
-        const bookingResponse = await fetch("/api/admin/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            appointmentTypeId: newBookingAppointmentTypeId,
-            date: newBookingDate,
-            startTime: newBookingTime,
-            clientName: clientName.trim(),
-            clientEmail: clientEmail.trim(),
-            clientPhone: phone.trim(),
-            notes: notes.trim(),
-          }),
-        });
-        const bookingData: { booking?: { id: string }; error?: string } = await bookingResponse.json();
-        if (!bookingResponse.ok) {
-          setError(bookingData.error ?? "Failed to create the booking.");
-          setStatus("error");
-          return;
-        }
-        bookingId = bookingData.booking?.id ?? null;
-      }
-
       const response = await fetch("/api/admin/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -233,6 +299,7 @@ export default function InvoiceForm({
           clientName: clientName.trim(),
           clientEmail: clientEmail.trim(),
           bookingId,
+          newBooking,
           lineItems: parsedLineItems,
           dueDate: dueDate || null,
           sessionDateTime: sessionDateTime.trim() || null,
@@ -420,6 +487,9 @@ export default function InvoiceForm({
                 className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
               />
             </div>
+            {conflictWarning && (
+              <p className="text-xs text-amber-700">⚠ This time already has a booking.</p>
+            )}
             <div>
               <label htmlFor="notes" className="block text-xs uppercase tracking-[0.15em] text-muted">
                 Notes (optional)
@@ -450,6 +520,26 @@ export default function InvoiceForm({
       </div>
 
       <div>
+        {bookingMode !== "new" && (
+          <div className="mb-3">
+            <label htmlFor="pricingAppointmentType" className="block text-xs uppercase tracking-[0.15em] text-muted">
+              Appointment type (optional — auto-fills a line item)
+            </label>
+            <select
+              id="pricingAppointmentType"
+              value={pricingAppointmentTypeId}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => setPricingAppointmentTypeId(e.target.value)}
+              className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+            >
+              <option value="">Select appointment type</option>
+              {appointmentTypes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <p className="mb-2 block text-xs uppercase tracking-[0.15em] text-muted">Line items</p>
         <div className="space-y-3">
           {lineItems.map((item, index) => (
