@@ -216,6 +216,12 @@ export default function InvoiceForm({
       return;
     }
 
+    if (notes.trim().length > 450) {
+      setError("Notes must be 450 characters or fewer.");
+      setStatus("error");
+      return;
+    }
+
     if (
       addressLine1.trim().length > 100 ||
       addressCity.trim().length > 100 ||
@@ -499,6 +505,7 @@ export default function InvoiceForm({
                 value={notes}
                 onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
                 rows={2}
+                maxLength={450}
                 className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
               />
             </div>

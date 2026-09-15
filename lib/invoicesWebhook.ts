@@ -93,7 +93,13 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
   }
 
   if (!booking) {
-    await supabase.from("invoices").update({ booking_conflict: true }).eq("id", data.id);
+    const { error: conflictFlagError } = await supabase
+      .from("invoices")
+      .update({ booking_conflict: true })
+      .eq("id", data.id);
+    if (conflictFlagError) {
+      console.error("Failed to set booking_conflict flag for invoice", data.id, conflictFlagError);
+    }
     const conflictEmail = await sendInvoiceBookingConflictEmail({
       clientName: data.client_name,
       clientEmail: data.client_email,
@@ -105,7 +111,13 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
     return { retry: false };
   }
 
-  await supabase.from("invoices").update({ booking_id: booking.id }).eq("id", data.id);
+  const { error: linkError } = await supabase
+    .from("invoices")
+    .update({ booking_id: booking.id })
+    .eq("id", data.id);
+  if (linkError) {
+    console.error("Failed to link booking_id for invoice", data.id, linkError);
+  }
 
   try {
     const eventId = await pushBookingToGoogleCalendar({ ...booking, appointment_types: { name: type!.name } });

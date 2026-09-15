@@ -87,7 +87,8 @@ function parseNewBooking(value: unknown): { value: NewBookingPayload | null; val
     typeof v.startTime !== "string" ||
     !v.startTime.trim() ||
     typeof v.clientPhone !== "string" ||
-    typeof v.notes !== "string"
+    typeof v.notes !== "string" ||
+    v.notes.trim().length > 450
   ) {
     return { value: null, valid: false };
   }
@@ -253,15 +254,15 @@ export async function POST(request: Request) {
   });
   if (!emailResult.ok) {
     console.error("Invoice email failed (invoice still created):", emailResult.error);
-  } else {
-    const notifyResult = await sendInvoiceSentNotification({
-      clientName: payload.clientName,
-      clientEmail: payload.clientEmail,
-      hostedInvoiceUrl: created.hostedInvoiceUrl,
-    });
-    if (!notifyResult.ok) {
-      console.error("Invoice-sent admin notification failed:", notifyResult.error);
-    }
+  }
+
+  const notifyResult = await sendInvoiceSentNotification({
+    clientName: payload.clientName,
+    clientEmail: payload.clientEmail,
+    hostedInvoiceUrl: created.hostedInvoiceUrl,
+  });
+  if (!notifyResult.ok) {
+    console.error("Invoice-sent admin notification failed:", notifyResult.error);
   }
 
   return Response.json({ invoice }, { status: 201 });
