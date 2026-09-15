@@ -141,21 +141,52 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseClient();
-  const { data: invoice, error: insertError } = await supabase
+
+  // The full row includes session_date_time — a column that can, in
+  // principle, not exist yet on a given deployment if a migration hasn't
+  // landed (this happened live once already: the app deployed before the
+  // matching `alter table` ran). If that insert fails for any reason, the
+  // Stripe invoice above is already real and finalized — retry once with
+  // only the table's original eight columns, so the invoice still ends up
+  // as a manageable local row (voidable/resendable from the admin UI)
+  // rather than an orphan only reachable from the Stripe Dashboard.
+  const fullRow = {
+    client_name: payload.clientName,
+    client_email: payload.clientEmail,
+    booking_id: payload.bookingId,
+    stripe_invoice_id: created.stripeInvoiceId,
+    stripe_customer_id: created.stripeCustomerId,
+    status: "open" as const,
+    due_date: payload.dueDate,
+    hosted_invoice_url: created.hostedInvoiceUrl,
+    session_date_time: payload.sessionDateTime,
+  };
+
+  let { data: invoice, error: insertError } = await supabase
     .from("invoices")
-    .insert({
-      client_name: payload.clientName,
-      client_email: payload.clientEmail,
-      booking_id: payload.bookingId,
-      stripe_invoice_id: created.stripeInvoiceId,
-      stripe_customer_id: created.stripeCustomerId,
-      status: "open",
-      due_date: payload.dueDate,
-      hosted_invoice_url: created.hostedInvoiceUrl,
-      session_date_time: payload.sessionDateTime,
-    })
+    .insert(fullRow)
     .select()
     .single();
+
+  if (insertError) {
+    console.error("invoices insert failed for full row, retrying with core columns only:", insertError);
+    const coreRow = {
+      client_name: fullRow.client_name,
+      client_email: fullRow.client_email,
+      booking_id: fullRow.booking_id,
+      stripe_invoice_id: fullRow.stripe_invoice_id,
+      stripe_customer_id: fullRow.stripe_customer_id,
+      status: fullRow.status,
+      due_date: fullRow.due_date,
+      hosted_invoice_url: fullRow.hosted_invoice_url,
+    };
+    const fallback = await supabase.from("invoices").insert(coreRow).select().single();
+    invoice = fallback.data;
+    insertError = fallback.error;
+    if (invoice) {
+      console.warn("Invoice saved with a degraded row (session_date_time dropped):", created.stripeInvoiceId);
+    }
+  }
 
   if (insertError) {
     console.error("invoices insert failed (Stripe invoice already created):", insertError);
