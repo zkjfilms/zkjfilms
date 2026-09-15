@@ -20,7 +20,7 @@ export default async function InvoicesPage() {
     supabase.from("appointment_types").select("*").order("sort_order", { ascending: true }),
     supabase
       .from("bookings")
-      .select("id, client_name, client_email, start_time, status")
+      .select("id, client_name, client_email, client_phone, start_time, end_time, status")
       .eq("status", "confirmed")
       .order("start_time", { ascending: false })
       .limit(200),

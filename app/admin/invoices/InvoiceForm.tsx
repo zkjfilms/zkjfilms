@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AppointmentType } from "@/app/admin/appointment-types/AppointmentTypeList";
+import { addMinutesToTime, businessLocalToUtcIso } from "@/lib/scheduling";
+import { formatTimeRange } from "@/lib/format";
 
 type BookingOption = {
   id: string;
   client_name: string;
   client_email: string;
+  client_phone: string | null;
   start_time: string;
+  end_time: string;
   status: string;
 };
 
@@ -30,12 +34,19 @@ export default function InvoiceForm({
   const router = useRouter();
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressCity, setAddressCity] = useState("");
+  const [addressState, setAddressState] = useState("");
+  const [addressPostalCode, setAddressPostalCode] = useState("");
+  const [sessionDateTime, setSessionDateTime] = useState("");
   const [bookingMode, setBookingMode] = useState<BookingMode>("none");
   const [bookingSearch, setBookingSearch] = useState("");
   const [selectedBookingId, setSelectedBookingId] = useState("");
   const [newBookingAppointmentTypeId, setNewBookingAppointmentTypeId] = useState("");
   const [newBookingDate, setNewBookingDate] = useState("");
   const [newBookingTime, setNewBookingTime] = useState("");
+  const [notes, setNotes] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([{ description: "", amount: "" }]);
   const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -46,6 +57,34 @@ export default function InvoiceForm({
     if (!q) return true;
     return b.client_name.toLowerCase().includes(q) || b.client_email.toLowerCase().includes(q);
   });
+
+  // "Link existing": selecting a booking fills in what's already known about
+  // that client — still editable afterward. Re-fires only when the selection
+  // itself changes, so it never fights a manual edit the admin makes after
+  // picking a booking.
+  useEffect(() => {
+    if (bookingMode !== "existing") return;
+    const booking = bookings.find((b) => b.id === selectedBookingId);
+    if (!booking) return;
+    setClientName(booking.client_name);
+    setClientEmail(booking.client_email);
+    setPhone(booking.client_phone ?? "");
+    setSessionDateTime(formatTimeRange(booking.start_time, booking.end_time));
+  }, [bookingMode, selectedBookingId, bookings]);
+
+  // "Create new": recompute the session date/time display string whenever
+  // the new booking's appointment type, date, or time changes. Uses the same
+  // duration + timezone helpers the admin-booking-creation endpoint itself
+  // uses, so the displayed range matches what actually gets booked.
+  useEffect(() => {
+    if (bookingMode !== "new") return;
+    if (!newBookingAppointmentTypeId || !newBookingDate || !newBookingTime) return;
+    const type = appointmentTypes.find((t) => t.id === newBookingAppointmentTypeId);
+    if (!type) return;
+    const startIso = businessLocalToUtcIso(newBookingDate, newBookingTime);
+    const endIso = businessLocalToUtcIso(newBookingDate, addMinutesToTime(newBookingTime, type.duration_minutes));
+    setSessionDateTime(formatTimeRange(startIso, endIso));
+  }, [bookingMode, newBookingAppointmentTypeId, newBookingDate, newBookingTime, appointmentTypes]);
 
   function updateLineItem(index: number, field: keyof LineItem, value: string) {
     setLineItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
@@ -66,6 +105,12 @@ export default function InvoiceForm({
 
     if (!clientName.trim() || !clientEmail.trim()) {
       setError("Enter a client name and email.");
+      setStatus("error");
+      return;
+    }
+
+    if (sessionDateTime.length > 140) {
+      setError("Session date & time must be 140 characters or fewer.");
       setStatus("error");
       return;
     }
@@ -103,6 +148,16 @@ export default function InvoiceForm({
       return;
     }
 
+    const billingAddress =
+      addressLine1.trim() || addressCity.trim() || addressState.trim() || addressPostalCode.trim()
+        ? {
+            line1: addressLine1.trim(),
+            city: addressCity.trim(),
+            state: addressState.trim(),
+            postalCode: addressPostalCode.trim(),
+          }
+        : null;
+
     try {
       let bookingId: string | null = null;
 
@@ -118,8 +173,8 @@ export default function InvoiceForm({
             startTime: newBookingTime,
             clientName: clientName.trim(),
             clientEmail: clientEmail.trim(),
-            clientPhone: "",
-            notes: "",
+            clientPhone: phone.trim(),
+            notes: notes.trim(),
           }),
         });
         const bookingData: { booking?: { id: string }; error?: string } = await bookingResponse.json();
@@ -140,6 +195,9 @@ export default function InvoiceForm({
           bookingId,
           lineItems: parsedLineItems,
           dueDate: dueDate || null,
+          sessionDateTime: sessionDateTime.trim() || null,
+          clientPhone: phone.trim() || null,
+          billingAddress,
         }),
       });
       const data: { error?: string } = await response.json();
@@ -186,6 +244,53 @@ export default function InvoiceForm({
           onChange={(e: ChangeEvent<HTMLInputElement>) => setClientEmail(e.target.value)}
           className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
         />
+      </div>
+
+      <div>
+        <label htmlFor="phone" className="block text-xs uppercase tracking-[0.15em] text-muted">
+          Phone (optional)
+        </label>
+        <input
+          id="phone"
+          type="tel"
+          value={phone}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
+          className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+        />
+      </div>
+
+      <div>
+        <p className="mb-2 block text-xs uppercase tracking-[0.15em] text-muted">Billing address (optional)</p>
+        <input
+          type="text"
+          placeholder="Address line 1"
+          value={addressLine1}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setAddressLine1(e.target.value)}
+          className="mb-3 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+        />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <input
+            type="text"
+            placeholder="City"
+            value={addressCity}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setAddressCity(e.target.value)}
+            className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+          />
+          <input
+            type="text"
+            placeholder="State"
+            value={addressState}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setAddressState(e.target.value)}
+            className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+          />
+          <input
+            type="text"
+            placeholder="ZIP"
+            value={addressPostalCode}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setAddressPostalCode(e.target.value)}
+            className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+          />
+        </div>
       </div>
 
       <div>
@@ -248,33 +353,60 @@ export default function InvoiceForm({
         )}
 
         {bookingMode === "new" && (
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <select
-              value={newBookingAppointmentTypeId}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewBookingAppointmentTypeId(e.target.value)}
-              className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-            >
-              <option value="">Appointment type</option>
-              {appointmentTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="date"
-              value={newBookingDate}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setNewBookingDate(e.target.value)}
-              className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-            />
-            <input
-              type="time"
-              value={newBookingTime}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setNewBookingTime(e.target.value)}
-              className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-            />
+          <div className="mt-3 space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <select
+                value={newBookingAppointmentTypeId}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setNewBookingAppointmentTypeId(e.target.value)}
+                className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+              >
+                <option value="">Appointment type</option>
+                {appointmentTypes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={newBookingDate}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewBookingDate(e.target.value)}
+                className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+              />
+              <input
+                type="time"
+                value={newBookingTime}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setNewBookingTime(e.target.value)}
+                className="border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label htmlFor="notes" className="block text-xs uppercase tracking-[0.15em] text-muted">
+                Notes (optional)
+              </label>
+              <textarea
+                id="notes"
+                value={notes}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
+                rows={2}
+                className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+              />
+            </div>
           </div>
         )}
+      </div>
+
+      <div>
+        <label htmlFor="sessionDateTime" className="block text-xs uppercase tracking-[0.15em] text-muted">
+          Session date &amp; time (shown on invoice)
+        </label>
+        <input
+          id="sessionDateTime"
+          type="text"
+          value={sessionDateTime}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setSessionDateTime(e.target.value)}
+          className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+        />
       </div>
 
       <div>
