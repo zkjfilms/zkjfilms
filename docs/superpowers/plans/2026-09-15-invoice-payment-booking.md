@@ -872,6 +872,7 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
     start_time: string;
     end_time: string;
     booking_token: string;
+    notes: string | null;
   } | null = null;
 
   if (type) {
