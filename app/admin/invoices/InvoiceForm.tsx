@@ -72,7 +72,7 @@ export default function InvoiceForm({
   const [syncedExistingKey, setSyncedExistingKey] = useState(existingKey);
   if (existingKey !== syncedExistingKey) {
     setSyncedExistingKey(existingKey);
-    const booking = bookings.find((b) => b.id === existingKey);
+    const booking = bookingMode === "existing" ? bookings.find((b) => b.id === existingKey) : undefined;
     if (booking) {
       setClientName(booking.client_name);
       setClientEmail(booking.client_email);
@@ -95,7 +95,7 @@ export default function InvoiceForm({
   const [syncedNewBookingKey, setSyncedNewBookingKey] = useState(newBookingKey);
   if (newBookingKey !== syncedNewBookingKey) {
     setSyncedNewBookingKey(newBookingKey);
-    if (newBookingAppointmentTypeId && newBookingDate && newBookingTime) {
+    if (bookingMode === "new" && newBookingAppointmentTypeId && newBookingDate && newBookingTime) {
       const type = appointmentTypes.find((t) => t.id === newBookingAppointmentTypeId);
       if (type) {
         const endTime = addMinutesToTime(newBookingTime, type.duration_minutes);
