@@ -62,11 +62,17 @@ export default function InvoiceForm({
   // that client — still editable afterward. Adjusted during render (not in an effect)
   // per React's own guidance for syncing state when a prop/selection changes —
   // avoids the extra render an effect-based sync would cause, and the lint rule
-  // that flags setState inside effects for exactly this reason.
-  const [syncedBookingId, setSyncedBookingId] = useState<string | null>(null);
-  if (bookingMode === "existing" && selectedBookingId !== syncedBookingId) {
-    setSyncedBookingId(selectedBookingId);
-    const booking = bookings.find((b) => b.id === selectedBookingId);
+  // that flags setState inside effects for exactly this reason. The key folds in
+  // bookingMode (empty string whenever this mode isn't active) so leaving and
+  // re-entering "existing" — even with the same booking still selected — re-syncs,
+  // matching what a bookingMode-dependent effect would have done. Initializing the
+  // synced-key state from the current key (not a sentinel that can never match)
+  // avoids a harmless-but-wasteful first render.
+  const existingKey = bookingMode === "existing" ? selectedBookingId : "";
+  const [syncedExistingKey, setSyncedExistingKey] = useState(existingKey);
+  if (existingKey !== syncedExistingKey) {
+    setSyncedExistingKey(existingKey);
+    const booking = bookings.find((b) => b.id === existingKey);
     if (booking) {
       setClientName(booking.client_name);
       setClientEmail(booking.client_email);
@@ -75,20 +81,30 @@ export default function InvoiceForm({
     }
   }
 
-  // "Create new": recompute the session date/time display string whenever
-  // the new booking's appointment type, date, or time changes. Uses the same
+  // "Create new": recompute the session date/time display string whenever the
+  // new booking's appointment type, date, or time changes, or when re-entering
+  // this mode (same bookingMode-folding rationale as above). Uses the same
   // duration + timezone helpers the admin-booking-creation endpoint itself
-  // uses, so the displayed range matches what actually gets booked.
-  const newBookingKey = `${newBookingAppointmentTypeId}|${newBookingDate}|${newBookingTime}`;
-  const [syncedNewBookingKey, setSyncedNewBookingKey] = useState("");
-  if (bookingMode === "new" && newBookingKey !== syncedNewBookingKey) {
+  // uses, so the displayed range matches what actually gets booked — except
+  // addMinutesToTime doesn't wrap past 24:00 (e.g. "23:00" + 120 minutes
+  // returns "25:00", not "01:00"), which would make businessLocalToUtcIso
+  // build an invalid Date and throw. Skip the auto-fill rather than crash the
+  // form in that case; the admin can still type the session time in by hand.
+  const newBookingKey =
+    bookingMode === "new" ? `${newBookingAppointmentTypeId}|${newBookingDate}|${newBookingTime}` : "";
+  const [syncedNewBookingKey, setSyncedNewBookingKey] = useState(newBookingKey);
+  if (newBookingKey !== syncedNewBookingKey) {
     setSyncedNewBookingKey(newBookingKey);
     if (newBookingAppointmentTypeId && newBookingDate && newBookingTime) {
       const type = appointmentTypes.find((t) => t.id === newBookingAppointmentTypeId);
       if (type) {
-        const startIso = businessLocalToUtcIso(newBookingDate, newBookingTime);
-        const endIso = businessLocalToUtcIso(newBookingDate, addMinutesToTime(newBookingTime, type.duration_minutes));
-        setSessionDateTime(formatTimeRange(startIso, endIso));
+        const endTime = addMinutesToTime(newBookingTime, type.duration_minutes);
+        const [endHours] = endTime.split(":").map(Number);
+        if (endHours < 24) {
+          const startIso = businessLocalToUtcIso(newBookingDate, newBookingTime);
+          const endIso = businessLocalToUtcIso(newBookingDate, endTime);
+          setSessionDateTime(formatTimeRange(startIso, endIso));
+        }
       }
     }
   }
@@ -118,6 +134,23 @@ export default function InvoiceForm({
 
     if (sessionDateTime.length > 140) {
       setError("Session date & time must be 140 characters or fewer.");
+      setStatus("error");
+      return;
+    }
+
+    if (phone.trim().length > 32) {
+      setError("Phone must be 32 characters or fewer.");
+      setStatus("error");
+      return;
+    }
+
+    if (
+      addressLine1.trim().length > 100 ||
+      addressCity.trim().length > 100 ||
+      addressState.trim().length > 100 ||
+      addressPostalCode.trim().length > 100
+    ) {
+      setError("Billing address fields must be 100 characters or fewer.");
       setStatus("error");
       return;
     }

@@ -25,10 +25,10 @@ export async function createInvoice(params: {
       phone: params.clientPhone ?? undefined,
       address: params.billingAddress
         ? {
-            line1: params.billingAddress.line1,
-            city: params.billingAddress.city,
-            state: params.billingAddress.state,
-            postal_code: params.billingAddress.postalCode,
+            line1: params.billingAddress.line1 || undefined,
+            city: params.billingAddress.city || undefined,
+            state: params.billingAddress.state || undefined,
+            postal_code: params.billingAddress.postalCode || undefined,
             country: "US",
           }
         : undefined,

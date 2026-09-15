@@ -55,7 +55,7 @@ function parseBillingAddress(value: unknown): { value: BillingAddressPayload; va
       parsed[field] = "";
       continue;
     }
-    if (typeof raw !== "string" || raw.length > 100) return { value: null, valid: false };
+    if (typeof raw !== "string" || raw.trim().length > 100) return { value: null, valid: false };
     parsed[field] = raw.trim();
   }
   const isBlank = fields.every((field) => !parsed[field]);
@@ -93,10 +93,10 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     (b.dueDate !== null && (typeof b.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(b.dueDate))) ||
     (b.sessionDateTime !== null &&
       b.sessionDateTime !== undefined &&
-      (typeof b.sessionDateTime !== "string" || b.sessionDateTime.length > 140)) ||
+      (typeof b.sessionDateTime !== "string" || b.sessionDateTime.trim().length > 140)) ||
     (b.clientPhone !== null &&
       b.clientPhone !== undefined &&
-      (typeof b.clientPhone !== "string" || b.clientPhone.length > 32)) ||
+      (typeof b.clientPhone !== "string" || b.clientPhone.trim().length > 32)) ||
     !billingAddressValid
   ) {
     return null;
