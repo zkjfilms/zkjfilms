@@ -346,3 +346,134 @@ export async function sendInvoiceEmail(params: {
     return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
   }
 }
+
+// Sent to the site owner (BUSINESS.email) alongside the client-facing
+// sendInvoiceEmail, from both the initial create and the Resend action
+// (app/api/admin/invoices/route.ts, app/api/admin/invoices/[id]/resend/route.ts).
+// Gives the owner a standing record of every invoice that actually went out,
+// without having to check the admin dashboard.
+export async function sendInvoiceSentNotification(params: {
+  clientName: string;
+  clientEmail: string;
+  hostedInvoiceUrl: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [BUSINESS.email],
+      subject: `Invoice sent to ${params.clientName}`,
+      text: [
+        `An invoice was sent to ${params.clientName} (${params.clientEmail}).`,
+        "",
+        "View it here:",
+        params.hostedInvoiceUrl,
+      ].join("\n"),
+      html: `
+        <p>An invoice was sent to ${escapeHtml(params.clientName)} (${escapeHtml(params.clientEmail)}).</p>
+        <p>View it here:</p>
+        <p><a href="${params.hostedInvoiceUrl}">${params.hostedInvoiceUrl}</a></p>
+      `,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
+
+// Sent from the stripe-invoices webhook (lib/invoicesWebhook.ts) once a
+// "Create new" mode invoice's payment confirms and the real booking gets
+// created. Modeled on sendBookingPaymentConfirmedEmail's template but kept
+// as its own function rather than reusing that one directly —
+// sendBookingPaymentConfirmedEmail is built around amount_paid_cents and
+// discount-code fields on the booking record, which invoicing intentionally
+// never touches.
+export async function sendInvoiceBookingConfirmedEmail(
+  booking: BookingForEmail,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const when = formatTimeRange(booking.start_time, booking.end_time);
+  const typeName = appointmentTypeName(booking);
+  const manageUrl = `${SITE_URL}/manage/${booking.booking_token}`;
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [booking.client_email],
+      subject: "You're booked!",
+      text: [
+        `Hi ${booking.client_name},`,
+        "",
+        `Your payment is in — you're confirmed for ${typeName} on ${when}.`,
+        "",
+        "Need to reschedule or cancel? Use your private booking link:",
+        manageUrl,
+        "",
+        "See you soon,",
+        BUSINESS.name,
+      ].join("\n"),
+      html: `
+        <p>Hi ${escapeHtml(booking.client_name)},</p>
+        <p>Your payment is in — you're confirmed for ${escapeHtml(typeName)} on ${escapeHtml(when)}.</p>
+        <p>Need to reschedule or cancel? Use your private booking link:</p>
+        <p><a href="${manageUrl}">${manageUrl}</a></p>
+        <p>See you soon,<br />${escapeHtml(BUSINESS.name)}</p>
+      `,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
+
+// Sent to the site owner (BUSINESS.email) from the stripe-invoices webhook
+// (lib/invoicesWebhook.ts) when a "Create new" mode invoice gets paid but
+// the deferred booking can't be created (most often: someone else took the
+// slot while the invoice sat unpaid). The invoice stays marked paid —
+// resolving the conflict (a new time, a refund) is a manual, out-of-band
+// step; this email is the only signal that one's needed.
+export async function sendInvoiceBookingConflictEmail(params: {
+  clientName: string;
+  clientEmail: string;
+  hostedInvoiceUrl: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [BUSINESS.email],
+      subject: `Action needed: reschedule ${params.clientName}`,
+      text: [
+        `${params.clientName} (${params.clientEmail}) paid their invoice, but the time slot it was for is no longer available.`,
+        "",
+        "The invoice is still marked paid. You'll need to reach out and arrange a new time (or a refund).",
+        "",
+        "Invoice:",
+        params.hostedInvoiceUrl,
+      ].join("\n"),
+      html: `
+        <p>${escapeHtml(params.clientName)} (${escapeHtml(params.clientEmail)}) paid their invoice, but the time slot it was for is no longer available.</p>
+        <p>The invoice is still marked paid. You'll need to reach out and arrange a new time (or a refund).</p>
+        <p>Invoice:</p>
+        <p><a href="${params.hostedInvoiceUrl}">${params.hostedInvoiceUrl}</a></p>
+      `,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
