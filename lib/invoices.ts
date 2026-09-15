@@ -6,13 +6,33 @@ export async function createInvoice(params: {
   bookingId: string | null;
   lineItems: { description: string; amountCents: number }[];
   dueDate: string | null; // "YYYY-MM-DD"
+  sessionDateTime: string | null;
+  clientPhone: string | null;
+  billingAddress: { line1: string; city: string; state: string; postalCode: string } | null;
 }): Promise<{ stripeInvoiceId: string; stripeCustomerId: string; hostedInvoiceUrl: string }> {
   const stripe = getStripeClient();
 
   const existing = await stripe.customers.list({ email: params.clientEmail, limit: 1 });
+  // Phone and billing address are only ever attached to a brand-new Stripe
+  // customer — this branch. An existing customer found by email above is
+  // never updated, so a repeat client's already-populated (possibly more
+  // complete) Stripe record can't be clobbered by a blank or partial form.
   const customer =
     existing.data[0] ??
-    (await stripe.customers.create({ email: params.clientEmail, name: params.clientName }));
+    (await stripe.customers.create({
+      email: params.clientEmail,
+      name: params.clientName,
+      phone: params.clientPhone ?? undefined,
+      address: params.billingAddress
+        ? {
+            line1: params.billingAddress.line1,
+            city: params.billingAddress.city,
+            state: params.billingAddress.state,
+            postal_code: params.billingAddress.postalCode,
+            country: "US",
+          }
+        : undefined,
+    }));
 
   const daysUntilDue = params.dueDate
     ? Math.max(1, Math.ceil((new Date(`${params.dueDate}T00:00:00Z`).getTime() - Date.now()) / 86_400_000))
@@ -31,6 +51,10 @@ export async function createInvoice(params: {
     auto_advance: false,
     pending_invoice_items_behavior: "exclude",
     metadata: params.bookingId ? { bookingId: params.bookingId } : {},
+    // Stripe's built-in mechanism for a labeled, non-billable row on the
+    // hosted invoice/PDF — distinct from line items, doesn't affect the
+    // total. Up to 4 allowed; this feature only ever sends one.
+    custom_fields: params.sessionDateTime ? [{ name: "Session", value: params.sessionDateTime }] : undefined,
   });
 
   for (const item of params.lineItems) {

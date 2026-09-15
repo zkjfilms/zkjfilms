@@ -28,19 +28,50 @@ export async function GET() {
 
 type LineItemPayload = { description: string; amountCents: number };
 
+type BillingAddressPayload = { line1: string; city: string; state: string; postalCode: string } | null;
+
 type CreatePayload = {
   clientName: string;
   clientEmail: string;
   bookingId: string | null;
   lineItems: LineItemPayload[];
   dueDate: string | null;
+  sessionDateTime: string | null;
+  clientPhone: string | null;
+  billingAddress: BillingAddressPayload;
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function parseBillingAddress(value: unknown): { value: BillingAddressPayload; valid: boolean } {
+  if (value === null || value === undefined) return { value: null, valid: true };
+  if (typeof value !== "object") return { value: null, valid: false };
+  const v = value as Record<string, unknown>;
+  const fields = ["line1", "city", "state", "postalCode"] as const;
+  const parsed: Record<string, string> = {};
+  for (const field of fields) {
+    const raw = v[field];
+    if (raw === undefined) {
+      parsed[field] = "";
+      continue;
+    }
+    if (typeof raw !== "string" || raw.length > 100) return { value: null, valid: false };
+    parsed[field] = raw.trim();
+  }
+  const isBlank = fields.every((field) => !parsed[field]);
+  if (isBlank) return { value: null, valid: true };
+  return {
+    value: { line1: parsed.line1, city: parsed.city, state: parsed.state, postalCode: parsed.postalCode },
+    valid: true,
+  };
+}
+
 function parseCreatePayload(body: unknown): CreatePayload | null {
   if (typeof body !== "object" || body === null) return null;
   const b = body as Record<string, unknown>;
+
+  const { value: billingAddress, valid: billingAddressValid } = parseBillingAddress(b.billingAddress);
+
   if (
     typeof b.clientName !== "string" ||
     !b.clientName.trim() ||
@@ -59,7 +90,14 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
         Number.isInteger((item as Record<string, unknown>).amountCents as number) &&
         ((item as Record<string, unknown>).amountCents as number) > 0,
     ) ||
-    (b.dueDate !== null && (typeof b.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(b.dueDate)))
+    (b.dueDate !== null && (typeof b.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(b.dueDate))) ||
+    (b.sessionDateTime !== null &&
+      b.sessionDateTime !== undefined &&
+      (typeof b.sessionDateTime !== "string" || b.sessionDateTime.length > 140)) ||
+    (b.clientPhone !== null &&
+      b.clientPhone !== undefined &&
+      (typeof b.clientPhone !== "string" || b.clientPhone.length > 32)) ||
+    !billingAddressValid
   ) {
     return null;
   }
@@ -69,6 +107,9 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     bookingId: b.bookingId as string | null,
     lineItems: b.lineItems as LineItemPayload[],
     dueDate: b.dueDate as string | null,
+    sessionDateTime: typeof b.sessionDateTime === "string" && b.sessionDateTime.trim() ? b.sessionDateTime.trim() : null,
+    clientPhone: typeof b.clientPhone === "string" && b.clientPhone.trim() ? b.clientPhone.trim() : null,
+    billingAddress,
   };
 }
 
@@ -90,6 +131,9 @@ export async function POST(request: Request) {
       bookingId: payload.bookingId,
       lineItems: payload.lineItems,
       dueDate: payload.dueDate,
+      sessionDateTime: payload.sessionDateTime,
+      clientPhone: payload.clientPhone,
+      billingAddress: payload.billingAddress,
     });
   } catch (err) {
     console.error("Stripe invoice creation failed:", err);
@@ -108,6 +152,7 @@ export async function POST(request: Request) {
       status: "open",
       due_date: payload.dueDate,
       hosted_invoice_url: created.hostedInvoiceUrl,
+      session_date_time: payload.sessionDateTime,
     })
     .select()
     .single();
