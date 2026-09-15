@@ -16,6 +16,7 @@ type Invoice = {
   due_date: string | null;
   hosted_invoice_url: string | null;
   booking_id: string | null;
+  session_date_time: string | null;
   invoice_line_items: InvoiceLineItem[];
 };
 
@@ -23,7 +24,9 @@ type BookingOption = {
   id: string;
   client_name: string;
   client_email: string;
+  client_phone: string | null;
   start_time: string;
+  end_time: string;
   status: string;
 };
 
@@ -183,6 +186,9 @@ export default function InvoiceList({
                     ? ` · due ${new Date(`${invoice.due_date}T00:00:00`).toLocaleDateString("en-US")}`
                     : ""}
                 </p>
+                {invoice.session_date_time && (
+                  <p className="text-sm text-muted">{invoice.session_date_time}</p>
+                )}
               </div>
               <div className="flex items-center gap-4">
                 {invoice.hosted_invoice_url && (
