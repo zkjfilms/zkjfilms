@@ -17,6 +17,7 @@ type Invoice = {
   hosted_invoice_url: string | null;
   booking_id: string | null;
   session_date_time: string | null;
+  booking_conflict: boolean;
   invoice_line_items: InvoiceLineItem[];
 };
 
@@ -188,6 +189,9 @@ export default function InvoiceList({
                 </p>
                 {invoice.session_date_time && (
                   <p className="text-sm text-muted">{invoice.session_date_time}</p>
+                )}
+                {invoice.booking_conflict && (
+                  <p className="text-sm text-red-700">⚠ Slot no longer available — needs rescheduling</p>
                 )}
               </div>
               <div className="flex items-center gap-4">
