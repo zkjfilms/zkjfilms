@@ -9,6 +9,13 @@ export async function createInvoice(params: {
   sessionDateTime: string | null;
   clientPhone: string | null;
   billingAddress: { line1: string; city: string; state: string; postalCode: string } | null;
+  newBooking?: {
+    appointmentTypeId: string;
+    date: string; // "YYYY-MM-DD"
+    startTime: string; // "HH:MM"
+    clientPhone: string;
+    notes: string;
+  } | null;
 }): Promise<{ stripeInvoiceId: string; stripeCustomerId: string; hostedInvoiceUrl: string }> {
   const stripe = getStripeClient();
 
@@ -38,6 +45,27 @@ export async function createInvoice(params: {
     ? Math.max(1, Math.ceil((new Date(`${params.dueDate}T00:00:00Z`).getTime() - Date.now()) / 86_400_000))
     : 30;
 
+  // "Create new" mode invoices don't create a real booking synchronously —
+  // the intended session details ride along in this invoice's Stripe
+  // metadata instead, the same mechanism already used for bookingId. The
+  // stripe-invoices webhook (lib/invoicesWebhook.ts) reads these exact keys
+  // back out once the invoice is actually paid, and creates the real
+  // booking at that point — see that file for why (no hold on an unpaid
+  // invoice is deliberate).
+  const metadata = (
+    params.bookingId
+      ? { bookingId: params.bookingId }
+      : params.newBooking
+        ? {
+            pendingBookingAppointmentTypeId: params.newBooking.appointmentTypeId,
+            pendingBookingDate: params.newBooking.date,
+            pendingBookingStartTime: params.newBooking.startTime,
+            pendingBookingClientPhone: params.newBooking.clientPhone,
+            pendingBookingNotes: params.newBooking.notes,
+          }
+        : {}
+  ) as Record<string, string>;
+
   // Create the invoice first, then attach line items directly to it by ID.
   // Creating items on the customer before the invoice exists would make them
   // "pending invoice items" — Stripe's default pending_invoice_items_behavior
@@ -50,7 +78,7 @@ export async function createInvoice(params: {
     days_until_due: daysUntilDue,
     auto_advance: false,
     pending_invoice_items_behavior: "exclude",
-    metadata: params.bookingId ? { bookingId: params.bookingId } : {},
+    metadata,
     // Stripe's built-in mechanism for a labeled, non-billable row on the
     // hosted invoice/PDF — distinct from line items, doesn't affect the
     // total. Up to 4 allowed; this feature only ever sends one.
