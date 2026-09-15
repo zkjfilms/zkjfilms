@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { createInvoice } from "@/lib/invoices";
-import { sendInvoiceEmail } from "@/lib/email";
+import { sendInvoiceEmail, sendInvoiceSentNotification } from "@/lib/email";
 
 async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -30,6 +30,14 @@ type LineItemPayload = { description: string; amountCents: number };
 
 type BillingAddressPayload = { line1: string; city: string; state: string; postalCode: string } | null;
 
+type NewBookingPayload = {
+  appointmentTypeId: string;
+  date: string;
+  startTime: string;
+  clientPhone: string;
+  notes: string;
+};
+
 type CreatePayload = {
   clientName: string;
   clientEmail: string;
@@ -39,6 +47,7 @@ type CreatePayload = {
   sessionDateTime: string | null;
   clientPhone: string | null;
   billingAddress: BillingAddressPayload;
+  newBooking: NewBookingPayload | null;
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -66,11 +75,40 @@ function parseBillingAddress(value: unknown): { value: BillingAddressPayload; va
   };
 }
 
+function parseNewBooking(value: unknown): { value: NewBookingPayload | null; valid: boolean } {
+  if (value === null || value === undefined) return { value: null, valid: true };
+  if (typeof value !== "object") return { value: null, valid: false };
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.appointmentTypeId !== "string" ||
+    !v.appointmentTypeId.trim() ||
+    typeof v.date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(v.date) ||
+    typeof v.startTime !== "string" ||
+    !v.startTime.trim() ||
+    typeof v.clientPhone !== "string" ||
+    typeof v.notes !== "string"
+  ) {
+    return { value: null, valid: false };
+  }
+  return {
+    value: {
+      appointmentTypeId: v.appointmentTypeId,
+      date: v.date,
+      startTime: v.startTime,
+      clientPhone: v.clientPhone.trim(),
+      notes: v.notes.trim(),
+    },
+    valid: true,
+  };
+}
+
 function parseCreatePayload(body: unknown): CreatePayload | null {
   if (typeof body !== "object" || body === null) return null;
   const b = body as Record<string, unknown>;
 
   const { value: billingAddress, valid: billingAddressValid } = parseBillingAddress(b.billingAddress);
+  const { value: newBooking, valid: newBookingValid } = parseNewBooking(b.newBooking);
 
   if (
     typeof b.clientName !== "string" ||
@@ -97,7 +135,8 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     (b.clientPhone !== null &&
       b.clientPhone !== undefined &&
       (typeof b.clientPhone !== "string" || b.clientPhone.trim().length > 32)) ||
-    !billingAddressValid
+    !billingAddressValid ||
+    !newBookingValid
   ) {
     return null;
   }
@@ -110,6 +149,7 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     sessionDateTime: typeof b.sessionDateTime === "string" && b.sessionDateTime.trim() ? b.sessionDateTime.trim() : null,
     clientPhone: typeof b.clientPhone === "string" && b.clientPhone.trim() ? b.clientPhone.trim() : null,
     billingAddress,
+    newBooking,
   };
 }
 
@@ -134,6 +174,7 @@ export async function POST(request: Request) {
       sessionDateTime: payload.sessionDateTime,
       clientPhone: payload.clientPhone,
       billingAddress: payload.billingAddress,
+      newBooking: payload.newBooking,
     });
   } catch (err) {
     console.error("Stripe invoice creation failed:", err);
@@ -212,6 +253,15 @@ export async function POST(request: Request) {
   });
   if (!emailResult.ok) {
     console.error("Invoice email failed (invoice still created):", emailResult.error);
+  } else {
+    const notifyResult = await sendInvoiceSentNotification({
+      clientName: payload.clientName,
+      clientEmail: payload.clientEmail,
+      hostedInvoiceUrl: created.hostedInvoiceUrl,
+    });
+    if (!notifyResult.ok) {
+      console.error("Invoice-sent admin notification failed:", notifyResult.error);
+    }
   }
 
   return Response.json({ invoice }, { status: 201 });

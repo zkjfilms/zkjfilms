@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
-import { sendInvoiceEmail } from "@/lib/email";
+import { sendInvoiceEmail, sendInvoiceSentNotification } from "@/lib/email";
 
 // No Stripe API call at all — this only re-sends our own notification
 // email using the hosted_invoice_url already stored on the row.
@@ -43,6 +43,15 @@ export async function POST(
   if (!result.ok) {
     console.error("Failed to resend invoice email:", result.error);
     return Response.json({ error: "Failed to send email." }, { status: 502 });
+  }
+
+  const notifyResult = await sendInvoiceSentNotification({
+    clientName: invoice.client_name,
+    clientEmail: invoice.client_email,
+    hostedInvoiceUrl: invoice.hosted_invoice_url,
+  });
+  if (!notifyResult.ok) {
+    console.error("Invoice-sent admin notification failed:", notifyResult.error);
   }
 
   return Response.json({ ok: true });
