@@ -629,3 +629,5 @@ create index if not exists invoice_line_items_invoice_id_idx
   on invoice_line_items (invoice_id);
 
 alter table invoice_line_items enable row level security;
+
+alter table invoices add column if not exists session_date_time text;
