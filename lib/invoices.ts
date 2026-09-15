@@ -52,17 +52,6 @@ export async function createInvoice(params: {
   // back out once the invoice is actually paid, and creates the real
   // booking at that point — see that file for why (no hold on an unpaid
   // invoice is deliberate).
-  const metadata = (params.bookingId
-    ? { bookingId: params.bookingId }
-    : params.newBooking
-      ? {
-          pendingBookingAppointmentTypeId: params.newBooking.appointmentTypeId,
-          pendingBookingDate: params.newBooking.date,
-          pendingBookingStartTime: params.newBooking.startTime,
-          pendingBookingClientPhone: params.newBooking.clientPhone,
-          pendingBookingNotes: params.newBooking.notes,
-        }
-      : {}) as Record<string, string>;
 
   // Create the invoice first, then attach line items directly to it by ID.
   // Creating items on the customer before the invoice exists would make them
@@ -76,7 +65,17 @@ export async function createInvoice(params: {
     days_until_due: daysUntilDue,
     auto_advance: false,
     pending_invoice_items_behavior: "exclude",
-    metadata,
+    metadata: params.bookingId
+      ? { bookingId: params.bookingId }
+      : params.newBooking
+        ? {
+            pendingBookingAppointmentTypeId: params.newBooking.appointmentTypeId,
+            pendingBookingDate: params.newBooking.date,
+            pendingBookingStartTime: params.newBooking.startTime,
+            pendingBookingClientPhone: params.newBooking.clientPhone,
+            pendingBookingNotes: params.newBooking.notes,
+          }
+        : {},
     // Stripe's built-in mechanism for a labeled, non-billable row on the
     // hosted invoice/PDF — distinct from line items, doesn't affect the
     // total. Up to 4 allowed; this feature only ever sends one.
