@@ -1158,27 +1158,33 @@ export default function InvoiceForm({
   // Non-blocking heads-up for "Create new" mode: since the slot is no longer
   // held while the invoice is unpaid, check whether the picked time already
   // has a confirmed/pending booking, so the admin isn't caught by surprise
-  // later — informational only, never blocks submission. This is a genuine
-  // async effect (a network fetch with cancellation), unlike the three
-  // render-time sync blocks above — it belongs in useEffect because it's
-  // reaching out to an external system, not deriving state that was already
-  // available synchronously.
+  // later — informational only, never blocks submission. The trigger key
+  // resets the warning during render (same pattern as the sync blocks
+  // above) whenever the underlying selection changes, so leaving "Create
+  // new" mode or clearing a field clears the warning immediately with no
+  // extra render. The actual network fetch below still needs a real
+  // useEffect — it's reaching out to an external system — but its body
+  // never calls setState synchronously (only inside the async .then()),
+  // since ESLint's react-hooks/set-state-in-effect rule flags any
+  // synchronous setState directly in an effect body, even ones that are
+  // just resetting to a default before async work starts.
+  const conflictCheckKey =
+    bookingMode === "new" ? `${newBookingAppointmentTypeId}|${newBookingDate}|${newBookingTime}` : "";
+  const [syncedConflictCheckKey, setSyncedConflictCheckKey] = useState(conflictCheckKey);
+  if (conflictCheckKey !== syncedConflictCheckKey) {
+    setSyncedConflictCheckKey(conflictCheckKey);
+    setConflictWarning(false);
+  }
+
   useEffect(() => {
     if (bookingMode !== "new" || !newBookingAppointmentTypeId || !newBookingDate || !newBookingTime) {
-      setConflictWarning(false);
       return;
     }
     const type = appointmentTypes.find((t) => t.id === newBookingAppointmentTypeId);
-    if (!type) {
-      setConflictWarning(false);
-      return;
-    }
+    if (!type) return;
     const endTime = addMinutesToTime(newBookingTime, type.duration_minutes);
     const [endHours] = endTime.split(":").map(Number);
-    if (endHours >= 24) {
-      setConflictWarning(false);
-      return;
-    }
+    if (endHours >= 24) return;
     const startIso = businessLocalToUtcIso(newBookingDate, newBookingTime);
     const endIso = businessLocalToUtcIso(newBookingDate, endTime);
     let cancelled = false;
@@ -1191,9 +1197,7 @@ export default function InvoiceForm({
         );
         setConflictWarning(overlaps);
       })
-      .catch(() => {
-        if (!cancelled) setConflictWarning(false);
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
