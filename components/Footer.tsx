@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BUSINESS, SOCIALS, GCC_STUDIO_URL, LATE_NIGHT_LISTENING_URL } from "@/lib/seo";
+import { formatPhoneDisplay } from "@/lib/format";
 
 // lucide-react has no brand/logo icons at all (confirmed against the
 // installed package — it's a generic icon set, not a brand-icon library
@@ -98,7 +99,7 @@ export default function Footer() {
                 href={`tel:${BUSINESS.telephone.replace(/[^0-9+]/g, "")}`}
                 className="block text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
               >
-                (901) 483-2391
+                {formatPhoneDisplay(BUSINESS.telephone)}
               </a>
             </div>
           </div>

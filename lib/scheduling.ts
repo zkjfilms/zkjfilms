@@ -258,3 +258,31 @@ export function addMinutesToTime(time: string, minutes: number): string {
   const total = h * 60 + m + minutes;
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
+
+// "HH:MM" or "HH:MM:SS" (Postgres time) -> "9:00am" for admin display.
+export function formatClockTime(time: string): string {
+  const [hoursStr, minutesStr] = time.split(":");
+  const hours24 = Number(hoursStr);
+  const period = hours24 >= 12 ? "pm" : "am";
+  const hours12 = hours24 % 12 || 12;
+  return `${hours12}:${minutesStr}${period}`;
+}
+
+// Postgres "HH:MM:SS" -> the "HH:MM" an <input type="time"> expects.
+export function toInputTime(value: string): string {
+  return value.slice(0, 5);
+}
+
+export function daysInMonth(year: number, month: number): string[] {
+  const days: string[] = [];
+  const date = new Date(year, month - 1, 1);
+  while (date.getMonth() === month - 1) {
+    days.push(
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+        date.getDate(),
+      ).padStart(2, "0")}`,
+    );
+    date.setDate(date.getDate() + 1);
+  }
+  return days;
+}

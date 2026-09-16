@@ -1,27 +1,7 @@
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
-import { resolveHoursForDate } from "@/lib/scheduling";
+import { resolveHoursForDate, daysInMonth } from "@/lib/scheduling";
 import { broadcastAvailabilityChange } from "@/lib/realtimeBroadcast";
-
-async function requireAdmin(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value);
-}
-
-function daysInMonth(year: number, month: number): string[] {
-  const days: string[] = [];
-  const date = new Date(year, month - 1, 1);
-  while (date.getMonth() === month - 1) {
-    days.push(
-      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-        date.getDate(),
-      ).padStart(2, "0")}`,
-    );
-    date.setDate(date.getDate() + 1);
-  }
-  return days;
-}
 
 export async function GET(request: Request) {
   if (!(await requireAdmin())) {

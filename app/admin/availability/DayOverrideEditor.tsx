@@ -1,17 +1,13 @@
 "use client";
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
+import { toInputTime } from "@/lib/scheduling";
 
 type Mode = "regular" | "custom" | "closed";
 type Status = "idle" | "saving" | "error";
 
 const DEFAULT_START = "09:00";
 const DEFAULT_END = "17:00";
-
-// Supabase returns "HH:MM:SS"; <input type="time"> wants "HH:MM".
-function toInputTime(value: string): string {
-  return value.slice(0, 5);
-}
 
 function initialMode(
   hasOverride: boolean,

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { timingSafeEqual } from "node:crypto";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { exchangeCodeAndStoreTokens } from "@/lib/googleCalendar";
 
 // Same constant-time comparison pattern as lib/adminAccess.ts's
@@ -16,7 +16,7 @@ function timingSafeStringEqual(a: string, b: string): boolean {
 
 export async function GET(request: Request) {
   const cookieStore = await cookies();
-  if (!isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value)) {
+  if (!(await requireAdmin())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 

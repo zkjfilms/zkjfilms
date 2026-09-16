@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { toInputTime } from "@/lib/scheduling";
 
 type Status = "loading" | "idle" | "saving" | "error";
 
@@ -31,11 +32,6 @@ function emptyDays(): DayState[] {
     startTime: DEFAULT_START,
     endTime: DEFAULT_END,
   }));
-}
-
-// Supabase returns "HH:MM:SS"; <input type="time"> wants "HH:MM".
-function toInputTime(value: string): string {
-  return value.slice(0, 5);
 }
 
 export default function WeeklyHoursEditor() {

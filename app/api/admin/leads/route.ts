@@ -1,7 +1,7 @@
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { SESSION_TYPES } from "@/lib/leads";
+import { EMAIL_REGEX } from "@/lib/scheduling";
 
 // Manual lead entry (referrals, phone calls) — leads.status defaults to
 // "new" and source to "manual" via the table's column defaults.
@@ -12,8 +12,6 @@ type Payload = {
   sessionType: string;
   message: string;
 };
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function parsePayload(body: unknown): Payload | null {
   if (typeof body !== "object" || body === null) return null;
@@ -53,8 +51,7 @@ function parsePayload(body: unknown): Payload | null {
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  if (!isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value)) {
+  if (!(await requireAdmin())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 

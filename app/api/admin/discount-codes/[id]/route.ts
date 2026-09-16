@@ -1,12 +1,6 @@
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { DISCOUNT_CODE_TYPES, isValidDiscountValue, type DiscountCodeType } from "@/lib/discountCodes";
-
-async function requireAdmin(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value);
-}
 
 type UpdatePayload = Partial<{
   code: string;

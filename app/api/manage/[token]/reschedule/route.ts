@@ -3,7 +3,7 @@ import { fetchOpenSlotsForDate } from "@/lib/availabilityQuery";
 import { deleteGoogleCalendarEvent, pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { sendBookingRescheduledEmail } from "@/lib/email";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
-import { utcIsoToBusinessDate } from "@/lib/scheduling";
+import { utcIsoToBusinessDate, businessLocalToUtcIso, addMinutesToTime } from "@/lib/scheduling";
 
 type Payload = { date: string; startTime: string };
 
@@ -52,10 +52,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return Response.json({ error: "That time is no longer available. Please pick another." }, { status: 409 });
   }
 
-  const startIso = combineDateTimeInBusinessTz(payload.date, payload.startTime);
-  const endIso = combineDateTimeInBusinessTz(
+  const startIso = businessLocalToUtcIso(payload.date, payload.startTime);
+  const endIso = businessLocalToUtcIso(
     payload.date,
-    addMinutes(payload.startTime, type.duration_minutes),
+    addMinutesToTime(payload.startTime, type.duration_minutes),
   );
 
   // Same guard as app/api/bookings/route.ts: an expired pending hold
@@ -116,43 +116,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   await broadcastBookingChange({ date: payload.date });
 
   return Response.json({ ok: true });
-}
-
-// Same conversion helper as app/api/bookings/route.ts — duplicated
-// rather than shared to avoid a premature cross-route dependency for
-// two call sites; extract to lib/scheduling.ts if a third appears.
-function combineDateTimeInBusinessTz(date: string, time: string): string {
-  // Anchored with "Z" so this parses as a UTC instant regardless of the
-  // host process's own timezone — without it, `new Date(...)` parses the
-  // string as local time in the *host's* timezone, which silently
-  // corrupts the result whenever the host isn't UTC (e.g. `next dev` on
-  // a laptop set to America/Chicago). Mirrors businessLocalToUtcIso in
-  // app/api/bookings/route.ts.
-  const naive = new Date(`${date}T${time}:00Z`);
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Chicago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  const parts = Object.fromEntries(formatter.formatToParts(naive).map((p) => [p.type, p.value]));
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  return new Date(naive.getTime() - (asUtc - naive.getTime())).toISOString();
-}
-
-function addMinutes(time: string, minutes: number): string {
-  const [h, m] = time.split(":").map(Number);
-  const total = h * 60 + m + minutes;
-  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }

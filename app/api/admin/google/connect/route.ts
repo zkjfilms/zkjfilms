@@ -1,12 +1,12 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { randomBytes } from "node:crypto";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getGoogleAuthUrl } from "@/lib/googleCalendar";
 
 export async function GET() {
   const cookieStore = await cookies();
-  if (!isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value)) {
+  if (!(await requireAdmin())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
   // CSRF protection: a random, single-use state value tied to this

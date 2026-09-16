@@ -1,7 +1,7 @@
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { fillTemplate, formatTemplateType } from "@/lib/contracts";
+import { EMAIL_REGEX } from "@/lib/scheduling";
 
 type Payload = {
   templateType: string;
@@ -10,8 +10,6 @@ type Payload = {
   sessionType: string;
   sessionDate: string;
 };
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function parsePayload(body: unknown): Payload | null {
   if (typeof body !== "object" || body === null) return null;
@@ -48,8 +46,7 @@ function parsePayload(body: unknown): Payload | null {
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  if (!isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value)) {
+  if (!(await requireAdmin())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 

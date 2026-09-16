@@ -1,17 +1,6 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import { fetchOpenDatesForMonth, type AppointmentTypeRow } from "@/lib/availabilityQuery";
-
-function daysInMonth(year: number, month: number): string[] {
-  const days: string[] = [];
-  const date = new Date(year, month - 1, 1);
-  while (date.getMonth() === month - 1) {
-    days.push(
-      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
-    );
-    date.setDate(date.getDate() + 1);
-  }
-  return days;
-}
+import { daysInMonth } from "@/lib/scheduling";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

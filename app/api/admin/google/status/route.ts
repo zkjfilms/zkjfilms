@@ -1,10 +1,8 @@
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  if (!isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value)) {
+  if (!(await requireAdmin())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
   const supabase = getSupabaseClient();

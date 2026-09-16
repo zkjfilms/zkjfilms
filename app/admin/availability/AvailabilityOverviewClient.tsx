@@ -5,6 +5,7 @@ import BlockOffTimePanel from "./BlockOffTimePanel";
 import AvailabilityEditor from "./AvailabilityEditor";
 import DayView from "./DayView";
 import { subscribeToSchedulingChannel } from "@/lib/supabaseBrowser";
+import { formatClockTime } from "@/lib/scheduling";
 
 type DayHours = { startTime: string; endTime: string } | null;
 
@@ -46,14 +47,6 @@ function weekDatesFor(weekOffset: number): string[] {
 }
 
 // "09:00:00" -> "9:00am"
-function formatClockTime(time: string): string {
-  const [hoursStr, minutesStr] = time.split(":");
-  const hours24 = Number(hoursStr);
-  const period = hours24 >= 12 ? "pm" : "am";
-  const hours12 = hours24 % 12 || 12;
-  return `${hours12}:${minutesStr}${period}`;
-}
-
 function formatHours(hours: DayHours): string {
   if (!hours) return "Closed";
   return `${formatClockTime(hours.startTime)}–${formatClockTime(hours.endTime)}`;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { LATE_NIGHT_LISTENING_URL } from "@/lib/seo";
+import { CaretIcon } from "@/components/podcast/icons";
 
 const links = [
   { href: "/", label: "Home" },
@@ -90,23 +91,6 @@ function MenuIcon({ open }: { open: boolean }) {
       <line x1="2" y1="5" x2="18" y2="5" />
       <line x1="2" y1="10" x2="18" y2="10" />
       <line x1="2" y1="15" x2="18" y2="15" />
-    </svg>
-  );
-}
-
-function CaretIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden="true"
-      className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-    >
-      <polyline points="1.5,3 5,6.5 8.5,3" />
     </svg>
   );
 }
@@ -294,6 +278,7 @@ export default function Navbar() {
                         type="button"
                         onClick={() => setOpenDropdown((open) => (open === link.href ? null : link.href))}
                         aria-expanded={isOpen}
+                        aria-haspopup="true"
                         aria-label={DROPDOWN_ARIA_LABEL[link.href]}
                         className={`${linkClass} p-2 -my-2 -mr-2`}
                       >
@@ -390,6 +375,7 @@ export default function Navbar() {
                       type="button"
                       onClick={() => setMobileAccordionOpen((open) => (open === link.href ? null : link.href))}
                       aria-expanded={isOpen}
+                      aria-haspopup="true"
                       aria-label={DROPDOWN_ARIA_LABEL[link.href]}
                       className="text-foreground p-3 -my-3 -mr-3"
                     >

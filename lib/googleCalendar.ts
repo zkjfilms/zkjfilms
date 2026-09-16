@@ -62,13 +62,19 @@ export async function getAuthenticatedGoogleClient() {
     // googleapis fires this when it silently refreshes an expired access
     // token — persist the new one so we're not re-refreshing every call.
     if (tokens.access_token) {
-      await supabase
+      const { error } = await supabase
         .from("google_calendar_sync")
         .update({
           access_token: tokens.access_token,
           token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
         })
         .eq("id", true);
+      if (error) {
+        // Nothing to throw into here — this callback has no caller to
+        // catch it. Log it: if this write is silently lost, we keep
+        // using a token Google has already rotated out from under us.
+        console.error("Failed to persist refreshed Google Calendar access token:", error);
+      }
     }
   });
 

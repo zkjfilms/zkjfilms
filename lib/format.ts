@@ -78,6 +78,15 @@ export function formatPriceRange(pricesCents: number[]): string | null {
   return min === max ? whole(min) : `${whole(min)}-${whole(max)}`;
 }
 
+// BUSINESS.telephone (lib/seo.ts) as a US number for display, e.g.
+// "+1-901-483-2391" -> "(901) 483-2391" — derived so the digits shown
+// always match the number the tel: link actually dials.
+export function formatPhoneDisplay(telephone: string): string {
+  const digits = telephone.replace(/\D/g, "").replace(/^1/, "");
+  if (digits.length !== 10) return telephone;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 // Podcast episode/video runtime — e.g. 2136 -> "35:36", 4106 -> "1:08:26".
 export function formatDuration(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);

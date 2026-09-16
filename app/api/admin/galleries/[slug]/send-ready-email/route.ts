@@ -1,16 +1,14 @@
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { isGalleryUnavailable } from "@/lib/gallery";
 import { generateGalleryPassword, generateGalleryPin } from "@/lib/galleryCredentials";
 import { fillGalleryReadyTemplate } from "@/lib/galleryReadyEmail";
 import { sendGalleryReadyEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/seo";
+import { EMAIL_REGEX } from "@/lib/scheduling";
 
 type Payload = { clientEmail: string };
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SEND_FAILURE_MESSAGE =
   "Credentials were reset, but the email failed to send. Copy these and send them yourself, or try again.";
@@ -30,8 +28,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const cookieStore = await cookies();
-  if (!isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value)) {
+  if (!(await requireAdmin())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 

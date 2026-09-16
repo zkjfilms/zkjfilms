@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { LEAD_STATUSES } from "@/lib/leads";
 
@@ -33,16 +32,11 @@ function parsePatchPayload(body: unknown): PatchPayload | null {
   return payload;
 }
 
-async function isAdmin(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value);
-}
-
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdmin())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 
@@ -84,7 +78,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdmin())) {
     return Response.json({ error: "Unauthorized." }, { status: 401 });
   }
 

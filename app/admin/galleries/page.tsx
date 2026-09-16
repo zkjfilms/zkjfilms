@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
+import { formatDate } from "@/lib/format";
 
 // robots noindex is inherited from app/admin/layout.tsx.
 export function generateMetadata(): Metadata {
@@ -15,14 +16,6 @@ type GalleryRow = {
   expires_at: string | null;
   archived_at: string | null;
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 // Date.now() has to stay inside this plain helper, not the component body
 // — same purity rule as lib/gallery.ts.

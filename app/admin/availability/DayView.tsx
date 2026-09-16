@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BUSINESS_TIME_ZONE } from "@/lib/scheduling";
+import { BUSINESS_TIME_ZONE, formatClockTime } from "@/lib/scheduling";
 
 type Status = "loading" | "idle" | "error";
 
@@ -47,15 +47,6 @@ type DayViewResponse = {
 };
 
 type AppointmentType = { id: string; name: string; active: boolean };
-
-// "HH:MM:SS" or "HH:MM" -> "9:00am"
-function formatClockTime(time: string): string {
-  const [hoursStr, minutesStr] = time.split(":");
-  const hours24 = Number(hoursStr);
-  const period = hours24 >= 12 ? "pm" : "am";
-  const hours12 = hours24 % 12 || 12;
-  return `${hours12}:${minutesStr}${period}`;
-}
 
 // Bookings carry real timestamptz values; render them in the business
 // timezone rather than the admin's browser timezone so the day view always

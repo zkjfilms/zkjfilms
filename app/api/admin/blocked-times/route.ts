@@ -1,12 +1,6 @@
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { broadcastAvailabilityChange } from "@/lib/realtimeBroadcast";
-
-async function requireAdmin(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value);
-}
 
 export async function GET(request: Request) {
   if (!(await requireAdmin())) {
