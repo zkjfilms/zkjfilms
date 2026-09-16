@@ -356,25 +356,32 @@ export async function sendInvoiceSentNotification(params: {
   clientName: string;
   clientEmail: string;
   hostedInvoiceUrl: string;
+  clientEmailFailed?: boolean;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
 
   const resend = new Resend(apiKey);
 
+  // Always fires alongside sendInvoiceEmail, even when that send failed —
+  // this is the admin's only signal that a client never got their copy,
+  // so it must say so plainly rather than a generic "sent" that would be
+  // false in that case.
+  const subject = params.clientEmailFailed
+    ? `Invoice email FAILED to send to ${params.clientName}`
+    : `Invoice sent to ${params.clientName}`;
+  const statusLine = params.clientEmailFailed
+    ? `The invoice was created, but the email to ${params.clientName} (${params.clientEmail}) failed to send — please deliver the link below manually.`
+    : `An invoice was sent to ${params.clientName} (${params.clientEmail}).`;
+
   try {
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: [BUSINESS.email],
-      subject: `Invoice sent to ${params.clientName}`,
-      text: [
-        `An invoice was sent to ${params.clientName} (${params.clientEmail}).`,
-        "",
-        "View it here:",
-        params.hostedInvoiceUrl,
-      ].join("\n"),
+      subject,
+      text: [statusLine, "", "View it here:", params.hostedInvoiceUrl].join("\n"),
       html: `
-        <p>An invoice was sent to ${escapeHtml(params.clientName)} (${escapeHtml(params.clientEmail)}).</p>
+        <p>${escapeHtml(statusLine)}</p>
         <p>View it here:</p>
         <p><a href="${params.hostedInvoiceUrl}">${params.hostedInvoiceUrl}</a></p>
       `,
@@ -469,6 +476,47 @@ export async function sendInvoiceBookingConflictEmail(params: {
         <p>The invoice is still marked paid. You'll need to reach out and arrange a new time (or a refund).</p>
         <p>Invoice:</p>
         <p><a href="${params.hostedInvoiceUrl}">${params.hostedInvoiceUrl}</a></p>
+      `,
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
+
+export async function sendContactInquiryEmail(params: {
+  name: string;
+  email: string;
+  sessionType: string;
+  message: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [BUSINESS.email],
+      replyTo: params.email,
+      subject: `New inquiry from ${params.name}`,
+      text: [
+        `Name: ${params.name}`,
+        `Email: ${params.email}`,
+        `Session type: ${params.sessionType}`,
+        "",
+        "Message:",
+        params.message,
+      ].join("\n"),
+      html: `
+        <h2>New contact form submission</h2>
+        <p><strong>Name:</strong> ${escapeHtml(params.name)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(params.email)}</p>
+        <p><strong>Session type:</strong> ${escapeHtml(params.sessionType)}</p>
+        <p><strong>Message:</strong></p>
+        <p>${escapeHtml(params.message).replace(/\n/g, "<br />")}</p>
       `,
     });
     if (error) return { ok: false, error: error.message ?? "Resend error." };

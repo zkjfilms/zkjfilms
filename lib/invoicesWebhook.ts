@@ -66,27 +66,59 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
     notes: string | null;
   } | null = null;
 
+  let recoveredExistingBooking = false;
+
   if (type) {
     const startIso = businessLocalToUtcIso(date, startTime);
     const endIso = businessLocalToUtcIso(date, addMinutesToTime(startTime, type.duration_minutes));
-    const { data: insertedBooking, error: insertError } = await supabase
+
+    // Redelivery guard: invoices.booking_id only gets linked *after* this
+    // insert succeeds (below), so if that link update ever failed on a
+    // prior run, Stripe's at-least-once redelivery of this same
+    // invoice.paid event would land here again with booking_id still
+    // null. Without this check, the retry would hit the exclusion
+    // constraint against the booking it already created and wrongly
+    // report a real conflict. A confirmed booking already matching this
+    // invoice's exact appointment/time/client is that prior success, not
+    // a stranger's booking — recover it instead of re-inserting.
+    const { data: existingBooking } = await supabase
       .from("bookings")
-      .insert({
-        appointment_type_id: type.id,
-        client_name: data.client_name,
-        client_email: data.client_email,
-        client_phone: clientPhone || null,
-        start_time: startIso,
-        end_time: endIso,
-        status: "confirmed",
-        notes: notes || null,
-      })
       .select()
-      .single();
-    if (insertError) {
-      console.error("Deferred booking creation failed for invoice", data.id, insertError);
+      .eq("appointment_type_id", type.id)
+      .eq("start_time", startIso)
+      .eq("end_time", endIso)
+      .eq("client_email", data.client_email)
+      .eq("status", "confirmed")
+      .maybeSingle();
+
+    if (existingBooking) {
+      console.error(
+        "Recovered a booking already created by a prior run of this webhook for invoice",
+        data.id,
+        "— only the invoices.booking_id link was missing.",
+      );
+      booking = existingBooking;
+      recoveredExistingBooking = true;
     } else {
-      booking = insertedBooking;
+      const { data: insertedBooking, error: insertError } = await supabase
+        .from("bookings")
+        .insert({
+          appointment_type_id: type.id,
+          client_name: data.client_name,
+          client_email: data.client_email,
+          client_phone: clientPhone || null,
+          start_time: startIso,
+          end_time: endIso,
+          status: "confirmed",
+          notes: notes || null,
+        })
+        .select()
+        .single();
+      if (insertError) {
+        console.error("Deferred booking creation failed for invoice", data.id, insertError);
+      } else {
+        booking = insertedBooking;
+      }
     }
   } else {
     console.error("Deferred booking creation failed: appointment type not found for invoice", data.id);
@@ -119,10 +151,24 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
     console.error("Failed to link booking_id for invoice", data.id, linkError);
   }
 
+  // A recovered booking already went through the calendar push and
+  // confirmation email on the run that actually created it — redoing
+  // either here would double-book the calendar event or re-notify the
+  // client for no reason.
+  if (recoveredExistingBooking) {
+    return { retry: false };
+  }
+
   try {
     const eventId = await pushBookingToGoogleCalendar({ ...booking, appointment_types: { name: type!.name } });
     if (eventId) {
-      await supabase.from("bookings").update({ google_event_id: eventId }).eq("id", booking.id);
+      const { error: eventIdError } = await supabase
+        .from("bookings")
+        .update({ google_event_id: eventId })
+        .eq("id", booking.id);
+      if (eventIdError) {
+        console.error("Failed to save google_event_id for booking", booking.id, eventIdError);
+      }
     }
   } catch (err) {
     console.error("Google Calendar push failed (booking still created):", err);

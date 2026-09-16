@@ -1,13 +1,8 @@
-import { cookies } from "next/headers";
-import { ADMIN_ACCESS_COOKIE, isValidAccessToken } from "@/lib/adminAccess";
+import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { createInvoice } from "@/lib/invoices";
 import { sendInvoiceEmail, sendInvoiceSentNotification } from "@/lib/email";
-
-async function requireAdmin(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value);
-}
+import { EMAIL_REGEX } from "@/lib/scheduling";
 
 export async function GET() {
   if (!(await requireAdmin())) {
@@ -50,8 +45,6 @@ type CreatePayload = {
   newBooking: NewBookingPayload | null;
 };
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function parseBillingAddress(value: unknown): { value: BillingAddressPayload; valid: boolean } {
   if (value === null || value === undefined) return { value: null, valid: true };
   if (typeof value !== "object") return { value: null, valid: false };
@@ -88,6 +81,9 @@ function parseNewBooking(value: unknown): { value: NewBookingPayload | null; val
     !v.startTime.trim() ||
     typeof v.clientPhone !== "string" ||
     typeof v.notes !== "string" ||
+    // notes ends up in Stripe invoice metadata (pendingBookingNotes in
+    // lib/invoices.ts), which caps each value at 500 chars — this leaves
+    // headroom under that limit rather than sitting flush against it.
     v.notes.trim().length > 450
   ) {
     return { value: null, valid: false };
@@ -260,6 +256,7 @@ export async function POST(request: Request) {
     clientName: payload.clientName,
     clientEmail: payload.clientEmail,
     hostedInvoiceUrl: created.hostedInvoiceUrl,
+    clientEmailFailed: !emailResult.ok,
   });
   if (!notifyResult.ok) {
     console.error("Invoice-sent admin notification failed:", notifyResult.error);

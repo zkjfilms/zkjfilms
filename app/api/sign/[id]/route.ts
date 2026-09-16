@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
-import { getClientIp } from "@/lib/contracts";
+import { getClientIp } from "@/lib/rateLimit";
 
 // Public route — no admin auth here by design, this is what the client
 // hits from the signing link. Integrity instead comes from: the contract

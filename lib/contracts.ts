@@ -33,19 +33,3 @@ export function formatTemplateType(type: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
-
-// Best-effort client IP for the signature record — Vercel's edge sets
-// x-forwarded-for on every request that reaches this function; the first
-// entry in the (possibly comma-separated) chain is the original client.
-// Not spoof-proof against a client setting this header directly, but
-// that's true of x-forwarded-for in general without a trusted-proxy
-// allowlist, and it's the standard best-effort approach for this kind of
-// signature audit trail.
-export function getClientIp(request: Request): string | null {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    const first = forwardedFor.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return request.headers.get("x-real-ip");
-}
