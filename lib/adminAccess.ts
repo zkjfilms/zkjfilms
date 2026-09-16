@@ -1,10 +1,11 @@
-// Server-side access control for /admin. Same pattern as
-// lib/gatedAccess.ts (HMAC-signed session cookie, password never stored
-// in the cookie itself) — kept separate since it's a distinct trust
-// level: this gates a list of all client galleries, not one client's own
-// photos.
+// Server-side access control for /admin — an HMAC-signed session cookie,
+// password never stored in the cookie itself (lib/galleryFavoriteToken.ts
+// models its own token on this same approach). Kept separate from gallery
+// access since it's a distinct trust level: this gates the list of all
+// client galleries, not one client's own photos.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
 
 export const ADMIN_ACCESS_COOKIE = "admin_access";
 
@@ -48,4 +49,11 @@ export function isValidAccessToken(token: string | undefined | null): boolean {
     return false;
   }
   return timingSafeStringEqual(token, expected);
+}
+
+// Shared by every /api/admin/* route handler — reads the same signed
+// cookie this module issues on login.
+export async function requireAdmin(): Promise<boolean> {
+  const cookieStore = await cookies();
+  return isValidAccessToken(cookieStore.get(ADMIN_ACCESS_COOKIE)?.value);
 }

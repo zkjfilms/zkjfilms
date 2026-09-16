@@ -1,7 +1,6 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import {
   computeOpenSlots,
-  resolveHoursForDate,
   businessDayUtcBounds,
   utcIsoToBusinessDate,
   type AvailabilityRule,
@@ -341,12 +340,4 @@ export async function fetchOpenDatesForMonth(params: {
   }
 
   return openDates;
-}
-
-export function resolveHoursQuick(
-  date: string,
-  rules: AvailabilityRule[],
-  overrides: AvailabilityOverride[],
-) {
-  return resolveHoursForDate(date, rules, overrides);
 }

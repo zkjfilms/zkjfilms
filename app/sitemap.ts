@@ -1,8 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/seo";
 
-// /gated is intentionally excluded — see app/robots.ts for the matching
-// disallow rule.
 const routes: Array<{
   path: string;
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
