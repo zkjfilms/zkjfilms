@@ -90,6 +90,13 @@ export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("headshots/toriamos-35751.jpg"),
   },
   {
+    key: "headshots/dennis.jpg",
+    width: 1252,
+    height: 1378,
+    alt: "Close-up black-and-white portrait of a heavyset man in a patterned shirt, furrowed brow, eyes cast to the side, deep shadow engulfing half his face.",
+    src: publicImageUrl("headshots/dennis.jpg"),
+  },
+  {
     key: "headshots/toriamos-10251321.jpg",
     width: 1400,
     height: 2100,
