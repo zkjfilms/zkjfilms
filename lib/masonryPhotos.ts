@@ -27,6 +27,13 @@ export type MasonryPhoto = {
 // column heights on its own. Just add/remove/shuffle for variety.
 export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
   {
+    key: "headshots/grace-09039.jpg",
+    width: 3058,
+    height: 4587,
+    alt: "Woman with long wavy caramel-highlighted hair centered part, green eyes, glossy nude lipstick, smiling directly at camera in black blazer, rust top, and gold sapphire pendant against a blush-pink backdrop.",
+    src: publicImageUrl("headshots/grace-09039.jpg"),
+  },
+  {
     key: "headshots/anon-054601.jpg",
     width: 3235,
     height: 4852,
@@ -41,25 +48,18 @@ export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("headshots/toriamos-22991.jpg"),
   },
   {
-    key: "headshots/toriamos-35751.jpg",
-    width: 2971,
-    height: 3714,
-    alt: "Black-and-white close-up of a woman with long wavy dark hair, eyes cast down and slight smirk, sunlight rimming one side of her hair against a black background, wearing a white top.",
-    src: publicImageUrl("headshots/toriamos-35751.jpg"),
+    key: "headshots/mackenzie-30.jpg",
+    width: 3991,
+    height: 5999,
+    alt: "Black-and-white side-profile close-up of a woman gazing upward, sharp cat-eye liner with dripping lines under one eye, septum ring, dark lips, and a chunky chain-link choker layered with metal ring pendants against a soft white background.",
+    src: publicImageUrl("headshots/mackenzie-30.jpg"),
   },
   {
-    key: "headshots/matt.jpg",
-    width: 3509,
-    height: 4679,
-    alt: "Close-up portrait against a dark teal backdrop of a young man with a two-tone mullet, orange-bleached fringe over dark roots, septum ring, chin and cheek piercings, and a faint scar above his eyebrow, dramatic side lighting casting half his face in shadow, wearing a black graphic tee and a beaded chain necklace.",
-    src: publicImageUrl("headshots/matt.jpg"),
-  },
-  {
-    key: "headshots/toriamos-44551.jpg",
+    key: "headshots/lucas-17201.jpg",
     width: 4024,
-    height: 6048,
-    alt: "Black-and-white close-up of a young woman with wavy hair parted to one side, gazing off-camera with a subtle closed-mouth expression, dramatic side lighting fading into a black background.",
-    src: publicImageUrl("headshots/toriamos-44551.jpg"),
+    height: 5030,
+    alt: "Man with tousled brown hair and light stubble looks off to the right, face lit warmly from below-left, dark t-shirt fading into black background.",
+    src: publicImageUrl("headshots/lucas-17201.jpg"),
   },
   {
     key: "headshots/toriamos-80391.jpg",
@@ -69,13 +69,6 @@ export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("headshots/toriamos-80391.jpg"),
   },
   {
-    key: "headshots/mackenzie-30.jpg",
-    width: 3991,
-    height: 5999,
-    alt: "Black-and-white side-profile close-up of a woman gazing upward, sharp cat-eye liner with dripping lines under one eye, septum ring, dark lips, and a chunky chain-link choker layered with metal ring pendants against a soft white background.",
-    src: publicImageUrl("headshots/mackenzie-30.jpg"),
-  },
-  {
     key: "headshots/angel-2.jpg",
     width: 3732,
     height: 2460,
@@ -83,11 +76,18 @@ export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("headshots/angel-2.jpg"),
   },
   {
-    key: "headshots/grace-09039.jpg",
-    width: 3058,
-    height: 4587,
-    alt: "Woman with long wavy caramel-highlighted hair centered part, green eyes, glossy nude lipstick, smiling directly at camera in black blazer, rust top, and gold sapphire pendant against a blush-pink backdrop.",
-    src: publicImageUrl("headshots/grace-09039.jpg"),
+    key: "headshots/matt.jpg",
+    width: 3509,
+    height: 4679,
+    alt: "Close-up portrait against a dark teal backdrop of a young man with a two-tone mullet, orange-bleached fringe over dark roots, septum ring, chin and cheek piercings, and a faint scar above his eyebrow, dramatic side lighting casting half his face in shadow, wearing a black graphic tee and a beaded chain necklace.",
+    src: publicImageUrl("headshots/matt.jpg"),
+  },
+  {
+    key: "headshots/toriamos-35751.jpg",
+    width: 2971,
+    height: 3714,
+    alt: "Black-and-white close-up of a woman with long wavy dark hair, eyes cast down and slight smirk, sunlight rimming one side of her hair against a black background, wearing a white top.",
+    src: publicImageUrl("headshots/toriamos-35751.jpg"),
   },
   {
     key: "headshots/toriamos-10251321.jpg",
@@ -95,6 +95,13 @@ export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
     height: 2100,
     alt: "Close-up of a woman with dark blunt-cut bangs, eyes closed and chin tilted down, nose ring visible, thin dried vines hanging vertically across her face and fern-tattooed shoulder, warm amber lighting.",
     src: publicImageUrl("headshots/toriamos-10251321.jpg"),
+  },
+  {
+    key: "headshots/toriamos-44551.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Black-and-white close-up of a young woman with wavy hair parted to one side, gazing off-camera with a subtle closed-mouth expression, dramatic side lighting fading into a black background.",
+    src: publicImageUrl("headshots/toriamos-44551.jpg"),
   },
 ];
 
