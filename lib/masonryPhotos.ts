@@ -83,11 +83,11 @@ export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
     src: publicImageUrl("headshots/angel-2.jpg"),
   },
   {
-    key: "headshots/toriamos-10252531.jpg",
-    width: 1004,
-    height: 1506,
-    alt: "Extreme close-up of a woman's face lit in split teal-blue tones, dark eyes glancing down-left, faint smile, small hoop nose ring catching the light.",
-    src: publicImageUrl("headshots/toriamos-10252531.jpg"),
+    key: "headshots/grace-09039.jpg",
+    width: 3058,
+    height: 4587,
+    alt: "Woman with long wavy caramel-highlighted hair centered part, green eyes, glossy nude lipstick, smiling directly at camera in black blazer, rust top, and gold sapphire pendant against a blush-pink backdrop.",
+    src: publicImageUrl("headshots/grace-09039.jpg"),
   },
   {
     key: "headshots/toriamos-10251321.jpg",
