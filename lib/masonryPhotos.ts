@@ -110,6 +110,13 @@ export const HEADSHOTS_MASONRY_PHOTOS: MasonryPhoto[] = [
     alt: "Black-and-white close-up of a young woman with wavy hair parted to one side, gazing off-camera with a subtle closed-mouth expression, dramatic side lighting fading into a black background.",
     src: publicImageUrl("headshots/toriamos-44551.jpg"),
   },
+  {
+    key: "headshots/traci.jpg",
+    width: 3041,
+    height: 4562,
+    alt: "Woman with curly hair swept up, teal-framed cat-eye glasses, and red lipstick gazes upward as amber light warms her face and blue light rims her ear and earring against total black.",
+    src: publicImageUrl("headshots/traci.jpg"),
+  },
 ];
 
 export const CREATIVE_PORTRAITS_MASONRY_PHOTOS: MasonryPhoto[] = [
