@@ -168,50 +168,57 @@ export const CREATIVE_PORTRAITS_MASONRY_PHOTOS: MasonryPhoto[] = [
   },
 ];
 
+// Only client-approved, publicly-releasable images belong here — add new
+// ones with `npm run image:upload -- <file> boudoir/gallery/<file>` (real
+// dimensions are printed for you to paste in). Uploaded to the R2 public
+// bucket rather than committed to git, since this gallery has grown to
+// 300+ MB of full-res exports, which would otherwise bloat the repo
+// permanently — see lib/media.ts.
+//
+// Order is pre-interleaved by session/subject (round-robin across
+// filename-derived groups — "Andi-8968138.jpg", "anon-27571.jpg",
+// "anon13.jpg" — so consecutive grid images aren't from the same shoot),
+// not upload order. Re-shuffle by hand if you add/remove entries.
+//
+// Alt text is intentionally generic (no client names or identifying
+// detail) — the vision model that drafts alt text for every other gallery
+// also declines to describe boudoir/nude content in more specific terms,
+// so a real per-photo description isn't an option here regardless.
 export const BOUDOIR_MASONRY_PHOTOS: MasonryPhoto[] = [
-  {
-    key: "boudoir-placeholder-01",
-    width: 1067,
-    height: 1600,
-    alt: "Fine art boudoir photography session in Columbia, Missouri",
-    src: "https://picsum.photos/seed/boudoir-placeholder-01/1067/1600",
-  },
-  {
-    key: "boudoir-placeholder-02",
-    width: 1600,
-    height: 1067,
-    alt: "Intimate boudoir photography, Mid-Missouri photographer",
-    src: "https://picsum.photos/seed/boudoir-placeholder-02/1600/1067",
-  },
-  {
-    key: "boudoir-placeholder-03",
-    width: 1200,
-    height: 1800,
-    alt: "Fine art nude photography session in Columbia, MO",
-    src: "https://picsum.photos/seed/boudoir-placeholder-03/1200/1800",
-  },
-  {
-    key: "boudoir-placeholder-04",
-    width: 1500,
-    height: 1000,
-    alt: "Boudoir photography styled with natural light, Mid-Missouri",
-    src: "https://picsum.photos/seed/boudoir-placeholder-04/1500/1000",
-  },
-  {
-    key: "boudoir-placeholder-05",
-    width: 1400,
-    height: 1400,
-    alt: "Intimate portrait session, Columbia, Missouri photographer",
-    src: "https://picsum.photos/seed/boudoir-placeholder-05/1400/1400",
-  },
-  {
-    key: "boudoir-placeholder-06",
-    width: 1800,
-    height: 1200,
-    alt: "Fine art boudoir and nude photography, Mid-Missouri",
-    src: "https://picsum.photos/seed/boudoir-placeholder-06/1800/1200",
-  },
-];
+  { key: "boudoir/gallery/Andi-8968138.jpg", width: 3880, height: 5831 },
+  { key: "boudoir/gallery/TRA_2561-Edit.jpg", width: 5753, height: 3828 },
+  { key: "boudoir/gallery/TRA_2576-Edit.jpg", width: 6048, height: 4024 },
+  { key: "boudoir/gallery/TRA_2579-Edit.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/TRA_2587-Edit.jpg", width: 3450, height: 2295 },
+  { key: "boudoir/gallery/TRA_2590-Edit.jpg", width: 3718, height: 2474 },
+  { key: "boudoir/gallery/TRA_2602-Edit.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon-27571.jpg", width: 5693, height: 3788 },
+  { key: "boudoir/gallery/anon1.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon-28741.jpg", width: 4912, height: 3268 },
+  { key: "boudoir/gallery/anon10.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon-29111.jpg", width: 5309, height: 3532 },
+  { key: "boudoir/gallery/anon11.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon-44911.jpg", width: 5186, height: 3450 },
+  { key: "boudoir/gallery/anon13.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon-45931.jpg", width: 3807, height: 5722 },
+  { key: "boudoir/gallery/anon15.jpg", width: 1587, height: 2380 },
+  { key: "boudoir/gallery/anon-46001.jpg", width: 5762, height: 3834 },
+  { key: "boudoir/gallery/anon2.jpg", width: 6048, height: 4024 },
+  { key: "boudoir/gallery/anon-46661.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon3.jpg", width: 5380, height: 3580 },
+  { key: "boudoir/gallery/anon-47071.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon4.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon-47161.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon5.jpg", width: 6048, height: 4024 },
+  { key: "boudoir/gallery/anon-47291.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon6.jpg", width: 3884, height: 5838 },
+  { key: "boudoir/gallery/anon7.jpg", width: 4024, height: 6048 },
+  { key: "boudoir/gallery/anon9.jpg", width: 3092, height: 4647 },
+].map((photo, i) => ({
+  ...photo,
+  alt: `Fine art boudoir photography session in Columbia, Missouri — image ${i + 1}`,
+  src: publicImageUrl(photo.key),
+}));
 
 export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
   {
