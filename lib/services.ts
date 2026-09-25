@@ -155,6 +155,7 @@ export const BOUDOIR_SERVICE: Service = {
   description:
     "Boudoir and fine art nude photography built around trust. This is some of the most personal work I do — shaped entirely around what you're comfortable with, at whatever pace feels right. Every image stays private unless you decide otherwise: fully public, cropped and anonymous, or never shared at all.",
   heroImageSeed: "nocturne-boudoir-hero",
+  heroImageUrl: publicImageUrl("boudoir/AnonBanner.jpg"),
   heroImageAlt: "Fine art boudoir photography session in Columbia, Missouri.",
   gallery: null,
   // Boudoir's gallery comes from real client-approved photos read at
