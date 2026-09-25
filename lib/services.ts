@@ -140,8 +140,9 @@ export const CREATIVE_PORTRAITS_SERVICE: Service = {
   description:
     "More personal, more art-directed. Lighting, styling, and concept-driven sessions for people who want something beyond a standard portrait — a set of images that actually feels like you.",
   heroImageSeed: "nocturne-creative-hero",
+  heroImageUrl: publicImageUrl("creative-portraits/KwaniHero.jpg"),
   heroImageAlt:
-    "Art-directed creative portrait photography session in Columbia, Missouri.",
+    "Low-angle silhouette of a woman in a black slip dress, head tilted back and one fist raised above her hair, against a pale hazy sky in this Columbia, Missouri portrait.",
   gallery: null,
   masonryPhotos: CREATIVE_PORTRAITS_MASONRY_PHOTOS,
   faqIds: ["what-to-wear", "session-what-happens"],
