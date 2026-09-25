@@ -23,10 +23,9 @@ const PHOTOS_SUBLINKS = [
   { href: "/headshots", label: "Headshots" },
 ];
 
-// Unlike Photos (which has its own overview page plus separate category
-// links), Films has no content of its own beyond the dropdown — its own
-// page is listed as a dropdown option alongside Podcast, so the parent nav
-// item is dropdown-only (see DROPDOWN_ONLY below) rather than a direct link.
+// Neither Photos nor Films has an overview page of its own — each
+// category is only a dropdown option, so the parent nav item is
+// dropdown-only (see DROPDOWN_ONLY below) rather than a direct link.
 const FILMS_SUBLINKS = [
   { href: "/films", label: "Films" },
   { href: "/podcast", label: "Podcast" },
@@ -42,7 +41,7 @@ const DROPDOWNS: Record<string, { href: string; label: string }[]> = {
 // Parent links in this set render as a dropdown trigger only — no direct
 // navigation from the top-level label, since the destination itself is one
 // of the dropdown options.
-const DROPDOWN_ONLY = new Set(["/films"]);
+const DROPDOWN_ONLY = new Set(["/photos", "/films"]);
 
 const DROPDOWN_ARIA_LABEL: Record<string, string> = {
   "/photos": "Show photo categories",
@@ -54,7 +53,6 @@ const DROPDOWN_ARIA_LABEL: Record<string, string> = {
 // at the very top for transparent white text to sit on.
 const HERO_ROUTES = new Set([
   "/",
-  "/photos",
   "/headshots",
   "/creative-portraits",
   "/boudoir",

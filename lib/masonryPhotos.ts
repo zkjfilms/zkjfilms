@@ -1,8 +1,5 @@
 // Flat photo lists for the masonry-style /headshots, /creative-portraits,
-// and /music pages — deliberately separate from components/Gallery.tsx's
-// GalleryGroup/GalleryBlock shape (single/pair blocks), which /photos still
-// uses directly via HEADSHOTS_GALLERY/CREATIVE_PORTRAITS_GALLERY in
-// lib/services.ts. A masonry tile's shape comes entirely from the photo's
+// and /music pages. A masonry tile's shape comes entirely from the photo's
 // own width/height — no block/crop concept needed.
 import { publicImageUrl } from "@/lib/media";
 

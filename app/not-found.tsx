@@ -22,18 +22,12 @@ export default function NotFound() {
         moved, maybe it was never there. Let&apos;s get you back to
         something real.
       </p>
-      <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
+      <div className="mt-10">
         <Link
           href="/"
           className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
         >
           Back to Home
-        </Link>
-        <Link
-          href="/photos"
-          className="text-xs uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
-        >
-          Browse the Portfolio
         </Link>
       </div>
     </div>

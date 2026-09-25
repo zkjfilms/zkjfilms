@@ -68,16 +68,9 @@ export default function ServiceLandingPage({
         )}
       </div>
 
-      {/* masonryPhotos takes precedence over gallery when both are present;
-          check length (not just truthiness) so an emptied array falls
-          through to the gallery fallback instead of rendering nothing. */}
       {service.masonryPhotos?.length ? (
         <MasonryGallery photos={service.masonryPhotos} />
-      ) : (
-        service.gallery && (
-          <Gallery groups={[{ ...service.gallery, description: "" }]} />
-        )
-      )}
+      ) : null}
 
       {extraGallery && <Gallery groups={[extraGallery]} />}
 
@@ -121,12 +114,6 @@ export default function ServiceLandingPage({
               {other.name}
             </Link>
           ))}
-          <Link
-            href="/photos"
-            className="text-sm text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
-          >
-            All Photos
-          </Link>
         </div>
       </div>
     </div>

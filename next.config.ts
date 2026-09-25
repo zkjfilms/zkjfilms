@@ -151,7 +151,7 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      { source: "/portraits", destination: "/photos", permanent: true },
+      { source: "/portraits", destination: "/creative-portraits", permanent: true },
     ];
   },
 };
