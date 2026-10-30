@@ -393,8 +393,8 @@ export async function sendInvoiceSentNotification(params: {
   }
 }
 
-// Sent from the stripe-invoices webhook (lib/invoicesWebhook.ts) once a
-// "Create new" mode invoice's payment confirms and the real booking gets
+// Sent from the stripe-invoices webhook (lib/invoicesWebhook.ts) once an
+// invoice's payment confirms and a booked line item's real booking gets
 // created. Modeled on sendBookingPaymentConfirmedEmail's template but kept
 // as its own function rather than reusing that one directly —
 // sendBookingPaymentConfirmedEmail is built around amount_paid_cents and
@@ -443,9 +443,9 @@ export async function sendInvoiceBookingConfirmedEmail(
 }
 
 // Sent to the site owner (BUSINESS.email) from the stripe-invoices webhook
-// (lib/invoicesWebhook.ts) when a "Create new" mode invoice gets paid but
-// the deferred booking can't be created (most often: someone else took the
-// slot while the invoice sat unpaid). The invoice stays marked paid —
+// (lib/invoicesWebhook.ts) when an invoice with booked line items gets paid
+// but one or more deferred bookings can't be created (most often: someone
+// else took the slot while the invoice sat unpaid). The invoice stays marked paid —
 // resolving the conflict (a new time, a refund) is a manual, out-of-band
 // step; this email is the only signal that one's needed.
 export async function sendInvoiceBookingConflictEmail(params: {

@@ -2,8 +2,8 @@ import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { createInvoice, MAX_LINE_BOOKINGS, type LineBooking } from "@/lib/invoices";
 import { sendInvoiceEmail, sendInvoiceSentNotification } from "@/lib/email";
-import { EMAIL_REGEX, addMinutesToTime } from "@/lib/scheduling";
-import { formatDateOnly } from "@/lib/format";
+import { EMAIL_REGEX, addMinutesToTime, businessLocalToUtcIso } from "@/lib/scheduling";
+import { formatDateOnly, formatTimeRange } from "@/lib/format";
 
 export async function GET() {
   if (!(await requireAdmin())) {
@@ -22,14 +22,20 @@ export async function GET() {
   return Response.json({ invoices: data });
 }
 
-type LineItemPayload = { description: string; amountCents: number; booking: LineBooking | null };
+type LineItemPayload = {
+  description: string;
+  date: string | null;
+  amountCents: number;
+  booking: LineBooking | null;
+};
 
-// Optional per-line-item service date ("YYYY-MM-DD") for multi-day jobs. It's
-// folded into the description ("Oct 3, 2026 — Headshots") rather than stored
-// separately, so it reads the same on the Stripe hosted invoice/PDF, in the
-// local invoice_line_items row, and in the admin list — no schema change.
-// A dated line can also carry a booking ({ appointmentTypeId, startTime }),
-// created on payment by the stripe-invoices webhook.
+// Optional per-line-item service date ("YYYY-MM-DD") for multi-day jobs. In
+// POST it's folded into the description ("Oct 3, 2026 — Headshots", or the
+// full time range for a booked line) rather than stored separately, so it
+// reads the same on the Stripe hosted invoice/PDF, in the local
+// invoice_line_items row, and in the admin list — no schema change. A dated
+// line can also carry a booking ({ appointmentTypeId, startTime }), created
+// on payment by the stripe-invoices webhook.
 function parseLineItem(item: unknown): LineItemPayload | null {
   if (typeof item !== "object" || item === null) return null;
   const v = item as Record<string, unknown>;
@@ -58,9 +64,9 @@ function parseLineItem(item: unknown): LineItemPayload | null {
     }
     booking = { appointmentTypeId: raw.appointmentTypeId, date: v.date, startTime: raw.startTime };
   }
-  const description = v.description.trim();
   return {
-    description: typeof v.date === "string" ? `${formatDateOnly(v.date)} — ${description}` : description,
+    description: v.description.trim(),
+    date: typeof v.date === "string" ? v.date : null,
     amountCents: v.amountCents,
     booking,
   };
@@ -68,24 +74,15 @@ function parseLineItem(item: unknown): LineItemPayload | null {
 
 type BillingAddressPayload = { line1: string; city: string; state: string; postalCode: string } | null;
 
-type NewBookingPayload = {
-  appointmentTypeId: string;
-  date: string;
-  startTime: string;
-  clientPhone: string;
-  notes: string;
-};
-
 type CreatePayload = {
   clientName: string;
   clientEmail: string;
   bookingId: string | null;
   lineItems: LineItemPayload[];
   dueDate: string | null;
-  sessionDateTime: string | null;
   clientPhone: string | null;
   billingAddress: BillingAddressPayload;
-  newBooking: NewBookingPayload | null;
+  bookingNotes: string | null;
 };
 
 function parseBillingAddress(value: unknown): { value: BillingAddressPayload; valid: boolean } {
@@ -111,44 +108,11 @@ function parseBillingAddress(value: unknown): { value: BillingAddressPayload; va
   };
 }
 
-function parseNewBooking(value: unknown): { value: NewBookingPayload | null; valid: boolean } {
-  if (value === null || value === undefined) return { value: null, valid: true };
-  if (typeof value !== "object") return { value: null, valid: false };
-  const v = value as Record<string, unknown>;
-  if (
-    typeof v.appointmentTypeId !== "string" ||
-    !v.appointmentTypeId.trim() ||
-    typeof v.date !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(v.date) ||
-    typeof v.startTime !== "string" ||
-    !v.startTime.trim() ||
-    typeof v.clientPhone !== "string" ||
-    typeof v.notes !== "string" ||
-    // notes ends up in Stripe invoice metadata (pendingBookingNotes in
-    // lib/invoices.ts), which caps each value at 500 chars — this leaves
-    // headroom under that limit rather than sitting flush against it.
-    v.notes.trim().length > 450
-  ) {
-    return { value: null, valid: false };
-  }
-  return {
-    value: {
-      appointmentTypeId: v.appointmentTypeId,
-      date: v.date,
-      startTime: v.startTime,
-      clientPhone: v.clientPhone.trim(),
-      notes: v.notes.trim(),
-    },
-    valid: true,
-  };
-}
-
 function parseCreatePayload(body: unknown): CreatePayload | null {
   if (typeof body !== "object" || body === null) return null;
   const b = body as Record<string, unknown>;
 
   const { value: billingAddress, valid: billingAddressValid } = parseBillingAddress(b.billingAddress);
-  const { value: newBooking, valid: newBookingValid } = parseNewBooking(b.newBooking);
   const lineItems = Array.isArray(b.lineItems) ? b.lineItems.map(parseLineItem) : [];
 
   if (
@@ -160,14 +124,16 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     lineItems.length === 0 ||
     !lineItems.every((item): item is LineItemPayload => item !== null) ||
     (b.dueDate !== null && (typeof b.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(b.dueDate))) ||
-    (b.sessionDateTime !== null &&
-      b.sessionDateTime !== undefined &&
-      (typeof b.sessionDateTime !== "string" || b.sessionDateTime.trim().length > 140)) ||
     (b.clientPhone !== null &&
       b.clientPhone !== undefined &&
       (typeof b.clientPhone !== "string" || b.clientPhone.trim().length > 32)) ||
-    !billingAddressValid ||
-    !newBookingValid
+    (b.bookingNotes !== null &&
+      b.bookingNotes !== undefined &&
+      // Rides along in Stripe invoice metadata (lineBookingNotes in
+      // lib/invoices.ts), which caps each value at 500 chars — this leaves
+      // headroom under that limit rather than sitting flush against it.
+      (typeof b.bookingNotes !== "string" || b.bookingNotes.trim().length > 450)) ||
+    !billingAddressValid
   ) {
     return null;
   }
@@ -177,10 +143,9 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     bookingId: b.bookingId as string | null,
     lineItems: lineItems as LineItemPayload[],
     dueDate: b.dueDate as string | null,
-    sessionDateTime: typeof b.sessionDateTime === "string" && b.sessionDateTime.trim() ? b.sessionDateTime.trim() : null,
     clientPhone: typeof b.clientPhone === "string" && b.clientPhone.trim() ? b.clientPhone.trim() : null,
     billingAddress,
-    newBooking,
+    bookingNotes: typeof b.bookingNotes === "string" && b.bookingNotes.trim() ? b.bookingNotes.trim() : null,
   };
 }
 
@@ -202,6 +167,7 @@ export async function POST(request: Request) {
   if (lineBookings.length > MAX_LINE_BOOKINGS) {
     return Response.json({ error: `An invoice can book at most ${MAX_LINE_BOOKINGS} line items.` }, { status: 400 });
   }
+  const durations = new Map<string, number>();
   if (lineBookings.length > 0) {
     const typeIds = [...new Set(lineBookings.map((b) => b.appointmentTypeId))];
     const { data: types, error: typesError } = await supabase
@@ -221,8 +187,24 @@ export async function POST(request: Request) {
       if (Number(addMinutesToTime(b.startTime, type.duration_minutes).split(":")[0]) >= 24) {
         return Response.json({ error: "A booked line item would run past midnight." }, { status: 400 });
       }
+      durations.set(type.id, type.duration_minutes);
     }
   }
+
+  // Booked lines show their full session time range ("Sat, Oct 3 ·
+  // 10:00 AM–2:00 PM CDT — Headshots"), the same string the old
+  // "Session date & time" field used to carry; dated-only lines show the date.
+  const lineItems = payload.lineItems.map((item) => {
+    let label: string | null = null;
+    if (item.booking) {
+      const { date, startTime, appointmentTypeId } = item.booking;
+      const endTime = addMinutesToTime(startTime, durations.get(appointmentTypeId)!);
+      label = formatTimeRange(businessLocalToUtcIso(date, startTime), businessLocalToUtcIso(date, endTime));
+    } else if (item.date) {
+      label = formatDateOnly(item.date);
+    }
+    return { description: label ? `${label} — ${item.description}` : item.description, amountCents: item.amountCents };
+  });
 
   let created: Awaited<ReturnType<typeof createInvoice>>;
   try {
@@ -230,64 +212,32 @@ export async function POST(request: Request) {
       clientName: payload.clientName,
       clientEmail: payload.clientEmail,
       bookingId: payload.bookingId,
-      lineItems: payload.lineItems,
+      lineItems,
       dueDate: payload.dueDate,
-      sessionDateTime: payload.sessionDateTime,
       clientPhone: payload.clientPhone,
       billingAddress: payload.billingAddress,
-      newBooking: payload.newBooking,
       lineBookings,
+      bookingNotes: payload.bookingNotes,
     });
   } catch (err) {
     console.error("Stripe invoice creation failed:", err);
     return Response.json({ error: "Failed to create invoice in Stripe." }, { status: 502 });
   }
 
-  // The full row includes session_date_time — a column that can, in
-  // principle, not exist yet on a given deployment if a migration hasn't
-  // landed (this happened live once already: the app deployed before the
-  // matching `alter table` ran). If that insert fails for any reason, the
-  // Stripe invoice above is already real and finalized — retry once with
-  // only the table's original eight columns, so the invoice still ends up
-  // as a manageable local row (voidable/resendable from the admin UI)
-  // rather than an orphan only reachable from the Stripe Dashboard.
-  const fullRow = {
-    client_name: payload.clientName,
-    client_email: payload.clientEmail,
-    booking_id: payload.bookingId,
-    stripe_invoice_id: created.stripeInvoiceId,
-    stripe_customer_id: created.stripeCustomerId,
-    status: "open" as const,
-    due_date: payload.dueDate,
-    hosted_invoice_url: created.hostedInvoiceUrl,
-    session_date_time: payload.sessionDateTime,
-  };
-
-  let { data: invoice, error: insertError } = await supabase
+  const { data: invoice, error: insertError } = await supabase
     .from("invoices")
-    .insert(fullRow)
+    .insert({
+      client_name: payload.clientName,
+      client_email: payload.clientEmail,
+      booking_id: payload.bookingId,
+      stripe_invoice_id: created.stripeInvoiceId,
+      stripe_customer_id: created.stripeCustomerId,
+      status: "open" as const,
+      due_date: payload.dueDate,
+      hosted_invoice_url: created.hostedInvoiceUrl,
+    })
     .select()
     .single();
-
-  if (insertError) {
-    console.error("invoices insert failed for full row, retrying with core columns only:", insertError);
-    const coreRow = {
-      client_name: fullRow.client_name,
-      client_email: fullRow.client_email,
-      booking_id: fullRow.booking_id,
-      stripe_invoice_id: fullRow.stripe_invoice_id,
-      stripe_customer_id: fullRow.stripe_customer_id,
-      status: fullRow.status,
-      due_date: fullRow.due_date,
-      hosted_invoice_url: fullRow.hosted_invoice_url,
-    };
-    const fallback = await supabase.from("invoices").insert(coreRow).select().single();
-    invoice = fallback.data;
-    insertError = fallback.error;
-    if (invoice) {
-      console.warn("Invoice saved with a degraded row (session_date_time dropped):", created.stripeInvoiceId);
-    }
-  }
 
   if (insertError) {
     console.error("invoices insert failed (Stripe invoice already created):", insertError);
@@ -295,7 +245,7 @@ export async function POST(request: Request) {
   }
 
   const { error: lineItemsError } = await supabase.from("invoice_line_items").insert(
-    payload.lineItems.map((item, index) => ({
+    lineItems.map((item, index) => ({
       invoice_id: invoice.id,
       description: item.description.trim(),
       amount_cents: item.amountCents,

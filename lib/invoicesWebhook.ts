@@ -174,9 +174,11 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
   }
 
   // Bookings deferred until payment ride along in this invoice's Stripe
-  // metadata (see lib/invoices.ts's createInvoice): at most one from "Create
-  // new" mode — skipped once invoices.booking_id is linked, as before — plus
-  // one per dated line item with a start time and appointment type.
+  // metadata (see lib/invoices.ts's createInvoice): one per dated line item
+  // with a start time and appointment type. The pendingBooking* keys are the
+  // retired "Create new" mode's — no longer written, but still read so any
+  // such invoice sent before it was removed still books when paid (skipped
+  // once invoices.booking_id is linked, as before).
   const meta = invoice.metadata;
   const pending: PendingBooking[] = [];
   if (!data.booking_id && meta?.pendingBookingAppointmentTypeId) {
@@ -188,9 +190,9 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
       notes: meta.pendingBookingNotes ?? "",
     });
   }
-  const { lineBookings, clientPhone } = lineBookingsFromMetadata(meta);
+  const { lineBookings, clientPhone, notes } = lineBookingsFromMetadata(meta);
   for (const lineBooking of lineBookings) {
-    pending.push({ ...lineBooking, clientPhone, notes: "" });
+    pending.push({ ...lineBooking, clientPhone, notes });
   }
   if (pending.length === 0) {
     return { retry: false };
