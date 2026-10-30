@@ -1,5 +1,48 @@
 import { getStripeClient } from "@/lib/stripe";
 
+// A dated line item that should also become a real booking once the invoice
+// is paid ("book each dated line on payment"). Like "Create new" mode, nothing
+// is held while the invoice is unpaid — these ride along in Stripe metadata
+// and lib/invoicesWebhook.ts creates the bookings on invoice.paid.
+export type LineBooking = {
+  appointmentTypeId: string;
+  date: string; // "YYYY-MM-DD"
+  startTime: string; // "HH:MM"
+};
+
+// Stripe allows 50 metadata keys per invoice; the "Create new" keys use 5,
+// and this keeps plenty of headroom under that limit.
+export const MAX_LINE_BOOKINGS = 10;
+
+const LINE_BOOKING_KEY_PREFIX = "lineBooking";
+const LINE_BOOKING_PHONE_KEY = "lineBookingClientPhone";
+
+// One key per booking, "typeId|date|startTime" (~53 chars, well under
+// Stripe's 500-char value limit).
+function lineBookingsToMetadata(lineBookings: LineBooking[], clientPhone: string | null): Record<string, string> {
+  if (lineBookings.length === 0) return {};
+  const meta: Record<string, string> = {};
+  lineBookings.forEach((b, i) => {
+    meta[`${LINE_BOOKING_KEY_PREFIX}${i}`] = `${b.appointmentTypeId}|${b.date}|${b.startTime}`;
+  });
+  if (clientPhone) meta[LINE_BOOKING_PHONE_KEY] = clientPhone;
+  return meta;
+}
+
+export function lineBookingsFromMetadata(meta: Record<string, string> | null | undefined): {
+  lineBookings: LineBooking[];
+  clientPhone: string;
+} {
+  const lineBookings: LineBooking[] = [];
+  for (let i = 0; i < MAX_LINE_BOOKINGS; i++) {
+    const raw = meta?.[`${LINE_BOOKING_KEY_PREFIX}${i}`];
+    if (!raw) break;
+    const [appointmentTypeId, date, startTime] = raw.split("|");
+    if (appointmentTypeId && date && startTime) lineBookings.push({ appointmentTypeId, date, startTime });
+  }
+  return { lineBookings, clientPhone: meta?.[LINE_BOOKING_PHONE_KEY] ?? "" };
+}
+
 export async function createInvoice(params: {
   clientName: string;
   clientEmail: string;
@@ -16,6 +59,7 @@ export async function createInvoice(params: {
     clientPhone: string;
     notes: string;
   } | null;
+  lineBookings?: LineBooking[];
 }): Promise<{ stripeInvoiceId: string; stripeCustomerId: string; hostedInvoiceUrl: string }> {
   const stripe = getStripeClient();
 
@@ -65,17 +109,20 @@ export async function createInvoice(params: {
     days_until_due: daysUntilDue,
     auto_advance: false,
     pending_invoice_items_behavior: "exclude",
-    metadata: params.bookingId
-      ? { bookingId: params.bookingId }
-      : params.newBooking
-        ? {
-            pendingBookingAppointmentTypeId: params.newBooking.appointmentTypeId,
-            pendingBookingDate: params.newBooking.date,
-            pendingBookingStartTime: params.newBooking.startTime,
-            pendingBookingClientPhone: params.newBooking.clientPhone,
-            pendingBookingNotes: params.newBooking.notes,
-          }
-        : {},
+    metadata: {
+      ...(params.bookingId
+        ? { bookingId: params.bookingId }
+        : params.newBooking
+          ? {
+              pendingBookingAppointmentTypeId: params.newBooking.appointmentTypeId,
+              pendingBookingDate: params.newBooking.date,
+              pendingBookingStartTime: params.newBooking.startTime,
+              pendingBookingClientPhone: params.newBooking.clientPhone,
+              pendingBookingNotes: params.newBooking.notes,
+            }
+          : {}),
+      ...lineBookingsToMetadata(params.lineBookings ?? [], params.clientPhone),
+    },
     // Stripe's built-in mechanism for a labeled, non-billable row on the
     // hosted invoice/PDF — distinct from line items, doesn't affect the
     // total. Up to 4 allowed; this feature only ever sends one.

@@ -16,7 +16,14 @@ type BookingOption = {
   status: string;
 };
 
-type LineItem = { date: string; description: string; amount: string };
+// appointmentTypeId + startTime (on a dated line) mean "book this on payment" —
+// the type supplies the booking's duration. Empty appointmentTypeId = label only.
+type LineItem = { date: string; startTime: string; appointmentTypeId: string; description: string; amount: string };
+
+const EMPTY_LINE_ITEM: LineItem = { date: "", startTime: "", appointmentTypeId: "", description: "", amount: "" };
+
+// Mirrors MAX_LINE_BOOKINGS in lib/invoices.ts (a server module, so not imported here).
+const MAX_LINE_BOOKINGS = 10;
 
 type BookingMode = "none" | "existing" | "new";
 
@@ -48,7 +55,7 @@ export default function InvoiceForm({
   const [newBookingTime, setNewBookingTime] = useState("");
   const [notes, setNotes] = useState("");
   const [pricingAppointmentTypeId, setPricingAppointmentTypeId] = useState("");
-  const [lineItems, setLineItems] = useState<LineItem[]>([{ date: "", description: "", amount: "" }]);
+  const [lineItems, setLineItems] = useState<LineItem[]>([EMPTY_LINE_ITEM]);
   const [dueDate, setDueDate] = useState("");
   const [conflictWarning, setConflictWarning] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -185,8 +192,86 @@ export default function InvoiceForm({
     setLineItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   }
 
+  // Picking a line's booking type also fills that line's description/amount
+  // from the type — but only where they're still blank, never overwriting.
+  function setLineItemAppointmentType(index: number, appointmentTypeId: string) {
+    const type = appointmentTypes.find((t) => t.id === appointmentTypeId);
+    setLineItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              appointmentTypeId,
+              description: item.description || (type?.name ?? ""),
+              amount: item.amount || (type ? (type.price_cents / 100).toFixed(2) : ""),
+            }
+          : item,
+      ),
+    );
+  }
+
+  // Start/end of each line that will be booked on payment, keyed by line
+  // index; null when the line isn't (fully) set up to book, or would run past
+  // midnight (addMinutesToTime doesn't wrap — same guard as "Create new").
+  const lineBookingRanges = lineItems.map((item) => {
+    if (!item.date || !item.startTime || !item.appointmentTypeId) return null;
+    const type = appointmentTypes.find((t) => t.id === item.appointmentTypeId);
+    if (!type) return null;
+    const endTime = addMinutesToTime(item.startTime, type.duration_minutes);
+    if (Number(endTime.split(":")[0]) >= 24) return null;
+    return {
+      date: item.date,
+      startIso: businessLocalToUtcIso(item.date, item.startTime),
+      endIso: businessLocalToUtcIso(item.date, endTime),
+    };
+  });
+
+  // Same non-blocking heads-up as "Create new" mode, per booked line: flags a
+  // line that overlaps an existing booking or another booked line on this
+  // invoice (the database would reject the second one on payment). Reset
+  // during render on any change, fetched in the effect below.
+  const lineConflictKey = JSON.stringify(lineBookingRanges);
+  const [lineConflicts, setLineConflicts] = useState<number[]>([]);
+  const [syncedLineConflictKey, setSyncedLineConflictKey] = useState(lineConflictKey);
+  if (lineConflictKey !== syncedLineConflictKey) {
+    setSyncedLineConflictKey(lineConflictKey);
+    setLineConflicts([]);
+  }
+
+  useEffect(() => {
+    const ranges: ({ date: string; startIso: string; endIso: string } | null)[] = JSON.parse(lineConflictKey);
+    const dates = [...new Set(ranges.flatMap((r) => (r ? [r.date] : [])))];
+    if (dates.length === 0) return;
+    const overlaps = (a: { startIso: string; endIso: string }, b: { start_time: string; end_time: string }) =>
+      new Date(a.startIso) < new Date(b.end_time) && new Date(a.endIso) > new Date(b.start_time);
+    let cancelled = false;
+    Promise.all(
+      dates.map((date) =>
+        fetch(`/api/admin/day-view?date=${date}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data: { bookings?: { start_time: string; end_time: string }[] | null } | null) => data?.bookings ?? [])
+          .catch(() => []),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      const existing = results.flat();
+      const conflicts = ranges.flatMap((r, i) => {
+        if (!r) return [];
+        const hitsExisting = existing.some((b) => overlaps(r, b));
+        const hitsOtherLine = ranges.some(
+          (other, j) => j !== i && other && overlaps(r, { start_time: other.startIso, end_time: other.endIso }),
+        );
+        return hitsExisting || hitsOtherLine ? [i] : [];
+      });
+      setLineConflicts(conflicts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lineConflictKey]);
+
   function addLineItem() {
-    setLineItems((prev) => [...prev, { date: "", description: "", amount: "" }]);
+    setLineItems((prev) => [...prev, { ...EMPTY_LINE_ITEM }]);
   }
 
   function removeLineItem(index: number) {
@@ -233,9 +318,9 @@ export default function InvoiceForm({
       return;
     }
 
-    const nonEmptyLineItems = lineItems.filter(
-      (item) => item.description.trim() || item.amount.trim(),
-    );
+    const nonEmptyLineItems = lineItems
+      .map((item, index) => ({ item, range: lineBookingRanges[index] }))
+      .filter(({ item }) => item.description.trim() || item.amount.trim());
 
     if (nonEmptyLineItems.length === 0) {
       setError("Add at least one line item with a description and amount.");
@@ -243,11 +328,27 @@ export default function InvoiceForm({
       return;
     }
 
-    const parsedLineItems: { date: string | null; description: string; amountCents: number }[] = [];
-    for (const item of nonEmptyLineItems) {
+    const parsedLineItems: {
+      date: string | null;
+      description: string;
+      amountCents: number;
+      booking: { appointmentTypeId: string; startTime: string } | null;
+    }[] = [];
+    for (const { item, range } of nonEmptyLineItems) {
       const amount = Number(item.amount);
       if (!item.description.trim() || !Number.isFinite(amount) || amount <= 0) {
         setError("Every line item needs a description and a valid amount.");
+        setStatus("error");
+        return;
+      }
+      const booking = item.date && item.appointmentTypeId ? item.appointmentTypeId : "";
+      if (booking && !item.startTime) {
+        setError("Every booked line item needs a start time.");
+        setStatus("error");
+        return;
+      }
+      if (booking && !range) {
+        setError("A booked line item would run past midnight — pick an earlier start time.");
         setStatus("error");
         return;
       }
@@ -255,7 +356,14 @@ export default function InvoiceForm({
         date: item.date || null,
         description: item.description.trim(),
         amountCents: Math.round(amount * 100),
+        booking: booking ? { appointmentTypeId: booking, startTime: item.startTime } : null,
       });
+    }
+
+    if (parsedLineItems.filter((item) => item.booking).length > MAX_LINE_BOOKINGS) {
+      setError(`An invoice can book at most ${MAX_LINE_BOOKINGS} line items.`);
+      setStatus("error");
+      return;
     }
 
     if (bookingMode === "new" && (!newBookingAppointmentTypeId || !newBookingDate || !newBookingTime)) {
@@ -552,42 +660,74 @@ export default function InvoiceForm({
           </div>
         )}
         <p className="mb-2 block text-xs uppercase tracking-[0.15em] text-muted">
-          Line items (date optional — shown on the invoice line)
+          Line items (date optional — add a time &amp; type to book it on payment)
         </p>
         <div className="space-y-3">
           {lineItems.map((item, index) => (
-            <div key={index} className="flex flex-wrap items-center gap-3">
-              <input
-                type="date"
-                aria-label="Line item date"
-                value={item.date}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "date", e.target.value)}
-                className="w-36 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-              />
-              <input
-                type="text"
-                placeholder="Description"
-                value={item.description}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "description", e.target.value)}
-                className="min-w-[10rem] flex-1 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-              />
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Amount ($)"
-                value={item.amount}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "amount", e.target.value)}
-                className="w-28 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-              />
-              {lineItems.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeLineItem(index)}
-                  className="text-xs text-muted underline-offset-4 transition-colors hover:text-red-700 hover:underline"
-                >
-                  Remove
-                </button>
+            <div key={index} className="space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="date"
+                  aria-label="Line item date"
+                  value={item.date}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "date", e.target.value)}
+                  className="w-36 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+                />
+                <input
+                  type="text"
+                  placeholder="Description"
+                  value={item.description}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "description", e.target.value)}
+                  className="min-w-[10rem] flex-1 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Amount ($)"
+                  value={item.amount}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "amount", e.target.value)}
+                  className="w-28 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+                />
+                {lineItems.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeLineItem(index)}
+                    className="text-xs text-muted underline-offset-4 transition-colors hover:text-red-700 hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {item.date && (
+                <div className="flex flex-wrap items-center gap-3 pl-1 text-sm">
+                  <span className="text-xs uppercase tracking-[0.15em] text-muted">Book</span>
+                  <select
+                    aria-label="Line item booking type"
+                    value={item.appointmentTypeId}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setLineItemAppointmentType(index, e.target.value)}
+                    className="min-w-[10rem] flex-1 border-b border-border bg-transparent py-1 text-foreground outline-none focus:border-accent"
+                  >
+                    <option value="">Don&apos;t book</option>
+                    {appointmentTypes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.duration_minutes} min)
+                      </option>
+                    ))}
+                  </select>
+                  {item.appointmentTypeId && (
+                    <input
+                      type="time"
+                      aria-label="Line item start time"
+                      value={item.startTime}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "startTime", e.target.value)}
+                      className="w-28 border-b border-border bg-transparent py-1 text-foreground outline-none focus:border-accent"
+                    />
+                  )}
+                </div>
+              )}
+              {lineConflicts.includes(index) && (
+                <p className="pl-1 text-xs text-amber-700">⚠ This time overlaps another booking.</p>
               )}
             </div>
           ))}

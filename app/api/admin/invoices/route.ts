@@ -1,8 +1,8 @@
 import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
-import { createInvoice } from "@/lib/invoices";
+import { createInvoice, MAX_LINE_BOOKINGS, type LineBooking } from "@/lib/invoices";
 import { sendInvoiceEmail, sendInvoiceSentNotification } from "@/lib/email";
-import { EMAIL_REGEX } from "@/lib/scheduling";
+import { EMAIL_REGEX, addMinutesToTime } from "@/lib/scheduling";
 import { formatDateOnly } from "@/lib/format";
 
 export async function GET() {
@@ -22,12 +22,14 @@ export async function GET() {
   return Response.json({ invoices: data });
 }
 
-type LineItemPayload = { description: string; amountCents: number };
+type LineItemPayload = { description: string; amountCents: number; booking: LineBooking | null };
 
 // Optional per-line-item service date ("YYYY-MM-DD") for multi-day jobs. It's
 // folded into the description ("Oct 3, 2026 — Headshots") rather than stored
 // separately, so it reads the same on the Stripe hosted invoice/PDF, in the
 // local invoice_line_items row, and in the admin list — no schema change.
+// A dated line can also carry a booking ({ appointmentTypeId, startTime }),
+// created on payment by the stripe-invoices webhook.
 function parseLineItem(item: unknown): LineItemPayload | null {
   if (typeof item !== "object" || item === null) return null;
   const v = item as Record<string, unknown>;
@@ -41,10 +43,26 @@ function parseLineItem(item: unknown): LineItemPayload | null {
   ) {
     return null;
   }
+  let booking: LineBooking | null = null;
+  if (v.booking !== null && v.booking !== undefined) {
+    const raw = v.booking as Record<string, unknown>;
+    if (
+      typeof v.date !== "string" ||
+      typeof raw !== "object" ||
+      typeof raw.appointmentTypeId !== "string" ||
+      !raw.appointmentTypeId.trim() ||
+      typeof raw.startTime !== "string" ||
+      !/^\d{2}:\d{2}$/.test(raw.startTime)
+    ) {
+      return null;
+    }
+    booking = { appointmentTypeId: raw.appointmentTypeId, date: v.date, startTime: raw.startTime };
+  }
   const description = v.description.trim();
   return {
     description: typeof v.date === "string" ? `${formatDateOnly(v.date)} — ${description}` : description,
     amountCents: v.amountCents,
+    booking,
   };
 }
 
@@ -176,6 +194,36 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid invoice." }, { status: 400 });
   }
 
+  const supabase = getSupabaseClient();
+
+  // Checked before anything is created in Stripe: the webhook can't ask the
+  // admin to fix a bad line booking after the client has already paid.
+  const lineBookings = payload.lineItems.flatMap((item) => (item.booking ? [item.booking] : []));
+  if (lineBookings.length > MAX_LINE_BOOKINGS) {
+    return Response.json({ error: `An invoice can book at most ${MAX_LINE_BOOKINGS} line items.` }, { status: 400 });
+  }
+  if (lineBookings.length > 0) {
+    const typeIds = [...new Set(lineBookings.map((b) => b.appointmentTypeId))];
+    const { data: types, error: typesError } = await supabase
+      .from("appointment_types")
+      .select("id, duration_minutes")
+      .in("id", typeIds);
+    if (typesError) {
+      console.error("appointment_types lookup failed:", typesError);
+      return Response.json({ error: "Something went wrong." }, { status: 500 });
+    }
+    for (const b of lineBookings) {
+      const type = types?.find((t) => t.id === b.appointmentTypeId);
+      if (!type) {
+        return Response.json({ error: "A booked line item has an unknown appointment type." }, { status: 400 });
+      }
+      // addMinutesToTime doesn't wrap past midnight.
+      if (Number(addMinutesToTime(b.startTime, type.duration_minutes).split(":")[0]) >= 24) {
+        return Response.json({ error: "A booked line item would run past midnight." }, { status: 400 });
+      }
+    }
+  }
+
   let created: Awaited<ReturnType<typeof createInvoice>>;
   try {
     created = await createInvoice({
@@ -188,13 +236,12 @@ export async function POST(request: Request) {
       clientPhone: payload.clientPhone,
       billingAddress: payload.billingAddress,
       newBooking: payload.newBooking,
+      lineBookings,
     });
   } catch (err) {
     console.error("Stripe invoice creation failed:", err);
     return Response.json({ error: "Failed to create invoice in Stripe." }, { status: 502 });
   }
-
-  const supabase = getSupabaseClient();
 
   // The full row includes session_date_time — a column that can, in
   // principle, not exist yet on a given deployment if a migration hasn't
