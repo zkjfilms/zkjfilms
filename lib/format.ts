@@ -25,6 +25,18 @@ export function formatBusinessDate(iso: string): string {
   });
 }
 
+// For bare calendar dates ("YYYY-MM-DD", e.g. an invoice line item's
+// service date) — there's no instant to convert, so format in UTC, where
+// midnight-UTC parsing lands; any other zone could shift it a day back.
+export function formatDateOnly(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 // Shared between /admin/availability, /book, /manage/[token] and the
 // booking emails (lib/email.ts) — all of them mean "the business's local
 // time," never the host runtime's.

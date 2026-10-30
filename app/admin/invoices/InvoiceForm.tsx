@@ -16,7 +16,7 @@ type BookingOption = {
   status: string;
 };
 
-type LineItem = { description: string; amount: string };
+type LineItem = { date: string; description: string; amount: string };
 
 type BookingMode = "none" | "existing" | "new";
 
@@ -48,7 +48,7 @@ export default function InvoiceForm({
   const [newBookingTime, setNewBookingTime] = useState("");
   const [notes, setNotes] = useState("");
   const [pricingAppointmentTypeId, setPricingAppointmentTypeId] = useState("");
-  const [lineItems, setLineItems] = useState<LineItem[]>([{ description: "", amount: "" }]);
+  const [lineItems, setLineItems] = useState<LineItem[]>([{ date: "", description: "", amount: "" }]);
   const [dueDate, setDueDate] = useState("");
   const [conflictWarning, setConflictWarning] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -127,7 +127,7 @@ export default function InvoiceForm({
     if (type) {
       setLineItems((prev) => {
         const next = [...prev];
-        next[0] = { description: type.name, amount: (type.price_cents / 100).toFixed(2) };
+        next[0] = { ...next[0], description: type.name, amount: (type.price_cents / 100).toFixed(2) };
         return next;
       });
     }
@@ -186,7 +186,7 @@ export default function InvoiceForm({
   }
 
   function addLineItem() {
-    setLineItems((prev) => [...prev, { description: "", amount: "" }]);
+    setLineItems((prev) => [...prev, { date: "", description: "", amount: "" }]);
   }
 
   function removeLineItem(index: number) {
@@ -243,7 +243,7 @@ export default function InvoiceForm({
       return;
     }
 
-    const parsedLineItems: { description: string; amountCents: number }[] = [];
+    const parsedLineItems: { date: string | null; description: string; amountCents: number }[] = [];
     for (const item of nonEmptyLineItems) {
       const amount = Number(item.amount);
       if (!item.description.trim() || !Number.isFinite(amount) || amount <= 0) {
@@ -251,7 +251,11 @@ export default function InvoiceForm({
         setStatus("error");
         return;
       }
-      parsedLineItems.push({ description: item.description.trim(), amountCents: Math.round(amount * 100) });
+      parsedLineItems.push({
+        date: item.date || null,
+        description: item.description.trim(),
+        amountCents: Math.round(amount * 100),
+      });
     }
 
     if (bookingMode === "new" && (!newBookingAppointmentTypeId || !newBookingDate || !newBookingTime)) {
@@ -547,16 +551,25 @@ export default function InvoiceForm({
             </select>
           </div>
         )}
-        <p className="mb-2 block text-xs uppercase tracking-[0.15em] text-muted">Line items</p>
+        <p className="mb-2 block text-xs uppercase tracking-[0.15em] text-muted">
+          Line items (date optional — shown on the invoice line)
+        </p>
         <div className="space-y-3">
           {lineItems.map((item, index) => (
-            <div key={index} className="flex items-center gap-3">
+            <div key={index} className="flex flex-wrap items-center gap-3">
+              <input
+                type="date"
+                aria-label="Line item date"
+                value={item.date}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "date", e.target.value)}
+                className="w-36 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+              />
               <input
                 type="text"
                 placeholder="Description"
                 value={item.description}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "description", e.target.value)}
-                className="flex-1 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+                className="min-w-[10rem] flex-1 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
               />
               <input
                 type="number"
@@ -565,7 +578,7 @@ export default function InvoiceForm({
                 placeholder="Amount ($)"
                 value={item.amount}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => updateLineItem(index, "amount", e.target.value)}
-                className="w-32 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+                className="w-28 border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
               />
               {lineItems.length > 1 && (
                 <button

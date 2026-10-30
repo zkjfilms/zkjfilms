@@ -3,6 +3,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { createInvoice } from "@/lib/invoices";
 import { sendInvoiceEmail, sendInvoiceSentNotification } from "@/lib/email";
 import { EMAIL_REGEX } from "@/lib/scheduling";
+import { formatDateOnly } from "@/lib/format";
 
 export async function GET() {
   if (!(await requireAdmin())) {
@@ -22,6 +23,30 @@ export async function GET() {
 }
 
 type LineItemPayload = { description: string; amountCents: number };
+
+// Optional per-line-item service date ("YYYY-MM-DD") for multi-day jobs. It's
+// folded into the description ("Oct 3, 2026 — Headshots") rather than stored
+// separately, so it reads the same on the Stripe hosted invoice/PDF, in the
+// local invoice_line_items row, and in the admin list — no schema change.
+function parseLineItem(item: unknown): LineItemPayload | null {
+  if (typeof item !== "object" || item === null) return null;
+  const v = item as Record<string, unknown>;
+  if (
+    typeof v.description !== "string" ||
+    !v.description.trim() ||
+    typeof v.amountCents !== "number" ||
+    !Number.isInteger(v.amountCents) ||
+    v.amountCents <= 0 ||
+    (v.date !== null && v.date !== undefined && (typeof v.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v.date)))
+  ) {
+    return null;
+  }
+  const description = v.description.trim();
+  return {
+    description: typeof v.date === "string" ? `${formatDateOnly(v.date)} — ${description}` : description,
+    amountCents: v.amountCents,
+  };
+}
 
 type BillingAddressPayload = { line1: string; city: string; state: string; postalCode: string } | null;
 
@@ -106,6 +131,7 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
 
   const { value: billingAddress, valid: billingAddressValid } = parseBillingAddress(b.billingAddress);
   const { value: newBooking, valid: newBookingValid } = parseNewBooking(b.newBooking);
+  const lineItems = Array.isArray(b.lineItems) ? b.lineItems.map(parseLineItem) : [];
 
   if (
     typeof b.clientName !== "string" ||
@@ -113,18 +139,8 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     typeof b.clientEmail !== "string" ||
     !EMAIL_REGEX.test(b.clientEmail.trim()) ||
     (b.bookingId !== null && typeof b.bookingId !== "string") ||
-    !Array.isArray(b.lineItems) ||
-    b.lineItems.length === 0 ||
-    !b.lineItems.every(
-      (item): item is LineItemPayload =>
-        typeof item === "object" &&
-        item !== null &&
-        typeof (item as Record<string, unknown>).description === "string" &&
-        ((item as Record<string, unknown>).description as string).trim().length > 0 &&
-        typeof (item as Record<string, unknown>).amountCents === "number" &&
-        Number.isInteger((item as Record<string, unknown>).amountCents as number) &&
-        ((item as Record<string, unknown>).amountCents as number) > 0,
-    ) ||
+    lineItems.length === 0 ||
+    !lineItems.every((item): item is LineItemPayload => item !== null) ||
     (b.dueDate !== null && (typeof b.dueDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(b.dueDate))) ||
     (b.sessionDateTime !== null &&
       b.sessionDateTime !== undefined &&
@@ -141,7 +157,7 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     clientName: b.clientName.trim(),
     clientEmail: b.clientEmail.trim(),
     bookingId: b.bookingId as string | null,
-    lineItems: b.lineItems as LineItemPayload[],
+    lineItems: lineItems as LineItemPayload[],
     dueDate: b.dueDate as string | null,
     sessionDateTime: typeof b.sessionDateTime === "string" && b.sessionDateTime.trim() ? b.sessionDateTime.trim() : null,
     clientPhone: typeof b.clientPhone === "string" && b.clientPhone.trim() ? b.clientPhone.trim() : null,
