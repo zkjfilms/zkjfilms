@@ -4,6 +4,7 @@ import { createInvoice, MAX_LINE_BOOKINGS, type LineBooking } from "@/lib/invoic
 import { sendInvoiceEmail, sendInvoiceSentNotification } from "@/lib/email";
 import { EMAIL_REGEX, addMinutesToTime, businessLocalToUtcIso } from "@/lib/scheduling";
 import { formatDateOnly, formatTimeRange } from "@/lib/format";
+import { STUDIO_ADDRESS } from "@/lib/seo";
 
 export async function GET() {
   if (!(await requireAdmin())) {
@@ -83,6 +84,7 @@ type CreatePayload = {
   clientPhone: string | null;
   billingAddress: BillingAddressPayload;
   bookingNotes: string | null;
+  location: string | null;
 };
 
 function parseBillingAddress(value: unknown): { value: BillingAddressPayload; valid: boolean } {
@@ -133,6 +135,10 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
       // lib/invoices.ts), which caps each value at 500 chars — this leaves
       // headroom under that limit rather than sitting flush against it.
       (typeof b.bookingNotes !== "string" || b.bookingNotes.trim().length > 450)) ||
+    (b.location !== null &&
+      b.location !== undefined &&
+      // Shown as a Stripe invoice custom field, whose values cap at 140 chars.
+      (typeof b.location !== "string" || b.location.trim().length > 140)) ||
     !billingAddressValid
   ) {
     return null;
@@ -146,6 +152,7 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     clientPhone: typeof b.clientPhone === "string" && b.clientPhone.trim() ? b.clientPhone.trim() : null,
     billingAddress,
     bookingNotes: typeof b.bookingNotes === "string" && b.bookingNotes.trim() ? b.bookingNotes.trim() : null,
+    location: typeof b.location === "string" && b.location.trim() ? b.location.trim() : null,
   };
 }
 
@@ -218,6 +225,8 @@ export async function POST(request: Request) {
       billingAddress: payload.billingAddress,
       lineBookings,
       bookingNotes: payload.bookingNotes,
+      // Only meaningful when something gets booked; defaults to the studio.
+      location: lineBookings.length > 0 ? (payload.location ?? STUDIO_ADDRESS) : null,
     });
   } catch (err) {
     console.error("Stripe invoice creation failed:", err);
@@ -260,6 +269,13 @@ export async function POST(request: Request) {
     clientName: payload.clientName,
     clientEmail: payload.clientEmail,
     hostedInvoiceUrl: created.hostedInvoiceUrl,
+    details: {
+      invoiceNumber: created.invoiceNumber,
+      items: lineItems,
+      totalCents: lineItems.reduce((sum, item) => sum + item.amountCents, 0),
+      dueDate: created.dueDateIso,
+      location: lineBookings.length > 0 ? (payload.location ?? STUDIO_ADDRESS) : null,
+    },
   });
   if (!emailResult.ok) {
     console.error("Invoice email failed (invoice still created):", emailResult.error);

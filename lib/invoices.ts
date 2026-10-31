@@ -1,4 +1,6 @@
 import { getStripeClient } from "@/lib/stripe";
+import { BUSINESS, SITE_URL, STUDIO_ADDRESS } from "@/lib/seo";
+import type { InvoiceEmailDetails } from "@/lib/email";
 
 // A dated line item that should also become a real booking once the invoice
 // is paid ("book each dated line on payment"). Nothing is held while the
@@ -17,6 +19,7 @@ export const MAX_LINE_BOOKINGS = 10;
 const LINE_BOOKING_KEY_PREFIX = "lineBooking";
 const LINE_BOOKING_PHONE_KEY = "lineBookingClientPhone";
 const LINE_BOOKING_NOTES_KEY = "lineBookingNotes";
+const LINE_BOOKING_LOCATION_KEY = "lineBookingLocation";
 
 // One key per booking, "typeId|date|startTime" (~53 chars, well under
 // Stripe's 500-char value limit).
@@ -24,6 +27,7 @@ function lineBookingsToMetadata(
   lineBookings: LineBooking[],
   clientPhone: string | null,
   notes: string | null,
+  location: string | null,
 ): Record<string, string> {
   if (lineBookings.length === 0) return {};
   const meta: Record<string, string> = {};
@@ -32,6 +36,7 @@ function lineBookingsToMetadata(
   });
   if (clientPhone) meta[LINE_BOOKING_PHONE_KEY] = clientPhone;
   if (notes) meta[LINE_BOOKING_NOTES_KEY] = notes;
+  if (location) meta[LINE_BOOKING_LOCATION_KEY] = location;
   return meta;
 }
 
@@ -39,6 +44,7 @@ export function lineBookingsFromMetadata(meta: Record<string, string> | null | u
   lineBookings: LineBooking[];
   clientPhone: string;
   notes: string;
+  location: string;
 } {
   const lineBookings: LineBooking[] = [];
   for (let i = 0; i < MAX_LINE_BOOKINGS; i++) {
@@ -51,6 +57,8 @@ export function lineBookingsFromMetadata(meta: Record<string, string> | null | u
     lineBookings,
     clientPhone: meta?.[LINE_BOOKING_PHONE_KEY] ?? "",
     notes: meta?.[LINE_BOOKING_NOTES_KEY] ?? "",
+    // Invoices sent before the location field existed were all at the studio.
+    location: meta?.[LINE_BOOKING_LOCATION_KEY] ?? STUDIO_ADDRESS,
   };
 }
 
@@ -64,7 +72,14 @@ export async function createInvoice(params: {
   billingAddress: { line1: string; city: string; state: string; postalCode: string } | null;
   lineBookings?: LineBooking[];
   bookingNotes?: string | null;
-}): Promise<{ stripeInvoiceId: string; stripeCustomerId: string; hostedInvoiceUrl: string }> {
+  location?: string | null;
+}): Promise<{
+  stripeInvoiceId: string;
+  stripeCustomerId: string;
+  hostedInvoiceUrl: string;
+  invoiceNumber: string | null;
+  dueDateIso: string | null;
+}> {
   const stripe = getStripeClient();
 
   const existing = await stripe.customers.list({ email: params.clientEmail, limit: 1 });
@@ -115,8 +130,23 @@ export async function createInvoice(params: {
     pending_invoice_items_behavior: "exclude",
     metadata: {
       ...(params.bookingId ? { bookingId: params.bookingId } : {}),
-      ...lineBookingsToMetadata(params.lineBookings ?? [], params.clientPhone, params.bookingNotes ?? null),
+      ...lineBookingsToMetadata(
+        params.lineBookings ?? [],
+        params.clientPhone,
+        params.bookingNotes ?? null,
+        params.location ?? null,
+      ),
     },
+    // The memo at the top of Stripe's hosted invoice page/PDF, and the footer
+    // at the bottom — the closest Stripe gets to letterhead and a signature.
+    description: params.lineBookings?.length
+      ? `Thank you for choosing ${BUSINESS.name} Photography. Your session dates are reserved for you and will be confirmed as soon as payment is received — you'll then receive a confirmation email with a calendar invitation.`
+      : `Thank you for choosing ${BUSINESS.name} Photography. Please don't hesitate to reach out with any questions about this invoice.`,
+    footer: INVOICE_FOOTER,
+    // A labeled, non-billable row on the hosted invoice/PDF (Stripe caps
+    // values at 140 chars — the form and route enforce that).
+    custom_fields:
+      params.lineBookings?.length && params.location ? [{ name: "Session location", value: params.location }] : undefined,
   });
 
   for (const item of params.lineItems) {
@@ -135,6 +165,32 @@ export async function createInvoice(params: {
     stripeInvoiceId: finalized.id!,
     stripeCustomerId: customer.id,
     hostedInvoiceUrl: finalized.hosted_invoice_url!,
+    invoiceNumber: finalized.number ?? null,
+    dueDateIso: finalized.due_date ? new Date(finalized.due_date * 1000).toISOString() : null,
+  };
+}
+
+const INVOICE_FOOTER = [
+  `${BUSINESS.name} · Photographer`,
+  `${STUDIO_ADDRESS}`,
+  `${BUSINESS.email} · ${SITE_URL.replace(/^https?:\/\//, "")}`,
+].join("\n");
+
+// What the branded invoice email (lib/email.ts's sendInvoiceEmail) shows,
+// read back from Stripe so the create and resend paths always match the
+// actual invoice — numbering, final line descriptions, and due date are
+// all Stripe's.
+export async function getInvoiceEmailDetails(stripeInvoiceId: string): Promise<InvoiceEmailDetails> {
+  const stripe = getStripeClient();
+  const invoice = await stripe.invoices.retrieve(stripeInvoiceId);
+  const lines = await stripe.invoices.listLineItems(stripeInvoiceId, { limit: 100 });
+  const hasBookings = lineBookingsFromMetadata(invoice.metadata).lineBookings.length > 0;
+  return {
+    invoiceNumber: invoice.number ?? null,
+    items: lines.data.map((line) => ({ description: line.description ?? "", amountCents: line.amount })),
+    totalCents: invoice.total,
+    dueDate: invoice.due_date ? new Date(invoice.due_date * 1000).toISOString() : null,
+    location: hasBookings ? lineBookingsFromMetadata(invoice.metadata).location : null,
   };
 }
 

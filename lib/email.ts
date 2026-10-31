@@ -1,17 +1,63 @@
 import { Resend } from "resend";
-import { BUSINESS, SITE_URL } from "@/lib/seo";
-import { formatTimeRange, formatCents } from "@/lib/format";
+import { BUSINESS, SITE_URL, STUDIO_ADDRESS } from "@/lib/seo";
+import { formatTimeRange, formatCents, formatBusinessDate } from "@/lib/format";
+import { escapeHtml, renderEmail, type EmailContent } from "@/lib/emailLayout";
+import { buildIcs, bookingEventUid, type CalendarEvent } from "@/lib/ics";
 
-export function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+export { escapeHtml };
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
+
+// Every client-facing email below renders through lib/emailLayout.ts's
+// branded layout; booking confirmations and reschedules also attach an
+// .ics invite (lib/ics.ts). Admin-only notifications further down stay
+// plain text-ish on purpose.
+
+type Attachment = { filename: string; content: string; contentType: string };
+
+async function sendClientEmail(params: {
+  to: string;
+  subject: string;
+  content: EmailContent;
+  attachments?: Attachment[];
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+
+  const { html, text } = renderEmail(params.content);
+  const resend = new Resend(apiKey);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [params.to],
+      replyTo: BUSINESS.email,
+      subject: params.subject,
+      html,
+      text,
+      attachments: params.attachments?.map((a) => ({
+        filename: a.filename,
+        content: Buffer.from(a.content, "utf-8"),
+        contentType: a.contentType,
+      })),
+    });
+    if (error) return { ok: false, error: error.message ?? "Resend error." };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  }
+}
+
+// "zach johnson" -> "Zach" — greet by first name, capitalized, however the
+// name was typed into a form.
+function firstName(fullName: string): string {
+  const first = fullName.trim().split(/\s+/)[0] ?? "";
+  return first ? first[0].toUpperCase() + first.slice(1) : "there";
+}
+
+function calendarAttachment(events: CalendarEvent[]): Attachment {
+  return { filename: "session.ics", content: buildIcs(events), contentType: "text/calendar; charset=utf-8; method=PUBLISH" };
+}
 
 // Contract signing link. Sent from the admin send/resend action
 // (app/api/admin/contracts/[id]/send-email/route.ts) — its only caller
@@ -21,46 +67,21 @@ export async function sendSigningLinkEmail(contract: {
   client_name: string;
   client_email: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return { ok: false, error: "RESEND_API_KEY is not set." };
-  }
-
-  const signingUrl = `${SITE_URL}/sign/${contract.id}`;
-  const resend = new Resend(apiKey);
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [contract.client_email],
-      subject: "Please sign your session agreement",
-      text: [
-        `Hi ${contract.client_name},`,
-        "",
-        "Thanks for booking! Please sign your session agreement here:",
-        signingUrl,
-        "",
-        "See you soon,",
-        BUSINESS.name,
-      ].join("\n"),
-      html: `
-        <p>Hi ${escapeHtml(contract.client_name)},</p>
-        <p>Thanks for booking! Please sign your session agreement here:</p>
-        <p><a href="${signingUrl}">${signingUrl}</a></p>
-        <p>See you soon,<br />${escapeHtml(BUSINESS.name)}</p>
-      `,
-    });
-
-    if (error) {
-      return { ok: false, error: error.message ?? "Resend error." };
-    }
-    return { ok: true };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Unknown error.",
-    };
-  }
+  return sendClientEmail({
+    to: contract.client_email,
+    subject: "Please review and sign your session agreement",
+    content: {
+      preheader: "Your session agreement is ready to review and sign.",
+      eyebrow: "Session agreement",
+      heading: "Your agreement is ready",
+      greeting: `Hi ${firstName(contract.client_name)},`,
+      intro: [
+        "Thank you for booking with me. Before your session, please take a moment to review and sign your session agreement — it only takes a minute and keeps everything clear for both of us.",
+      ],
+      button: { label: "Review & sign", url: `${SITE_URL}/sign/${contract.id}` },
+      outro: ["If you have any questions about the agreement, simply reply to this email."],
+    },
+  });
 }
 
 // --- Self-hosted `bookings` system (see lib/bookingsWebhook.ts and
@@ -81,8 +102,57 @@ type BookingForEmail = {
 
 function appointmentTypeName(booking: BookingForEmail): string {
   const rel = booking.appointment_types;
-  if (!rel) return "your appointment";
-  return Array.isArray(rel) ? (rel[0]?.name ?? "your appointment") : rel.name;
+  if (!rel) return "Your session";
+  return Array.isArray(rel) ? (rel[0]?.name ?? "Your session") : rel.name;
+}
+
+function manageUrlFor(booking: { booking_token: string }): string {
+  return `${SITE_URL}/manage/${booking.booking_token}`;
+}
+
+function bookingCalendarEvent(booking: BookingForEmail, location: string): CalendarEvent {
+  return {
+    uid: bookingEventUid(booking.booking_token),
+    startIso: booking.start_time,
+    endIso: booking.end_time,
+    title: `${appointmentTypeName(booking)} with ${BUSINESS.name}`,
+    location,
+    description: `Need to reschedule or cancel? ${manageUrlFor(booking)}`,
+    url: manageUrlFor(booking),
+  };
+}
+
+// Website bookings don't carry a location of their own — they're at the
+// studio. (Invoice bookings can override it; see sendInvoiceBookingsConfirmedEmail.)
+function bookingConfirmedEmail(
+  booking: BookingForEmail,
+  details: { label: string; value: string }[],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const typeName = appointmentTypeName(booking);
+  return sendClientEmail({
+    to: booking.client_email,
+    subject: `You're booked: ${typeName}`,
+    content: {
+      preheader: `${typeName} — ${formatTimeRange(booking.start_time, booking.end_time)}`,
+      eyebrow: "Booking confirmed",
+      heading: "You're all set",
+      greeting: `Hi ${firstName(booking.client_name)},`,
+      intro: [
+        "Thank you for booking with me — your session is confirmed. A calendar invitation is attached so you can add it to your calendar.",
+      ],
+      sessions: [
+        {
+          title: typeName,
+          when: formatTimeRange(booking.start_time, booking.end_time),
+          location: STUDIO_ADDRESS,
+          manageUrl: manageUrlFor(booking),
+        },
+      ],
+      details,
+      outro: ["If anything comes up or you have questions before your session, simply reply to this email."],
+    },
+    attachments: [calendarAttachment([bookingCalendarEvent(booking, STUDIO_ADDRESS)])],
+  });
 }
 
 // Sent directly from app/api/bookings/route.ts when a free appointment
@@ -91,43 +161,7 @@ function appointmentTypeName(booking: BookingForEmail): string {
 export async function sendFreeBookingConfirmedEmail(
   booking: BookingForEmail,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
-
-  const when = formatTimeRange(booking.start_time, booking.end_time);
-  const typeName = appointmentTypeName(booking);
-  const manageUrl = `${SITE_URL}/manage/${booking.booking_token}`;
-  const resend = new Resend(apiKey);
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [booking.client_email],
-      subject: "You're booked!",
-      text: [
-        `Hi ${booking.client_name},`,
-        "",
-        `You're confirmed for ${typeName} on ${when}.`,
-        "",
-        "Need to reschedule or cancel? Use your private booking link:",
-        manageUrl,
-        "",
-        "See you soon,",
-        BUSINESS.name,
-      ].join("\n"),
-      html: `
-        <p>Hi ${escapeHtml(booking.client_name)},</p>
-        <p>You're confirmed for ${escapeHtml(typeName)} on ${escapeHtml(when)}.</p>
-        <p>Need to reschedule or cancel? Use your private booking link:</p>
-        <p><a href="${manageUrl}">${manageUrl}</a></p>
-        <p>See you soon,<br />${escapeHtml(BUSINESS.name)}</p>
-      `,
-    });
-    if (error) return { ok: false, error: error.message ?? "Resend error." };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
-  }
+  return bookingConfirmedEmail(booking, []);
 }
 
 // Sent from the Stripe webhook (lib/bookingsWebhook.ts) once a paid
@@ -143,98 +177,37 @@ export async function sendBookingPaymentConfirmedEmail(
     discount_cents: number | null;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
-
-  const when = formatTimeRange(booking.start_time, booking.end_time);
-  const typeName = appointmentTypeName(booking);
-  const manageUrl = `${SITE_URL}/manage/${booking.booking_token}`;
-  const paidLine = booking.amount_paid_cents
-    ? `Payment of ${formatCents(booking.amount_paid_cents)} received — you're all set.`
-    : "You're all set.";
-  const discountLine =
-    booking.discount_code && booking.discount_cents
-      ? `Discount applied: ${booking.discount_code} (-${formatCents(booking.discount_cents)}).`
-      : null;
-  const resend = new Resend(apiKey);
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [booking.client_email],
-      subject: "You're booked!",
-      text: [
-        `Hi ${booking.client_name},`,
-        "",
-        `You're confirmed for ${typeName} on ${when}.`,
-        paidLine,
-        ...(discountLine ? [discountLine] : []),
-        "",
-        "Need to reschedule or cancel? Use your private booking link:",
-        manageUrl,
-        "",
-        "See you soon,",
-        BUSINESS.name,
-      ].join("\n"),
-      html: `
-        <p>Hi ${escapeHtml(booking.client_name)},</p>
-        <p>You're confirmed for ${escapeHtml(typeName)} on ${escapeHtml(when)}.</p>
-        <p>${escapeHtml(paidLine)}</p>
-        ${discountLine ? `<p>${escapeHtml(discountLine)}</p>` : ""}
-        <p>Need to reschedule or cancel? Use your private booking link:</p>
-        <p><a href="${manageUrl}">${manageUrl}</a></p>
-        <p>See you soon,<br />${escapeHtml(BUSINESS.name)}</p>
-      `,
-    });
-    if (error) return { ok: false, error: error.message ?? "Resend error." };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
+  const details: { label: string; value: string }[] = [];
+  if (booking.amount_paid_cents) details.push({ label: "Amount paid", value: formatCents(booking.amount_paid_cents) });
+  if (booking.discount_code && booking.discount_cents) {
+    details.push({ label: "Discount", value: `${booking.discount_code} (−${formatCents(booking.discount_cents)})` });
   }
+  return bookingConfirmedEmail(booking, details);
 }
 
 // Sent from app/api/manage/[token]/reschedule/route.ts once the
-// reschedule_booking RPC swaps the client onto their new slot.
+// reschedule_booking RPC swaps the client onto their new slot. The
+// attached invite shares the original's UID, so it moves the event the
+// client already added rather than adding a second one.
 export async function sendBookingRescheduledEmail(
   booking: BookingForEmail,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
-
-  const when = formatTimeRange(booking.start_time, booking.end_time);
   const typeName = appointmentTypeName(booking);
-  const manageUrl = `${SITE_URL}/manage/${booking.booking_token}`;
-  const resend = new Resend(apiKey);
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [booking.client_email],
-      subject: "Your appointment has been rescheduled",
-      text: [
-        `Hi ${booking.client_name},`,
-        "",
-        `Your ${typeName} appointment is now scheduled for ${when}.`,
-        "",
-        "Need to make another change? Use your private booking link:",
-        manageUrl,
-        "",
-        "See you then,",
-        BUSINESS.name,
-      ].join("\n"),
-      html: `
-        <p>Hi ${escapeHtml(booking.client_name)},</p>
-        <p>Your ${escapeHtml(typeName)} appointment is now scheduled for ${escapeHtml(when)}.</p>
-        <p>Need to make another change? Use your private booking link:</p>
-        <p><a href="${manageUrl}">${manageUrl}</a></p>
-        <p>See you then,<br />${escapeHtml(BUSINESS.name)}</p>
-      `,
-    });
-    if (error) return { ok: false, error: error.message ?? "Resend error." };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
-  }
+  const when = formatTimeRange(booking.start_time, booking.end_time);
+  return sendClientEmail({
+    to: booking.client_email,
+    subject: `Your session has been rescheduled: ${typeName}`,
+    content: {
+      preheader: `New time: ${when}`,
+      eyebrow: "Updated booking",
+      heading: "Your session has been rescheduled",
+      greeting: `Hi ${firstName(booking.client_name)},`,
+      intro: ["Your session has been moved to the new time below. An updated calendar invitation is attached."],
+      sessions: [{ title: typeName, when, location: STUDIO_ADDRESS, manageUrl: manageUrlFor(booking) }],
+      outro: ["If you need to make another change, use the link above or simply reply to this email."],
+    },
+    attachments: [calendarAttachment([bookingCalendarEvent(booking, STUDIO_ADDRESS)])],
+  });
 }
 
 // Sent from the admin "Notify client" action
@@ -242,65 +215,57 @@ export async function sendBookingRescheduledEmail(
 // fresh gallery password/PIN have already been generated and persisted.
 // The caller fills the template before calling this — same division of
 // responsibility as sendSigningLinkEmail, which doesn't know about
-// template tokens either. bodyText is rendered into a plain <pre> block
-// rather than a richer HTML layout: this template is short and
-// credential-bearing, not worth a separate HTML version the admin's
-// plain-text edits in /admin/templates would drift out of sync with.
+// template tokens either. bodyText is the admin's plain-text template
+// (/admin/templates), dropped into the branded layout as-is — it carries
+// its own greeting and sign-off, so no signature block is added.
 export async function sendGalleryReadyEmail(params: {
   clientEmail: string;
   galleryTitle: string;
   bodyText: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
-
-  const resend = new Resend(apiKey);
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [params.clientEmail],
-      subject: `${params.galleryTitle} is ready to view`,
-      text: params.bodyText,
-      html: `<pre style="font-family: inherit; white-space: pre-wrap;">${escapeHtml(params.bodyText)}</pre>`,
-    });
-    if (error) return { ok: false, error: error.message ?? "Resend error." };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
-  }
+  return sendClientEmail({
+    to: params.clientEmail,
+    subject: `${params.galleryTitle} is ready to view`,
+    content: {
+      preheader: `${params.galleryTitle} is ready to view.`,
+      eyebrow: "Your gallery",
+      heading: `${params.galleryTitle} is ready`,
+      bodyText: params.bodyText,
+      signOff: false,
+    },
+  });
 }
 
 // Sent by the send-session-reminders cron
 // (app/api/cron/send-session-reminders/route.ts) 2 days before a
 // confirmed booking. Same shape as sendGalleryReadyEmail: the caller
-// fills the template before calling this, plain-text body rendered into
-// a <pre> block rather than a richer HTML layout, since this template
-// is short and the admin edits it as plain text in /admin/templates.
+// fills the admin's plain-text template, dropped into the branded layout
+// with no extra sign-off.
 export async function sendSessionReminderEmail(params: {
   clientEmail: string;
   sessionType: string;
   bodyText: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
-
-  const resend = new Resend(apiKey);
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [params.clientEmail],
-      subject: "Your session is coming up",
-      text: params.bodyText,
-      html: `<pre style="font-family: inherit; white-space: pre-wrap;">${escapeHtml(params.bodyText)}</pre>`,
-    });
-    if (error) return { ok: false, error: error.message ?? "Resend error." };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
-  }
+  return sendClientEmail({
+    to: params.clientEmail,
+    subject: "Your session is coming up",
+    content: {
+      preheader: `A quick reminder about your ${params.sessionType} session.`,
+      eyebrow: "Session reminder",
+      heading: "Your session is coming up",
+      bodyText: params.bodyText,
+      signOff: false,
+    },
+  });
 }
+
+export type InvoiceEmailDetails = {
+  invoiceNumber: string | null;
+  items: { description: string; amountCents: number }[];
+  totalCents: number;
+  dueDate: string | null; // ISO
+  location: string | null; // set when the invoice books sessions
+};
 
 // Sent from the admin invoice create/resend actions
 // (app/api/admin/invoices/route.ts, app/api/admin/invoices/[id]/resend/route.ts)
@@ -313,38 +278,41 @@ export async function sendInvoiceEmail(params: {
   clientName: string;
   clientEmail: string;
   hostedInvoiceUrl: string;
+  details: InvoiceEmailDetails;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+  const { invoiceNumber, items, totalCents, dueDate, location } = params.details;
+  const total = formatCents(totalCents);
+  const details: { label: string; value: string }[] = [];
+  if (invoiceNumber) details.push({ label: "Invoice", value: invoiceNumber });
+  if (dueDate) details.push({ label: "Due", value: formatBusinessDate(dueDate) });
+  if (location) details.push({ label: "Location", value: location });
 
-  const resend = new Resend(apiKey);
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [params.clientEmail],
-      subject: "Your invoice",
-      text: [
-        `Hi ${params.clientName},`,
-        "",
-        "You have a new invoice. You can view and pay it here:",
-        params.hostedInvoiceUrl,
-        "",
-        "Thanks,",
-        BUSINESS.name,
-      ].join("\n"),
-      html: `
-        <p>Hi ${escapeHtml(params.clientName)},</p>
-        <p>You have a new invoice. You can view and pay it here:</p>
-        <p><a href="${params.hostedInvoiceUrl}">${params.hostedInvoiceUrl}</a></p>
-        <p>Thanks,<br />${escapeHtml(BUSINESS.name)}</p>
-      `,
-    });
-    if (error) return { ok: false, error: error.message ?? "Resend error." };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
-  }
+  return sendClientEmail({
+    to: params.clientEmail,
+    subject: `Invoice from ${BUSINESS.name}${invoiceNumber ? ` (${invoiceNumber})` : ""} — ${total}`,
+    content: {
+      preheader: `Your invoice for ${total}${dueDate ? `, due ${formatBusinessDate(dueDate)}` : ""}.`,
+      eyebrow: "Invoice",
+      heading: "Your invoice is ready",
+      greeting: `Hi ${firstName(params.clientName)},`,
+      intro: [
+        `Thank you for choosing ${BUSINESS.name} Photography. Your invoice is summarized below — you can review the full details and pay securely online.`,
+        ...(location
+          ? ["Your session dates are reserved for you and will be confirmed as soon as payment is received."]
+          : []),
+      ],
+      items: items.map((item) => ({ description: item.description, amount: formatCents(item.amountCents) })),
+      total: { label: "Total due", amount: total },
+      details,
+      button: { label: "View & pay invoice", url: params.hostedInvoiceUrl },
+      outro: [
+        location
+          ? "Payments are processed securely by Stripe. Once your payment goes through, you'll receive a confirmation with a calendar invitation for each session."
+          : "Payments are processed securely by Stripe, and you'll receive a receipt once your payment goes through.",
+        "If you have any questions about this invoice, simply reply to this email.",
+      ],
+    },
+  });
 }
 
 // Sent to the site owner (BUSINESS.email) alongside the client-facing
@@ -393,53 +361,52 @@ export async function sendInvoiceSentNotification(params: {
   }
 }
 
-// Sent from the stripe-invoices webhook (lib/invoicesWebhook.ts) once an
-// invoice's payment confirms and a booked line item's real booking gets
-// created. Modeled on sendBookingPaymentConfirmedEmail's template but kept
-// as its own function rather than reusing that one directly —
-// sendBookingPaymentConfirmedEmail is built around amount_paid_cents and
-// discount-code fields on the booking record, which invoicing intentionally
-// never touches.
-export async function sendInvoiceBookingConfirmedEmail(
-  booking: BookingForEmail,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "RESEND_API_KEY is not set." };
+// Sent once from the stripe-invoices webhook (lib/invoicesWebhook.ts) after
+// a paid invoice's booked line items have become real bookings — one email
+// covering every session, with one .ics invite holding all of them, rather
+// than one email per session. Kept separate from bookingConfirmedEmail:
+// invoice bookings carry their own location, and the paid amount comes from
+// the Stripe invoice rather than the booking row.
+export async function sendInvoiceBookingsConfirmedEmail(params: {
+  clientName: string;
+  clientEmail: string;
+  bookings: (BookingForEmail & { typeName: string })[];
+  location: string;
+  amountPaidCents: number;
+  invoiceNumber: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const plural = params.bookings.length > 1;
+  const details: { label: string; value: string }[] = [
+    { label: "Amount paid", value: formatCents(params.amountPaidCents) },
+  ];
+  if (params.invoiceNumber) details.push({ label: "Invoice", value: params.invoiceNumber });
 
-  const when = formatTimeRange(booking.start_time, booking.end_time);
-  const typeName = appointmentTypeName(booking);
-  const manageUrl = `${SITE_URL}/manage/${booking.booking_token}`;
-  const resend = new Resend(apiKey);
+  const events = params.bookings.map((b) =>
+    bookingCalendarEvent({ ...b, appointment_types: { name: b.typeName } }, params.location),
+  );
 
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: [booking.client_email],
-      subject: "You're booked!",
-      text: [
-        `Hi ${booking.client_name},`,
-        "",
-        `Your payment is in — you're confirmed for ${typeName} on ${when}.`,
-        "",
-        "Need to reschedule or cancel? Use your private booking link:",
-        manageUrl,
-        "",
-        "See you soon,",
-        BUSINESS.name,
-      ].join("\n"),
-      html: `
-        <p>Hi ${escapeHtml(booking.client_name)},</p>
-        <p>Your payment is in — you're confirmed for ${escapeHtml(typeName)} on ${escapeHtml(when)}.</p>
-        <p>Need to reschedule or cancel? Use your private booking link:</p>
-        <p><a href="${manageUrl}">${manageUrl}</a></p>
-        <p>See you soon,<br />${escapeHtml(BUSINESS.name)}</p>
-      `,
-    });
-    if (error) return { ok: false, error: error.message ?? "Resend error." };
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unknown error." };
-  }
+  return sendClientEmail({
+    to: params.clientEmail,
+    subject: plural ? "Your sessions are confirmed" : `You're booked: ${params.bookings[0].typeName}`,
+    content: {
+      preheader: `Payment received — ${plural ? `${params.bookings.length} sessions` : "your session"} confirmed.`,
+      eyebrow: "Booking confirmed",
+      heading: "You're all set",
+      greeting: `Hi ${firstName(params.clientName)},`,
+      intro: [
+        `Thank you — your payment has been received and your ${plural ? "sessions are" : "session is"} confirmed. A calendar invitation is attached so you can add ${plural ? "everything" : "it"} to your calendar.`,
+      ],
+      sessions: params.bookings.map((b) => ({
+        title: b.typeName,
+        when: formatTimeRange(b.start_time, b.end_time),
+        location: params.location,
+        manageUrl: manageUrlFor(b),
+      })),
+      details,
+      outro: ["If anything comes up or you have questions before your session, simply reply to this email."],
+    },
+    attachments: [calendarAttachment(events)],
+  });
 }
 
 // Sent to the site owner (BUSINESS.email) from the stripe-invoices webhook

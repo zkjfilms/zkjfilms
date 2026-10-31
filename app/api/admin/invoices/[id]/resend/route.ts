@@ -1,9 +1,11 @@
 import { requireAdmin } from "@/lib/adminAccess";
 import { getSupabaseClient } from "@/lib/supabase";
 import { sendInvoiceEmail, sendInvoiceSentNotification } from "@/lib/email";
+import { getInvoiceEmailDetails } from "@/lib/invoices";
 
-// No Stripe API call at all — this only re-sends our own notification
-// email using the hosted_invoice_url already stored on the row.
+// Re-sends our own branded invoice email using the hosted_invoice_url
+// already stored on the row; the itemized summary is read back from Stripe
+// (read-only) so it matches the live invoice.
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -17,7 +19,7 @@ export async function POST(
   const supabase = getSupabaseClient();
   const { data: invoice, error } = await supabase
     .from("invoices")
-    .select("client_name, client_email, hosted_invoice_url, status")
+    .select("client_name, client_email, hosted_invoice_url, status, stripe_invoice_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -32,10 +34,19 @@ export async function POST(
     return Response.json({ error: "Only an open invoice can be resent." }, { status: 409 });
   }
 
+  let details: Awaited<ReturnType<typeof getInvoiceEmailDetails>>;
+  try {
+    details = await getInvoiceEmailDetails(invoice.stripe_invoice_id);
+  } catch (err) {
+    console.error("Failed to load invoice details from Stripe:", err);
+    return Response.json({ error: "Failed to load invoice from Stripe." }, { status: 502 });
+  }
+
   const result = await sendInvoiceEmail({
     clientName: invoice.client_name,
     clientEmail: invoice.client_email,
     hostedInvoiceUrl: invoice.hosted_invoice_url,
+    details,
   });
 
   if (!result.ok) {

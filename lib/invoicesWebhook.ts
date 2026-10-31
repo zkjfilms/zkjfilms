@@ -8,7 +8,7 @@ import { getSupabaseClient } from "@/lib/supabase";
 import { businessLocalToUtcIso, addMinutesToTime } from "@/lib/scheduling";
 import { pushBookingToGoogleCalendar } from "@/lib/googleCalendar";
 import { broadcastBookingChange } from "@/lib/realtimeBroadcast";
-import { sendInvoiceBookingConfirmedEmail, sendInvoiceBookingConflictEmail } from "@/lib/email";
+import { sendInvoiceBookingsConfirmedEmail, sendInvoiceBookingConflictEmail } from "@/lib/email";
 import { lineBookingsFromMetadata } from "@/lib/invoices";
 
 type InvoiceRow = {
@@ -25,6 +25,7 @@ type PendingBooking = {
   startTime: string;
   clientPhone: string;
   notes: string;
+  location: string;
 };
 
 type BookingRow = {
@@ -38,13 +39,14 @@ type BookingRow = {
 };
 
 // Creates (or recovers, on redelivery) one deferred booking for a paid
-// invoice, then pushes it to Google Calendar and emails the client. Returns
-// null when the reservation couldn't be made — the caller flags the invoice.
+// invoice and pushes it to Google Calendar. Returns null when the
+// reservation couldn't be made — the caller flags the invoice. The client
+// confirmation is sent once by the caller, covering every booking.
 async function createDeferredBooking(
   supabase: ReturnType<typeof getSupabaseClient>,
   invoiceRow: InvoiceRow,
   pending: PendingBooking,
-): Promise<BookingRow | null> {
+): Promise<{ booking: BookingRow; typeName: string; created: boolean } | null> {
   const { data: type } = await supabase
     .from("appointment_types")
     .select("id, name, duration_minutes")
@@ -102,7 +104,7 @@ async function createDeferredBooking(
     // confirmation email on the run that actually created it — redoing
     // either here would double-book the calendar event or re-notify the
     // client for no reason.
-    return existingBooking;
+    return { booking: existingBooking, typeName: type.name, created: false };
   }
 
   const { data: booking, error: insertError } = await supabase
@@ -125,7 +127,11 @@ async function createDeferredBooking(
   }
 
   try {
-    const eventId = await pushBookingToGoogleCalendar({ ...booking, appointment_types: { name: type.name } });
+    const eventId = await pushBookingToGoogleCalendar({
+      ...booking,
+      appointment_types: { name: type.name },
+      location: pending.location,
+    });
     if (eventId) {
       const { error: eventIdError } = await supabase
         .from("bookings")
@@ -141,19 +147,7 @@ async function createDeferredBooking(
 
   await broadcastBookingChange({ date: pending.date });
 
-  const confirmEmail = await sendInvoiceBookingConfirmedEmail({
-    client_name: booking.client_name,
-    client_email: booking.client_email,
-    start_time: booking.start_time,
-    end_time: booking.end_time,
-    booking_token: booking.booking_token,
-    appointment_types: { name: type.name },
-  });
-  if (!confirmEmail.ok) {
-    console.error("Booking-confirmed email failed (booking still created):", confirmEmail.error);
-  }
-
-  return booking;
+  return { booking, typeName: type.name, created: true };
 }
 
 export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retry: boolean }> {
@@ -181,6 +175,7 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
   // once invoices.booking_id is linked, as before).
   const meta = invoice.metadata;
   const pending: PendingBooking[] = [];
+  const { lineBookings, clientPhone, notes, location } = lineBookingsFromMetadata(meta);
   if (!data.booking_id && meta?.pendingBookingAppointmentTypeId) {
     pending.push({
       appointmentTypeId: meta.pendingBookingAppointmentTypeId,
@@ -188,27 +183,44 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
       startTime: meta.pendingBookingStartTime,
       clientPhone: meta.pendingBookingClientPhone ?? "",
       notes: meta.pendingBookingNotes ?? "",
+      location,
     });
   }
-  const { lineBookings, clientPhone, notes } = lineBookingsFromMetadata(meta);
   for (const lineBooking of lineBookings) {
-    pending.push({ ...lineBooking, clientPhone, notes });
+    pending.push({ ...lineBooking, clientPhone, notes, location });
   }
   if (pending.length === 0) {
     return { retry: false };
   }
 
-  const booked: BookingRow[] = [];
+  const booked: { booking: BookingRow; typeName: string; created: boolean }[] = [];
   let anyFailed = false;
   for (const p of pending) {
-    let booking: BookingRow | null = null;
+    let result: Awaited<ReturnType<typeof createDeferredBooking>> = null;
     try {
-      booking = await createDeferredBooking(supabase, data, p);
+      result = await createDeferredBooking(supabase, data, p);
     } catch (err) {
       console.error("Deferred booking creation threw for invoice", data.id, err);
     }
-    if (booking) booked.push(booking);
+    if (result) booked.push(result);
     else anyFailed = true;
+  }
+
+  // One confirmation covering every booking this run actually created —
+  // recovered ones were confirmed on the run that created them.
+  const newlyBooked = booked.filter((b) => b.created);
+  if (newlyBooked.length > 0) {
+    const confirmEmail = await sendInvoiceBookingsConfirmedEmail({
+      clientName: data.client_name,
+      clientEmail: data.client_email,
+      bookings: newlyBooked.map((b) => ({ ...b.booking, appointment_types: null, typeName: b.typeName })),
+      location,
+      amountPaidCents: invoice.amount_paid,
+      invoiceNumber: invoice.number ?? null,
+    });
+    if (!confirmEmail.ok) {
+      console.error("Booking-confirmed email failed (bookings still created):", confirmEmail.error);
+    }
   }
 
   if (anyFailed) {
@@ -234,7 +246,7 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<{ retr
   if (!data.booking_id && booked.length > 0) {
     const { error: linkError } = await supabase
       .from("invoices")
-      .update({ booking_id: booked[0].id })
+      .update({ booking_id: booked[0].booking.id })
       .eq("id", data.id);
     if (linkError) {
       console.error("Failed to link booking_id for invoice", data.id, linkError);

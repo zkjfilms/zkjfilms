@@ -87,6 +87,9 @@ type BookingForCalendar = {
   start_time: string;
   end_time: string;
   appointment_types: { name: string } | { name: string }[] | null;
+  // Invoice bookings can be on location; everything else is at the studio
+  // and leaves this unset.
+  location?: string | null;
 };
 
 function typeNameFor(booking: BookingForCalendar): string {
@@ -105,6 +108,7 @@ export async function pushBookingToGoogleCalendar(booking: BookingForCalendar): 
     requestBody: {
       summary: `${typeNameFor(booking)} — ${booking.client_name}`,
       description: booking.notes ?? undefined,
+      location: booking.location ?? undefined,
       start: { dateTime: booking.start_time },
       end: { dateTime: booking.end_time },
     },

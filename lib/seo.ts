@@ -62,6 +62,10 @@ export const BUSINESS = {
   },
 };
 
+// One-line studio address — the default session location on invoices,
+// confirmation emails, and calendar invites.
+export const STUDIO_ADDRESS = `${BUSINESS.address.streetAddress}, ${BUSINESS.address.addressLocality}, ${BUSINESS.address.addressRegion} ${BUSINESS.address.postalCode}`;
+
 // Per-page metadata must build its own full `openGraph`/`twitter` objects —
 // Next.js REPLACES (not merges) those nested objects wholesale whenever a
 // page defines them, so omitting the image/card fields here would silently

@@ -4,6 +4,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AppointmentType } from "@/app/admin/appointment-types/AppointmentTypeList";
 import { addMinutesToTime, businessLocalToUtcIso, utcIsoToBusinessDate } from "@/lib/scheduling";
+import { STUDIO_ADDRESS } from "@/lib/seo";
 
 type BookingOption = {
   id: string;
@@ -49,6 +50,7 @@ export default function InvoiceForm({
   const [bookingSearch, setBookingSearch] = useState("");
   const [selectedBookingId, setSelectedBookingId] = useState("");
   const [notes, setNotes] = useState("");
+  const [location, setLocation] = useState(STUDIO_ADDRESS);
   const [pricingAppointmentTypeId, setPricingAppointmentTypeId] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([EMPTY_LINE_ITEM]);
   const [dueDate, setDueDate] = useState("");
@@ -316,6 +318,7 @@ export default function InvoiceForm({
           bookingId,
           lineItems: parsedLineItems,
           bookingNotes: notes.trim() || null,
+          location: location.trim() || null,
           dueDate: dueDate || null,
           clientPhone: phone.trim() || null,
           billingAddress,
@@ -564,18 +567,34 @@ export default function InvoiceForm({
           Add line item
         </button>
         {lineItems.some((item) => item.date && item.appointmentTypeId) && (
-          <div className="mt-4">
-            <label htmlFor="notes" className="block text-xs uppercase tracking-[0.15em] text-muted">
-              Booking notes (optional — saved on each booked line&apos;s booking)
-            </label>
-            <textarea
-              id="notes"
-              value={notes}
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
-              rows={2}
-              maxLength={450}
-              className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
-            />
+          <div className="mt-4 space-y-4">
+            <div>
+              <label htmlFor="location" className="block text-xs uppercase tracking-[0.15em] text-muted">
+                Session location (shown on the invoice, confirmation &amp; calendar invite)
+              </label>
+              <input
+                id="location"
+                type="text"
+                value={location}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
+                maxLength={140}
+                placeholder={STUDIO_ADDRESS}
+                className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label htmlFor="notes" className="block text-xs uppercase tracking-[0.15em] text-muted">
+                Booking notes (optional — saved on each booked line&apos;s booking)
+              </label>
+              <textarea
+                id="notes"
+                value={notes}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
+                rows={2}
+                maxLength={450}
+                className="mt-2 w-full border-b border-border bg-transparent py-2 text-foreground outline-none focus:border-accent"
+              />
+            </div>
           </div>
         )}
       </div>
