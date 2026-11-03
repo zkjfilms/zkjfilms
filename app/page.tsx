@@ -63,9 +63,8 @@ export default async function Home() {
     console.error("Failed to load live pricing for homepage schema:", err);
   }
 
-  // The Films card borrows the first film's poster (same ordering as /films),
-  // and only appears once a film exists — /films is a "coming soon" page
-  // until then, not somewhere to send people.
+  // The Films card borrows the first film's poster (same ordering as /films);
+  // until a film exists it's a "coming soon" text panel instead.
   const { data: firstFilm } = await getSupabaseClient()
     .from("videos")
     .select("poster_key, title")
@@ -75,35 +74,37 @@ export default async function Home() {
     .maybeSingle();
 
   // Each service card links to its page and shows a live starting price
-  // matched by the service's own appointment type name. Boudoir is a text
-  // panel: its imagery sits behind the 18+ AgeGate on /boudoir.
-  const serviceCard = (service: Service): ServiceCard => ({
+  // matched by the service's own appointment type name, with the service's
+  // subject-framed 2:3 hero crop unless a card-specific image is given.
+  const serviceCard = (service: Service, image?: ServiceCard["image"]): ServiceCard => ({
     href: `/${service.slug}`,
     name: service.name,
     line: service.tagline,
     price: startingPrice(appointmentTypes, (name) => name === service.appointmentTypeName),
-    image:
-      service.slug === "boudoir"
-        ? null
-        : { src: service.mobileHeroImageUrl ?? service.heroImageUrl ?? "", alt: service.heroImageAlt },
-    panelNote: service.slug === "boudoir" ? "18+ · Work shown after an age check" : undefined,
+    image: image ?? { src: service.mobileHeroImageUrl ?? service.heroImageUrl ?? "", alt: service.heroImageAlt },
   });
   const serviceCards: ServiceCard[] = [
     serviceCard(CREATIVE_PORTRAITS_SERVICE),
     serviceCard(HEADSHOTS_SERVICE),
-    serviceCard(BOUDOIR_SERVICE),
+    // Zach's pick for the homepage — chosen over the boudoir hero, whose
+    // horizontal pose doesn't survive a 4:5 crop. Landscape source, so the
+    // crop is shifted toward her face.
+    serviceCard(BOUDOIR_SERVICE, {
+      src: publicImageUrl("boudoir/gallery/TRA_2587-Edit.jpg"),
+      alt: "Woman with long wavy blonde hair lying on a deep red floor in black lace lingerie with a strappy harness, one hand resting on her chest, looking up at the camera.",
+      position: "58% center",
+    }),
     serviceCard(MUSIC_SERVICE),
-    ...(firstFilm?.poster_key
-      ? [
-          {
-            href: "/films",
-            name: "Films",
-            line: "Cinematic video — highlight reels and film pieces.",
-            price: startingPrice(appointmentTypes, (name) => /videography/i.test(name)),
-            image: { src: publicImageUrl(firstFilm.poster_key), alt: `Still from ${firstFilm.title}` },
-          },
-        ]
-      : []),
+    {
+      href: "/films",
+      name: "Films",
+      line: "Cinematic video — highlight reels and film pieces.",
+      price: startingPrice(appointmentTypes, (name) => /videography/i.test(name)),
+      image: firstFilm?.poster_key
+        ? { src: publicImageUrl(firstFilm.poster_key), alt: `Still from ${firstFilm.title}` }
+        : null,
+      panelNote: firstFilm?.poster_key ? undefined : "New films coming soon",
+    },
   ];
 
   const jsonLd = {

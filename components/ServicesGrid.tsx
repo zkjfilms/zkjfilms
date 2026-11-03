@@ -8,10 +8,10 @@ export type ServiceCard = {
   // "From $250" — null when no matching bookable type exists yet, so the
   // card simply omits a price rather than showing a wrong one.
   price: string | null;
-  // null renders a text panel instead of a photo — used for Boudoir, whose
-  // imagery sits behind an 18+ age check on its own page (AgeGate) and so
-  // shouldn't appear on the homepage unchecked.
-  image: { src: string; alt: string } | null;
+  // null renders a text panel instead of a photo (e.g. Films before any
+  // film exists). `position` is the object-position for the 4:5 crop of a
+  // differently shaped source photo.
+  image: { src: string; alt: string; position?: string } | null;
   panelNote?: string;
 };
 
@@ -33,6 +33,7 @@ export default function ServicesGrid({ cards }: { cards: ServiceCard[] }) {
                   alt={card.image.alt}
                   fill
                   className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                  style={card.image.position ? { objectPosition: card.image.position } : undefined}
                   sizes="(min-width: 1024px) 360px, (min-width: 640px) 45vw, 50vw"
                 />
               ) : (
