@@ -32,6 +32,7 @@ export default function ServicesGrid({ cards }: { cards: ServiceCard[] }) {
                   src={card.image.src}
                   alt={card.image.alt}
                   fill
+                  quality={90}
                   className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                   style={card.image.position ? { objectPosition: card.image.position } : undefined}
                   sizes="(min-width: 1024px) 360px, (min-width: 640px) 45vw, 50vw"

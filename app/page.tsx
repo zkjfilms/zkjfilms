@@ -158,15 +158,18 @@ export default async function Home() {
         className="relative -mt-20 flex min-h-screen scroll-mt-24 items-end overflow-hidden"
       >
         {/*
-          No quality override here on purpose: at fill+100vw this serves the
-          3840px retina bucket, where quality 90 vs the default 75 nearly
-          doubles the payload (2.9MB vs 1.5MB) for a difference invisible at
-          web display size — directly hurt this image's load time.
+          quality 90, matching the service-page heroes and galleries. The
+          default 75 (webp) visibly smeared this photo's film grain and skin
+          texture on retina desktops — "murky" even at the full 3840px
+          bucket. The cost is real but worth it for a photography site: the
+          3840w variant goes from ~0.4MB to ~1.4MB, and only high-DPR wide
+          screens fetch that one (phones get the portrait crop).
         */}
         <HeroImage
           src={publicImageUrl("hero.jpg", "20260908151510070")}
           mobileSrc={publicImageUrl("mobile/hero.jpg")}
           alt="Woman with dark wavy hair and a nose ring smiling and looking off to the side, framed through out-of-focus green leaves and branches in warm forest light."
+          quality={90}
           eager
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/5 to-transparent" />
@@ -211,10 +214,11 @@ export default async function Home() {
         id="work"
         className="relative flex min-h-[85vh] scroll-mt-24 items-end overflow-hidden"
       >
-        {/* Same reasoning as the hero image above — no quality override. */}
+        {/* Same reasoning as the hero image above — quality 90. */}
         <HeroImage
           src={publicImageUrl("second.jpg", "20260908175153144")}
           mobileSrc={publicImageUrl("mobile/second.jpg")}
+          quality={90}
           alt="Woman with long wavy dark hair tilted back, off-shoulder white blouse with puff sleeves, standing between two tree trunks with arms outstretched touching the bark, golden backlight filtering through leaves above."
           objectPosition="center 15%"
         />
