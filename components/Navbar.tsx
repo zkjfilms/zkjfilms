@@ -12,7 +12,8 @@ const links = [
   { href: "/films", label: "Films" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
-  { href: LATE_NIGHT_LISTENING_URL, label: "Events" },
+  // ↗ flags that this one leaves the site (latenightlistening.com).
+  { href: LATE_NIGHT_LISTENING_URL, label: "Events ↗" },
   { href: "/book", label: "Book" },
 ];
 

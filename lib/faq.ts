@@ -2,6 +2,7 @@ import {
   fetchActiveAppointmentTypes,
   type AppointmentTypeRow,
 } from "@/lib/availabilityQuery";
+import { formatPrice, formatSessionLength } from "@/lib/format";
 
 export type FaqCategory =
   | "Pricing"
@@ -106,18 +107,6 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
 ];
 
-function formatWholeDollars(cents: number): string {
-  return `$${Math.round(cents / 100)}`;
-}
-
-function formatDuration(minutes: number): string {
-  if (minutes >= 60 && minutes % 60 === 0) {
-    const hours = minutes / 60;
-    return `${hours} hour${hours === 1 ? "" : "s"}`;
-  }
-  return `${minutes} minutes`;
-}
-
 // Matches each known service against the live appointment_types rows by a
 // stable keyword rather than an exact name — admin can freely rename types
 // (see app/admin/appointment-types/AppointmentTypeForm.tsx) without silently
@@ -135,13 +124,13 @@ function buildSessionCostAnswer(types: AppointmentTypeRow[]): string | null {
 
   const music = find("music");
   const musicClause = music
-    ? ` Music & Performance Photography sessions start at ${formatWholeDollars(music.price_cents)} (${formatDuration(music.duration_minutes)}).`
+    ? ` Music & Performance Photography sessions start at ${formatPrice(music.price_cents)} (${formatSessionLength(music.duration_minutes)}).`
     : "";
 
   return (
-    `Professional Headshots start at ${formatWholeDollars(headshots.price_cents)} (${formatDuration(headshots.duration_minutes)}); ` +
-    `Creative Portraits sessions start at ${formatWholeDollars(creative.price_cents)} (${formatDuration(creative.duration_minutes)}); ` +
-    `Fine Art Boudoir & Nude sessions start at ${formatWholeDollars(boudoir.price_cents)} (${formatDuration(boudoir.duration_minutes)}).` +
+    `Professional Headshots start at ${formatPrice(headshots.price_cents)} (${formatSessionLength(headshots.duration_minutes)}); ` +
+    `Creative Portraits sessions start at ${formatPrice(creative.price_cents)} (${formatSessionLength(creative.duration_minutes)}); ` +
+    `Fine Art Boudoir & Nude sessions start at ${formatPrice(boudoir.price_cents)} (${formatSessionLength(boudoir.duration_minutes)}).` +
     musicClause +
     " Full payment is collected at booking to confirm your session. Looking for something longer — a full-day creative shoot or event/video production? Reach out directly for a custom quote."
   );

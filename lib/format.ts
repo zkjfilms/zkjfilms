@@ -71,6 +71,22 @@ export function formatTimeRange(startIso: string, endIso: string): string {
   return `${dateStr} · ${startTime}–${endTime}`;
 }
 
+// "$250" rather than "$250.00" for whole-dollar prices in client-facing
+// display copy (booking list, FAQ answers); cents are kept when present.
+export function formatPrice(cents: number): string {
+  return formatCents(cents).replace(/\.00$/, "");
+}
+
+// A session's length for clients: "30 minutes", "4 hours", "1 hour 30
+// minutes" — never "480 min".
+export function formatSessionLength(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const hourPart = hours > 0 ? `${hours} hour${hours === 1 ? "" : "s"}` : "";
+  const minutePart = rest > 0 ? `${rest} minute${rest === 1 ? "" : "s"}` : "";
+  return [hourPart, minutePart].filter(Boolean).join(" ");
+}
+
 export function formatCents(cents: number): string {
   return (cents / 100).toLocaleString("en-US", {
     style: "currency",

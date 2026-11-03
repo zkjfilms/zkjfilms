@@ -41,7 +41,7 @@ export default function ContactPage() {
         </h2>
         <p className="mx-auto mb-8 max-w-md text-muted">
           Pick a session type and an open time, and you&rsquo;ll get a
-          session agreement to sign by email right after.
+          confirmation by email right after.
         </p>
         <Link
           href="/book"
@@ -55,8 +55,13 @@ export default function ContactPage() {
 
       <p className="mt-12 text-center text-sm leading-relaxed text-muted">
         Based in Columbia, Missouri, working throughout Mid-Missouri. Studio
-        sessions available by appointment &mdash; once we&rsquo;re talking,
-        I&rsquo;ll walk you through location, pricing, and what to expect.
+        sessions available by appointment &mdash; pricing for each session is
+        on the{" "}
+        <Link href="/book" className="text-accent hover:underline">
+          booking page
+        </Link>
+        , and once we&rsquo;re talking, I&rsquo;ll walk you through location and
+        what to expect.
         <br />
         If you&rsquo;d rather email directly, reach me at{" "}
         <a

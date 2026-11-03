@@ -5,12 +5,19 @@ import FaqAccordion from "@/components/FaqAccordion";
 import { FAQ_ITEMS, type FaqItem } from "@/lib/faq";
 import { SERVICES, type Service } from "@/lib/services";
 
+const BOOK_BUTTON_CLASS =
+  "inline-block border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background";
+
 export default function ServiceLandingPage({ service }: { service: Service }) {
   const faqItems = service.faqIds
     .map((id) => FAQ_ITEMS.find((item) => item.id === id))
     .filter((item): item is FaqItem => item !== undefined);
 
   const otherServices = SERVICES.filter((s) => s.slug !== service.slug);
+
+  // Opens /book with this session already chosen (see
+  // app/book/AppointmentTypePicker.tsx's findPreselectedType).
+  const bookHref = `/book?type=${service.slug}`;
 
   return (
     <div className="flex flex-col">
@@ -56,6 +63,13 @@ export default function ServiceLandingPage({ service }: { service: Service }) {
             {service.relatedLink.label}
           </a>
         )}
+        {/* Also offered after the gallery and FAQs below — this one is for
+            visitors who already know they want to book. */}
+        <div className="mt-8">
+          <Link href={bookHref} className={BOOK_BUTTON_CLASS}>
+            Book This Session
+          </Link>
+        </div>
       </div>
 
       {service.masonryPhotos?.length ? (
@@ -80,10 +94,7 @@ export default function ServiceLandingPage({ service }: { service: Service }) {
       )}
 
       <div className="mx-auto mt-12 flex w-full max-w-2xl justify-center px-6 sm:px-10">
-        <Link
-          href="/book"
-          className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
-        >
+        <Link href={bookHref} className={BOOK_BUTTON_CLASS}>
           Book This Session
         </Link>
       </div>

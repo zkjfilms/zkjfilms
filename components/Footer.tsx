@@ -119,7 +119,7 @@ export default function Footer() {
               href="/book"
               className="mt-3 inline-block text-sm text-foreground underline decoration-border underline-offset-4 transition-colors hover:text-accent"
             >
-              Click Here to View Availability &amp; Book
+              Check availability &amp; book
             </Link>
             <Link
               href="/faq"

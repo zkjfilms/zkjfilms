@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatCents } from "@/lib/format";
+import { formatPrice, formatSessionLength } from "@/lib/format";
 
 export type AppointmentType = {
   id: string;
@@ -15,6 +15,21 @@ export type AppointmentType = {
 };
 
 type Status = "loading" | "ready" | "error";
+
+// A service page's "Book This Session" links to /book?type=<service slug>
+// (e.g. "headshots", "creative-portraits"). The slug is matched against
+// each type's name, slugified ("Professional Headshots" ->
+// "professional-headshots"), so admin renames that keep the key word still
+// match. Only an unambiguous single match preselects; otherwise the full
+// list shows as usual.
+function findPreselectedType(types: AppointmentType[]): AppointmentType | null {
+  const slug = new URLSearchParams(window.location.search).get("type")?.toLowerCase();
+  if (!slug) return null;
+  const matches = types.filter((t) =>
+    t.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").includes(slug),
+  );
+  return matches.length === 1 ? matches[0] : null;
+}
 
 export default function AppointmentTypePicker({
   onSelect,
@@ -42,6 +57,15 @@ export default function AppointmentTypePicker({
         }
         setAppointmentTypes(data.appointmentTypes);
         setStatus("ready");
+        const preselected = findPreselectedType(data.appointmentTypes);
+        if (preselected) {
+          // Consume the param: "Change" remounts this picker, and reading
+          // ?type= again would immediately reselect the same session.
+          const url = new URL(window.location.href);
+          url.searchParams.delete("type");
+          window.history.replaceState(null, "", url);
+          onSelect(preselected);
+        }
       } catch {
         if (!cancelled) setStatus("error");
       }
@@ -51,6 +75,9 @@ export default function AppointmentTypePicker({
     return () => {
       cancelled = true;
     };
+    // Runs once on mount: onSelect is a fresh closure from the parent each
+    // render, and re-running would refetch and re-preselect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (status === "loading") {
@@ -96,19 +123,14 @@ export default function AppointmentTypePicker({
           onClick={() => onSelect(appointmentType)}
           className="flex w-full items-center gap-4 border border-border px-4 py-4 text-left transition-colors hover:border-accent"
         >
-          <span
-            aria-hidden
-            className="h-3 w-3 shrink-0 rounded-full border border-border"
-            style={{ backgroundColor: appointmentType.color }}
-          />
           <span className="flex-1">
             <span className="block text-foreground">
               {appointmentType.name}
             </span>
             <span className="mt-1 block text-xs uppercase tracking-[0.15em] text-muted">
-              {appointmentType.duration_minutes} min
+              {formatSessionLength(appointmentType.duration_minutes)}
               {appointmentType.requires_payment
-                ? ` · ${formatCents(appointmentType.price_cents)}`
+                ? ` · ${formatPrice(appointmentType.price_cents)}`
                 : ""}
             </span>
           </span>

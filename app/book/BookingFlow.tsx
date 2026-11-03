@@ -7,7 +7,7 @@ import AppointmentTypePicker, {
 import BookingCalendar from "./BookingCalendar";
 import BookingForm from "./BookingForm";
 import SlotList, { type Slot } from "./SlotList";
-import { formatCents } from "@/lib/format";
+import { formatPrice, formatSessionLength } from "@/lib/format";
 import { formatSlotForDisplay, BUSINESS_TIME_ZONE } from "@/lib/scheduling";
 
 type Step = "type" | "date" | "slot" | "form";
@@ -78,20 +78,10 @@ export default function BookingFlow() {
     <div className="space-y-8">
       {appointmentType && step !== "type" && (
         <div className="flex items-center justify-between gap-4 border border-border px-4 py-3">
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="h-3 w-3 shrink-0 rounded-full border border-border"
-              style={{ backgroundColor: appointmentType.color }}
-            />
-            <span className="text-sm text-foreground">
-              {appointmentType.name} &middot;{" "}
-              {appointmentType.duration_minutes} min
-              {appointmentType.requires_payment
-                ? ` · ${formatCents(appointmentType.price_cents)}`
-                : ""}
-            </span>
-          </div>
+          <span className="text-sm text-foreground">
+            {appointmentType.name} &middot; {formatSessionLength(appointmentType.duration_minutes)}
+            {appointmentType.requires_payment ? ` · ${formatPrice(appointmentType.price_cents)}` : ""}
+          </span>
           <button type="button" onClick={changeType} className={CHANGE_LINK_CLASS}>
             Change
           </button>
