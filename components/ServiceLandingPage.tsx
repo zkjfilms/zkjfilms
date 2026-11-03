@@ -1,4 +1,4 @@
-import Image from "next/image";
+import HeroImage from "@/components/HeroImage";
 import Link from "next/link";
 import MasonryGallery from "@/components/MasonryGallery";
 import FaqAccordion from "@/components/FaqAccordion";
@@ -22,22 +22,16 @@ export default function ServiceLandingPage({ service }: { service: Service }) {
   return (
     <div className="flex flex-col">
       <section className="relative -mt-20 flex min-h-[70vh] items-end overflow-hidden">
-        <Image
+        <HeroImage
           src={
             service.heroImageUrl ??
             `https://picsum.photos/seed/${service.heroImageSeed}/1800/1200`
           }
+          mobileSrc={service.mobileHeroImageUrl}
           alt={service.heroImageAlt}
-          fill
-          priority
+          eager
           quality={90}
-          className="object-cover"
-          style={
-            service.heroImagePosition
-              ? { objectPosition: service.heroImagePosition }
-              : undefined
-          }
-          sizes="100vw"
+          objectPosition={service.heroImagePosition}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/5 to-black/5" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />

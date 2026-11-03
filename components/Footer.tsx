@@ -109,7 +109,7 @@ export default function Footer() {
               Studio Hours
             </p>
             <p className="mt-4 text-sm text-foreground">
-              Friday&ndash;Sunday, 10 AM&ndash;5 PM (every other week)
+              Every other weekend, Fri&ndash;Sun, 10 AM&ndash;5 PM
             </p>
 
             <p className="mt-6 text-xs uppercase tracking-[0.3em] text-muted">

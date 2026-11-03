@@ -1,4 +1,4 @@
-import Image from "next/image";
+import HeroImage from "@/components/HeroImage";
 import Link from "next/link";
 import type { Metadata } from "next";
 import SectionNav from "@/components/SectionNav";
@@ -97,13 +97,11 @@ export default async function Home() {
           doubles the payload (2.9MB vs 1.5MB) for a difference invisible at
           web display size — directly hurt this image's load time.
         */}
-        <Image
+        <HeroImage
           src={publicImageUrl("hero.jpg", "20260908151510070")}
+          mobileSrc={publicImageUrl("mobile/hero.jpg")}
           alt="Woman with dark wavy hair and a nose ring smiling and looking off to the side, framed through out-of-focus green leaves and branches in warm forest light."
-          fill
-          priority
-          className="object-cover"
-          sizes="100vw"
+          eager
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/5 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
@@ -148,13 +146,11 @@ export default async function Home() {
         className="relative flex min-h-[85vh] scroll-mt-24 items-end overflow-hidden"
       >
         {/* Same reasoning as the hero image above — no quality override. */}
-        <Image
+        <HeroImage
           src={publicImageUrl("second.jpg", "20260908175153144")}
+          mobileSrc={publicImageUrl("mobile/second.jpg")}
           alt="Woman with long wavy dark hair tilted back, off-shoulder white blouse with puff sleeves, standing between two tree trunks with arms outstretched touching the bark, golden backlight filtering through leaves above."
-          fill
-          className="object-cover"
-          style={{ objectPosition: "center 15%" }}
-          sizes="100vw"
+          objectPosition="center 15%"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
         <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-6 pb-20 sm:px-10">
