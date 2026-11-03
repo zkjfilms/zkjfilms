@@ -4,8 +4,17 @@ import type { Metadata } from "next";
 import SectionNav from "@/components/SectionNav";
 import { BUSINESS, DEFAULT_OG_IMAGE, SITE_URL, buildPageMetadata } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
-import { fetchActiveAppointmentTypes } from "@/lib/availabilityQuery";
-import { formatPriceRange } from "@/lib/format";
+import { fetchActiveAppointmentTypes, type AppointmentTypeRow } from "@/lib/availabilityQuery";
+import { formatPrice, formatPriceRange } from "@/lib/format";
+import { getSupabaseClient } from "@/lib/supabase";
+import ServicesGrid, { type ServiceCard } from "@/components/ServicesGrid";
+import {
+  BOUDOIR_SERVICE,
+  CREATIVE_PORTRAITS_SERVICE,
+  HEADSHOTS_SERVICE,
+  MUSIC_SERVICE,
+  type Service,
+} from "@/lib/services";
 
 const TITLE = "Zach K. Johnson | Columbia, MO Portrait & Boudoir Photographer";
 const DESCRIPTION =
@@ -28,10 +37,23 @@ const sections = [
   { id: "connect", label: "Connect" },
 ];
 
+// "From $X" for the cheapest active, paid appointment type whose name passes
+// `match` — null when none does (e.g. a service with no bookable type yet).
+function startingPrice(
+  types: AppointmentTypeRow[],
+  match: (name: string) => boolean,
+): string | null {
+  const prices = types
+    .filter((type) => type.requires_payment && match(type.name))
+    .map((type) => type.price_cents);
+  return prices.length ? `From ${formatPrice(Math.min(...prices))}` : null;
+}
+
 export default async function Home() {
   let priceRange: string | null = null;
+  let appointmentTypes: AppointmentTypeRow[] = [];
   try {
-    const appointmentTypes = await fetchActiveAppointmentTypes();
+    appointmentTypes = await fetchActiveAppointmentTypes();
     priceRange = formatPriceRange(
       appointmentTypes
         .filter((type) => type.requires_payment)
@@ -40,6 +62,49 @@ export default async function Home() {
   } catch (err) {
     console.error("Failed to load live pricing for homepage schema:", err);
   }
+
+  // The Films card borrows the first film's poster (same ordering as /films),
+  // and only appears once a film exists — /films is a "coming soon" page
+  // until then, not somewhere to send people.
+  const { data: firstFilm } = await getSupabaseClient()
+    .from("videos")
+    .select("poster_key, title")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  // Each service card links to its page and shows a live starting price
+  // matched by the service's own appointment type name. Boudoir is a text
+  // panel: its imagery sits behind the 18+ AgeGate on /boudoir.
+  const serviceCard = (service: Service): ServiceCard => ({
+    href: `/${service.slug}`,
+    name: service.name,
+    line: service.tagline,
+    price: startingPrice(appointmentTypes, (name) => name === service.appointmentTypeName),
+    image:
+      service.slug === "boudoir"
+        ? null
+        : { src: service.mobileHeroImageUrl ?? service.heroImageUrl ?? "", alt: service.heroImageAlt },
+    panelNote: service.slug === "boudoir" ? "18+ · Work shown after an age check" : undefined,
+  });
+  const serviceCards: ServiceCard[] = [
+    serviceCard(CREATIVE_PORTRAITS_SERVICE),
+    serviceCard(HEADSHOTS_SERVICE),
+    serviceCard(BOUDOIR_SERVICE),
+    serviceCard(MUSIC_SERVICE),
+    ...(firstFilm?.poster_key
+      ? [
+          {
+            href: "/films",
+            name: "Films",
+            line: "Cinematic video — highlight reels and film pieces.",
+            price: startingPrice(appointmentTypes, (name) => /videography/i.test(name)),
+            image: { src: publicImageUrl(firstFilm.poster_key), alt: `Still from ${firstFilm.title}` },
+          },
+        ]
+      : []),
+  ];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -169,34 +234,39 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 04 — Connect */}
+      {/* 04 — What I Offer */}
       <section
         id="connect"
-        className="mx-auto w-full max-w-3xl scroll-mt-24 px-6 py-32 text-center sm:px-10"
+        className="mx-auto w-full max-w-6xl scroll-mt-24 px-6 py-28 sm:px-10"
       >
-        <h2 className="mb-5 text-[11px] uppercase tracking-[0.3em] text-muted">
-          04 — What I Offer
-        </h2>
-        <p className="mx-auto max-w-xl text-base leading-relaxed text-muted">
-          My work spans creative portraits, professional headshots, boudoir
-          and fine art nude photography, and concert/live performance work
-          for clients across Columbia and Mid-Missouri. If you&rsquo;re
-          looking for a Columbia photographer who treats a session as
-          genuine collaboration rather than a transaction, I&rsquo;d love to
-          work with you.
-        </p>
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <div className="mx-auto max-w-xl text-center">
+          <h2 className="mb-5 text-[11px] uppercase tracking-[0.3em] text-muted">
+            04 &mdash; What I Offer
+          </h2>
+          <p className="font-serif text-3xl italic leading-snug text-foreground sm:text-4xl">
+            Sessions for every kind of story.
+          </p>
+          <p className="mt-6 text-base leading-relaxed text-muted">
+            Portraits, headshots, boudoir, live music, and film &mdash; for
+            clients across Columbia and Mid-Missouri, each treated as a genuine
+            collaboration.
+          </p>
+        </div>
+        <div className="mt-16">
+          <ServicesGrid cards={serviceCards} />
+        </div>
+        <div className="mt-16 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            href="/contact"
+            href="/book"
             className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
           >
-            Start a Conversation
+            Book a Session
           </Link>
           <Link
-            href="/about"
+            href="/contact"
             className="text-xs uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
           >
-            Explore Services
+            Start a Conversation
           </Link>
         </div>
       </section>
