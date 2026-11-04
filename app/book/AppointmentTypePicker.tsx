@@ -16,14 +16,25 @@ export type AppointmentType = {
 
 type Status = "loading" | "ready" | "error";
 
-// A service page's "Book This Session" links to /book?type=<service slug>
-// (e.g. "headshots", "creative-portraits"). The slug is matched against
-// each type's name, slugified ("Professional Headshots" ->
-// "professional-headshots"), so admin renames that keep the key word still
-// match. Only an unambiguous single match preselects; otherwise the full
-// list shows as usual.
+// The URL query a preselect was last handled for. Module-level so it
+// survives the picker remounting on "Change" (same query -> no reselect),
+// while arriving via a different link (a new query, even through client-side
+// navigation) preselects again.
+let preselectHandledFor: string | null = null;
+
+// Two ways to arrive with a session already chosen:
+// - /book?id=<type id>: a private type's link (copied from the admin). The
+//   list endpoint only returns that private type when asked for its id.
+// - /book?type=<service slug>: a service page's "Book This Session" (e.g.
+//   "headshots"). The slug is matched against each type's name, slugified
+//   ("Professional Headshots" -> "professional-headshots"), so admin renames
+//   that keep the key word still match. Only an unambiguous single match
+//   preselects; otherwise the full list shows as usual.
 function findPreselectedType(types: AppointmentType[]): AppointmentType | null {
-  const slug = new URLSearchParams(window.location.search).get("type")?.toLowerCase();
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  if (id) return types.find((t) => t.id === id) ?? null;
+  const slug = params.get("type")?.toLowerCase();
   if (!slug) return null;
   const matches = types.filter((t) =>
     t.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").includes(slug),
@@ -47,7 +58,12 @@ export default function AppointmentTypePicker({
     async function load() {
       setStatus("loading");
       try {
-        const response = await fetch("/api/availability/appointment-types");
+        const id = new URLSearchParams(window.location.search).get("id");
+        const response = await fetch(
+          id
+            ? `/api/availability/appointment-types?id=${encodeURIComponent(id)}`
+            : "/api/availability/appointment-types",
+        );
         const data: { appointmentTypes?: AppointmentType[] } =
           await response.json();
         if (cancelled) return;
@@ -57,15 +73,19 @@ export default function AppointmentTypePicker({
         }
         setAppointmentTypes(data.appointmentTypes);
         setStatus("ready");
-        const preselected = findPreselectedType(data.appointmentTypes);
+        // Preselect once per page visit: "Change" remounts this picker, and
+        // reselecting here would trap the visitor on the same session. ?id=
+        // stays in the URL (rather than being stripped like ?type=) so a
+        // private type stays in the list after "Change".
+        const alreadyHandled = preselectHandledFor === window.location.search;
+        const preselected = alreadyHandled ? null : findPreselectedType(data.appointmentTypes);
         if (preselected) {
-          // Consume the param: "Change" remounts this picker, and reading
-          // ?type= again would immediately reselect the same session.
           const url = new URL(window.location.href);
           url.searchParams.delete("type");
           window.history.replaceState(null, "", url);
           onSelect(preselected);
         }
+        preselectHandledFor = window.location.search;
       } catch {
         if (!cancelled) setStatus("error");
       }

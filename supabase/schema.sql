@@ -633,3 +633,9 @@ alter table invoice_line_items enable row level security;
 alter table invoices add column if not exists session_date_time text;
 
 alter table invoices add column if not exists booking_conflict boolean not null default false;
+
+-- Public types are listed on /book (and feed the homepage's starting
+-- prices and the FAQ's pricing answer). Private ones are hidden there but
+-- stay fully usable from the admin (invoices, discount codes, admin
+-- bookings) and bookable through a private link: /book?id=<type id>.
+alter table appointment_types add column if not exists is_public boolean not null default true;

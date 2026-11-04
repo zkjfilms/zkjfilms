@@ -26,6 +26,7 @@ type CreatePayload = {
   priceCents: number;
   requiresPayment: boolean;
   usesBoudoirReminder: boolean;
+  isPublic: boolean;
   color: string;
 };
 
@@ -45,6 +46,7 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     b.priceCents < 0 ||
     typeof b.requiresPayment !== "boolean" ||
     typeof b.usesBoudoirReminder !== "boolean" ||
+    typeof b.isPublic !== "boolean" ||
     typeof b.color !== "string"
   ) {
     return null;
@@ -57,6 +59,7 @@ function parseCreatePayload(body: unknown): CreatePayload | null {
     priceCents: b.priceCents,
     requiresPayment: b.requiresPayment,
     usesBoudoirReminder: b.usesBoudoirReminder,
+    isPublic: b.isPublic,
     color: b.color,
   };
 }
@@ -89,6 +92,7 @@ export async function POST(request: Request) {
       price_cents: payload.priceCents,
       requires_payment: payload.requiresPayment,
       uses_boudoir_reminder: payload.usesBoudoirReminder,
+      is_public: payload.isPublic,
       color: payload.color,
       sort_order: nextSortOrder,
     })

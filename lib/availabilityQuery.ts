@@ -51,15 +51,22 @@ export type AppointmentTypeRow = {
   color: string;
 };
 
-export async function fetchActiveAppointmentTypes(): Promise<AppointmentTypeRow[]> {
+// Active types for client-facing lists (/book, homepage prices, FAQ):
+// public ones only. `includePrivateId` additionally returns that one private
+// type, for a private booking link (/book?id=<type id>) — the id is an
+// unguessable UUID, so a private type is only reachable by whoever was sent
+// its link. Admin screens query appointment_types directly and see all.
+export async function fetchActiveAppointmentTypes(
+  options: { includePrivateId?: string } = {},
+): Promise<AppointmentTypeRow[]> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("appointment_types")
-    .select("id, name, duration_minutes, buffer_before_minutes, buffer_after_minutes, price_cents, requires_payment, color")
+    .select("id, name, duration_minutes, buffer_before_minutes, buffer_after_minutes, price_cents, requires_payment, color, is_public")
     .eq("active", true)
     .order("sort_order", { ascending: true });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).filter((type) => type.is_public || type.id === options.includePrivateId);
 }
 
 export async function fetchOpenSlotsForDate(params: {

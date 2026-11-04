@@ -9,6 +9,7 @@ type UpdatePayload = Partial<{
   priceCents: number;
   requiresPayment: boolean;
   usesBoudoirReminder: boolean;
+  isPublic: boolean;
   color: string;
   active: boolean;
   sortOrder: number;
@@ -35,6 +36,7 @@ export async function PATCH(
   if (body.priceCents !== undefined) update.price_cents = body.priceCents;
   if (body.requiresPayment !== undefined) update.requires_payment = body.requiresPayment;
   if (body.usesBoudoirReminder !== undefined) update.uses_boudoir_reminder = body.usesBoudoirReminder;
+  if (body.isPublic !== undefined) update.is_public = body.isPublic;
   if (body.color !== undefined) update.color = body.color;
   if (body.active !== undefined) update.active = body.active;
   if (body.sortOrder !== undefined) update.sort_order = body.sortOrder;

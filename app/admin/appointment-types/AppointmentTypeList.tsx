@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatCents } from "@/lib/format";
+import { SITE_URL } from "@/lib/seo";
 import AppointmentTypeForm from "./AppointmentTypeForm";
 
 export type AppointmentType = {
@@ -14,6 +15,7 @@ export type AppointmentType = {
   price_cents: number;
   requires_payment: boolean;
   uses_boudoir_reminder: boolean;
+  is_public: boolean;
   color: string;
   active: boolean;
   sort_order: number;
@@ -70,6 +72,35 @@ function ArchiveToggle({ appointmentType }: { appointmentType: AppointmentType }
       </button>
       {error && <span className="text-xs text-red-700">{error}</span>}
     </div>
+  );
+}
+
+// A private type's booking link — opens /book with it preselected (see
+// app/book/AppointmentTypePicker.tsx). Copied rather than shown, since the
+// point is to hand it to one client.
+function CopyPrivateLink({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(`${SITE_URL}/book?id=${id}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard can be unavailable (permissions, insecure context) — fall
+      // back to showing the link so it can be copied by hand.
+      window.prompt("Private booking link:", `${SITE_URL}/book?id=${id}`);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="text-xs text-muted underline-offset-4 transition-colors hover:text-foreground hover:underline"
+    >
+      {copied ? "Copied!" : "Copy private link"}
+    </button>
   );
 }
 
@@ -135,6 +166,11 @@ export default function AppointmentTypeList({
                           Archived
                         </span>
                       )}
+                      {!appointmentType.is_public && (
+                        <span className="ml-2 text-xs uppercase tracking-[0.15em] text-accent">
+                          Private
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-muted">
                       {appointmentType.duration_minutes}min @{" "}
@@ -146,6 +182,9 @@ export default function AppointmentTypeList({
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
+                  {!appointmentType.is_public && appointmentType.active && (
+                    <CopyPrivateLink id={appointmentType.id} />
+                  )}
                   <button
                     type="button"
                     onClick={() => setEditingId(appointmentType.id)}

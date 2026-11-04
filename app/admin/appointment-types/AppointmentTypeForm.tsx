@@ -18,6 +18,7 @@ function toFormState(appointmentType: AppointmentType | null) {
       priceDollars: "",
       requiresPayment: false,
       usesBoudoirReminder: false,
+      isPublic: true,
       color: DEFAULT_COLOR,
     };
   }
@@ -29,6 +30,7 @@ function toFormState(appointmentType: AppointmentType | null) {
     priceDollars: (appointmentType.price_cents / 100).toString(),
     requiresPayment: appointmentType.requires_payment,
     usesBoudoirReminder: appointmentType.uses_boudoir_reminder,
+    isPublic: appointmentType.is_public,
     color: appointmentType.color,
   };
 }
@@ -103,6 +105,7 @@ export default function AppointmentTypeForm({
       priceCents,
       requiresPayment: form.requiresPayment,
       usesBoudoirReminder: form.usesBoudoirReminder,
+      isPublic: form.isPublic,
       color: form.color,
     };
 
@@ -277,6 +280,23 @@ export default function AppointmentTypeForm({
         />
         Use boudoir-specific pre-session reminder email
       </label>
+
+      <div>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            name="isPublic"
+            checked={form.isPublic}
+            onChange={handleChange}
+            className="h-4 w-4 border-border accent-accent"
+          />
+          Show on the public booking page
+        </label>
+        <p className="mt-1 pl-6 text-xs text-muted">
+          Unchecked = private: hidden from /book, the homepage, and the FAQ, but still usable
+          in invoices and bookable by anyone you send its private link.
+        </p>
+      </div>
 
       {error && <p className="text-xs text-red-700">{error}</p>}
 
