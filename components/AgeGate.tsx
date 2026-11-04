@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 const STORAGE_KEY = "boudoir-age-confirmed";
 
@@ -73,7 +74,7 @@ export default function AgeGate() {
             type="button"
             onClick={handleConfirm}
             autoFocus
-            className="w-full border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background sm:w-auto"
+            className={`w-full ${OUTLINE_BUTTON} sm:w-auto`}
           >
             I&rsquo;m 18 or older &mdash; Continue
           </button>

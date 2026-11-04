@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 const TITLE = "About";
 const DESCRIPTION =
@@ -69,7 +70,7 @@ export default function AboutPage() {
 
         <Link
           href="/contact"
-          className="mt-10 inline-block border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+          className={`mt-10 inline-block ${OUTLINE_BUTTON}`}
         >
           Get in Touch
         </Link>

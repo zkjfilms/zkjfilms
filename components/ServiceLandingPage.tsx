@@ -4,9 +4,9 @@ import MasonryGallery from "@/components/MasonryGallery";
 import FaqAccordion from "@/components/FaqAccordion";
 import { FAQ_ITEMS, type FaqItem } from "@/lib/faq";
 import { SERVICES, type Service } from "@/lib/services";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
-const BOOK_BUTTON_CLASS =
-  "inline-block border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background";
+const BOOK_BUTTON_CLASS = `inline-block ${OUTLINE_BUTTON}`;
 
 export default function ServiceLandingPage({ service }: { service: Service }) {
   const faqItems = service.faqIds
@@ -23,10 +23,7 @@ export default function ServiceLandingPage({ service }: { service: Service }) {
     <div className="flex flex-col">
       <section className="relative -mt-20 flex min-h-[70vh] items-end overflow-hidden">
         <HeroImage
-          src={
-            service.heroImageUrl ??
-            `https://picsum.photos/seed/${service.heroImageSeed}/1800/1200`
-          }
+          src={service.heroImageUrl}
           mobileSrc={service.mobileHeroImageUrl}
           alt={service.heroImageAlt}
           eager

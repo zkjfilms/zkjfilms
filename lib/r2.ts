@@ -8,18 +8,11 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { requireEnv } from "@/lib/env";
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} is not set.`);
-  }
-  return value;
-}
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME ?? "";
 
-export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME ?? "";
-
-export function getR2Client(): S3Client {
+function getR2Client(): S3Client {
   return new S3Client({
     region: "auto",
     endpoint: requireEnv("R2_ENDPOINT"),

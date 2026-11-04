@@ -2,16 +2,6 @@
 // no icon library installed (confirmed: not in package.json), matching
 // the existing pattern of local icon components in components/Navbar.tsx.
 
-export function RssIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-      <circle cx="5" cy="15" r="1.5" fill="currentColor" stroke="none" />
-      <path d="M3 9.5a7.5 7.5 0 0 1 7.5 7.5" strokeLinecap="round" />
-      <path d="M3 4.5a12.5 12.5 0 0 1 12.5 12.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export function HeartIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">

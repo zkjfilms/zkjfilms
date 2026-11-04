@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase";
 import { isGalleryUnavailable } from "@/lib/gallery";
 import GalleryGate from "./GalleryGate";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 // Client galleries are private — never indexed, and disallowed in
 // robots.ts too, as defense in depth if a link is ever shared publicly.
@@ -31,7 +32,7 @@ function GalleryNotFound() {
       </p>
       <Link
         href="/"
-        className="mt-8 border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+        className={`mt-8 ${OUTLINE_BUTTON}`}
       >
         Back to main site
       </Link>
@@ -54,7 +55,7 @@ function GalleryExpired({ title }: { title: string }) {
       </p>
       <Link
         href="/contact"
-        className="mt-8 border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+        className={`mt-8 ${OUTLINE_BUTTON}`}
       >
         Contact
       </Link>

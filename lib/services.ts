@@ -9,13 +9,11 @@ export type Service = {
   appointmentTypeName: string;
   tagline: string;
   description: string;
-  heroImageSeed: string;
-  heroImageUrl?: string;
+  heroImageUrl: string;
   // CSS object-position for the hero <Image> (e.g. "center 15%") — the hero
-  // section is a tall (min-h-[70vh]) object-cover crop, so a real photo
-  // whose subject isn't near the vertical center needs this or the subject
-  // gets cropped out entirely. Unused (defaults to center) for the
-  // picsum.photos placeholders, whose framing doesn't matter.
+  // section is a tall (min-h-[70vh]) object-cover crop, so a photo whose
+  // subject isn't near the vertical center needs this or the subject gets
+  // cropped out entirely. Defaults to center.
   heroImagePosition?: string;
   // 2:3 portrait crop of the hero, framed on the subject, served to
   // portrait screens instead (see components/HeroImage.tsx). Uploaded under
@@ -34,7 +32,6 @@ export const HEADSHOTS_SERVICE: Service = {
   tagline: "Polished, professional, and unmistakably you.",
   description:
     "Professional portraits for people who need to show up polished — LinkedIn, business branding, personal websites, and professional profiles. Clean, confident, and ready for wherever you need to make a first impression.",
-  heroImageSeed: "nocturne-headshots-hero",
   heroImageUrl: publicImageUrl("headshots/lucas.jpg"),
   mobileHeroImageUrl: publicImageUrl("mobile/headshots/lucas.jpg"),
   heroImagePosition: "center 10%",
@@ -51,7 +48,6 @@ export const CREATIVE_PORTRAITS_SERVICE: Service = {
   tagline: "Art-directed portraits, built around a concept.",
   description:
     "More personal, more art-directed. Lighting, styling, and concept-driven sessions for people who want something beyond a standard portrait — a set of images that actually feels like you.",
-  heroImageSeed: "nocturne-creative-hero",
   heroImageUrl: publicImageUrl("creative-portraits/KwaniHero.jpg"),
   mobileHeroImageUrl: publicImageUrl("mobile/creative-portraits/KwaniHero.jpg"),
   heroImageAlt:
@@ -67,7 +63,6 @@ export const BOUDOIR_SERVICE: Service = {
   tagline: "Intimate work, entirely on your terms.",
   description:
     "Boudoir and fine art nude photography built around trust. This is some of the most personal work I do — shaped entirely around what you're comfortable with, at whatever pace feels right. Every image stays private unless you decide otherwise: fully public, cropped and anonymous, or never shared at all.",
-  heroImageSeed: "nocturne-boudoir-hero",
   heroImageUrl: publicImageUrl("boudoir/AnonBanner.jpg"),
   mobileHeroImageUrl: publicImageUrl("mobile/boudoir/AnonBanner.jpg"),
   heroImageAlt: "Fine art boudoir photography session in Columbia, Missouri.",
@@ -82,7 +77,6 @@ export const MUSIC_SERVICE: Service = {
   tagline: "Live energy, captured from the pit.",
   description:
     "Concert and live-performance photography — bands, solo artists, and venues, shot in the moment. Booked directly by artists, venues, or labels for promo, press, and archival use.",
-  heroImageSeed: "nocturne-music-hero",
   heroImageUrl: publicImageUrl("music/ZJ7_2203.jpg"),
   mobileHeroImageUrl: publicImageUrl("mobile/music/ZJ7_2203.jpg"),
   heroImageAlt:

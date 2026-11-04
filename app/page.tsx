@@ -15,6 +15,7 @@ import {
   MUSIC_SERVICE,
   type Service,
 } from "@/lib/services";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 const TITLE = "Zach K. Johnson | Columbia, MO Portrait & Boudoir Photographer";
 const DESCRIPTION =
@@ -81,7 +82,7 @@ export default async function Home() {
     name: service.name,
     line: service.tagline,
     price: startingPrice(appointmentTypes, (name) => name === service.appointmentTypeName),
-    image: image ?? { src: service.mobileHeroImageUrl ?? service.heroImageUrl ?? "", alt: service.heroImageAlt },
+    image: image ?? { src: service.mobileHeroImageUrl ?? service.heroImageUrl, alt: service.heroImageAlt },
   });
   const serviceCards: ServiceCard[] = [
     serviceCard(CREATIVE_PORTRAITS_SERVICE),
@@ -263,7 +264,7 @@ export default async function Home() {
         <div className="mt-16 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             href="/book"
-            className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+            className={OUTLINE_BUTTON}
           >
             Book a Session
           </Link>

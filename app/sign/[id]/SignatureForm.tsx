@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import SignedView from "./SignedView";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 type Status = "idle" | "loading";
 
@@ -117,7 +118,7 @@ export default function SignatureForm({
         <button
           type="submit"
           disabled={!signerName.trim() || !agreed || status === "loading"}
-          className="w-full border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
+          className={`w-full ${OUTLINE_BUTTON} disabled:cursor-not-allowed disabled:opacity-50`}
         >
           {status === "loading" ? "Signing…" : "Sign"}
         </button>

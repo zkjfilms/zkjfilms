@@ -24,7 +24,7 @@ let warnedMissingConfig = false;
 // live-UX enhancement, not load-bearing for booking correctness (every
 // mutation path re-fetches on its own), so its absence must never break
 // page rendering.
-export function getSupabaseBrowserClient(): SupabaseClient | null {
+function getSupabaseBrowserClient(): SupabaseClient | null {
   if (client) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

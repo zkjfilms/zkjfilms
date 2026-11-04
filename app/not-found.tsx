@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 export function generateMetadata(): Metadata {
   return {
@@ -25,7 +26,7 @@ export default function NotFound() {
       <div className="mt-10">
         <Link
           href="/"
-          className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+          className={OUTLINE_BUTTON}
         >
           Back to Home
         </Link>

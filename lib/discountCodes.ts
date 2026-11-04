@@ -27,7 +27,7 @@ export type DiscountCode = {
 // Stripe entirely in that case); a discount that leaves a small but
 // positive amount still floors up to this minimum, since that booking
 // still goes through a real Stripe charge.
-export const STRIPE_MIN_CHARGE_CENTS = 50;
+const STRIPE_MIN_CHARGE_CENTS = 50;
 
 export function isValidDiscountValue(type: DiscountCodeType, value: number): boolean {
   if (!Number.isInteger(value) || value <= 0) return false;

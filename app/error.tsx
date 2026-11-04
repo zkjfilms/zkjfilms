@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 export default function Error({
   error,
@@ -27,7 +28,7 @@ export default function Error({
         <button
           type="button"
           onClick={() => retry()}
-          className="border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+          className={OUTLINE_BUTTON}
         >
           Try Again
         </button>

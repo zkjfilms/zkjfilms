@@ -5,6 +5,7 @@ import { SESSION_TYPES } from "@/lib/leads";
 import TurnstileWidget, {
   type TurnstileWidgetHandle,
 } from "@/components/TurnstileWidget";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 type Status = "idle" | "loading" | "submitted" | "error";
 
@@ -241,7 +242,7 @@ export default function ContactForm() {
         <button
           type="submit"
           disabled={status === "loading" || !turnstileToken}
-          className="mt-4 border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-50"
+          className={`mt-4 ${OUTLINE_BUTTON} disabled:cursor-not-allowed disabled:opacity-50`}
         >
           {status === "loading" ? "Sending…" : "Send Message"}
         </button>

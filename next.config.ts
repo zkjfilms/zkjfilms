@@ -80,24 +80,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "picsum.photos",
-        port: "",
-        pathname: "/**",
-        search: "",
-      },
-      {
-        protocol: "https",
-        hostname: "fastly.picsum.photos",
-        port: "",
-        pathname: "/**",
-        search: "",
-      },
-      {
-        protocol: "https",
         hostname: r2PublicHost,
         port: "",
         pathname: "/**",
-        // No `search` restriction (unlike the picsum patterns above) —
+        // No `search` restriction —
         // publicImageUrl()'s optional cache-bust `?v=...` param (see
         // lib/media.ts) needs to pass through for fixed-name keys like
         // hero.jpg that get their content swapped in place.

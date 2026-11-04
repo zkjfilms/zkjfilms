@@ -1,13 +1,8 @@
 import { google } from "googleapis";
 import { getSupabaseClient } from "@/lib/supabase";
+import { requireEnv } from "@/lib/env";
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set.`);
-  return value;
-}
-
-export function getGoogleOAuthClient() {
+function getGoogleOAuthClient() {
   return new google.auth.OAuth2(
     requireEnv("GOOGLE_OAUTH_CLIENT_ID"),
     requireEnv("GOOGLE_OAUTH_CLIENT_SECRET"),
@@ -46,7 +41,7 @@ export async function exchangeCodeAndStoreTokens(code: string): Promise<void> {
 // Returns an authenticated client, refreshing the access token first if
 // it's expired — googleapis' OAuth2 client does this automatically once
 // given both tokens, but only if we hand it the stored refresh_token.
-export async function getAuthenticatedGoogleClient() {
+async function getAuthenticatedGoogleClient() {
   const supabase = getSupabaseClient();
   const { data: sync } = await supabase.from("google_calendar_sync").select("*").single();
   if (!sync?.connected || !sync.refresh_token) return null;

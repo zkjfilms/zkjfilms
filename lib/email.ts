@@ -4,7 +4,6 @@ import { formatTimeRange, formatCents, formatBusinessDate } from "@/lib/format";
 import { escapeHtml, renderEmail, type EmailContent } from "@/lib/emailLayout";
 import { buildIcs, bookingEventUid, type CalendarEvent } from "@/lib/ics";
 
-export { escapeHtml };
 
 const FROM_ADDRESS = `${BUSINESS.name} <${BUSINESS.email}>`;
 

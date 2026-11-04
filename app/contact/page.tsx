@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import ContactForm from "./ContactForm";
 import { buildPageMetadata, BUSINESS } from "@/lib/seo";
+import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 const TITLE = "Contact & Booking";
 const DESCRIPTION =
@@ -45,7 +46,7 @@ export default function ContactPage() {
         </p>
         <Link
           href="/book"
-          className="inline-block border border-foreground px-8 py-3 text-xs uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-foreground hover:text-background"
+          className={`inline-block ${OUTLINE_BUTTON}`}
         >
           View Availability &amp; Book
         </Link>

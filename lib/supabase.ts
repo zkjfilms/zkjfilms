@@ -5,14 +5,7 @@
 // prefixed with NEXT_PUBLIC_.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} is not set.`);
-  }
-  return value;
-}
+import { requireEnv } from "@/lib/env";
 
 // Accepts either the project base URL or the REST endpoint
 // (https://<ref>.supabase.co/rest/v1/) — supabase-js wants the base URL
