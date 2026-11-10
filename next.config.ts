@@ -48,7 +48,11 @@ function buildCspHeader(isDev: boolean): string {
     // lib/supabaseBrowser.ts connects directly from the browser for
     // Realtime Broadcast (live booking-availability updates) — the only
     // client-side Supabase usage in the app.
-    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com`,
+    // R2 is here because the gallery "Download all/favorites" buttons
+    // fetch() each file from its signed URL to build a .zip in the browser
+    // (GalleryPhotoGrid.tsx) — fetch is governed by connect-src, not
+    // img-src/media-src. Also needs the bucket CORS rule (scripts/r2-cors.mjs).
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com https://*.r2.cloudflarestorage.com`,
     `object-src 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
