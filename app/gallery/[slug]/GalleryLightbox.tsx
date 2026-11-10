@@ -28,6 +28,15 @@ export default function GalleryLightbox({
     setVideoError(false);
   }
 
+  // Warm the cache for the photos on either side so arrowing through the
+  // lightbox shows the next one immediately.
+  useEffect(() => {
+    for (const offset of [1, -1]) {
+      const neighbor = images[(index + offset + images.length) % images.length];
+      if (neighbor && !neighbor.isVideo) new Image().src = neighbor.previewUrl;
+    }
+  }, [images, index]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       // Escape must close the lightbox even when a <video> has focus, so
@@ -119,7 +128,10 @@ export default function GalleryLightbox({
       ) : (
         // eslint-disable-next-line @next/next/no-img-element -- signed R2 URL
         <img
-          src={image.url}
+          // Keyed so a slow-loading next photo doesn't briefly show the
+          // previous one at the new photo's position.
+          key={image.key}
+          src={image.previewUrl}
           alt=""
           onClick={(e) => e.stopPropagation()}
           className="max-h-full max-w-full object-contain"

@@ -12,6 +12,7 @@
 //   npm run gallery:set-password -- <slug>
 //   npm run gallery:delete -- <slug> [--yes] [--keep-photos]
 //   npm run gallery:remove-photo -- <slug> <filename> [filename2...] [--yes]
+//   npm run gallery:previews -- <slug> [--from <local-folder>] [--force]
 //
 // <date> accepts anything JS's Date constructor understands, e.g.
 // 2026-12-31 or 2026-12-31T23:59:59Z. Use "none" (or "clear") to remove
@@ -32,6 +33,17 @@
 // Filenames are matched against what's actually in R2 (not assumed), so
 // a typo'd filename is reported as skipped rather than silently doing
 // nothing. Interactive y/n by default; pass --yes to skip the prompt.
+//
+// Previews: upload also writes two downsized WebP copies of each photo to
+// gallery-previews/<slug>/{thumb,large}/<filename>.webp — the gallery grid
+// and lightbox load those instead of the full-res originals (downloads and
+// zips still use the originals). `previews` backfills them for photos
+// uploaded before this existed, or that failed to generate; --force
+// regenerates all of them. By default it re-downloads each original from
+// R2; --from <folder> reads same-named files from a local folder instead
+// (much faster on a slow connection — only the small previews upload),
+// falling back to R2 for any photo not found there. lib/r2.ts galleryPreviewKeys() must match
+// previewKeys() below.
 
 import { randomInt } from "node:crypto";
 import { createInterface } from "node:readline/promises";
@@ -39,8 +51,10 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+import sharp from "sharp";
 import {
   S3Client,
+  GetObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
   PutObjectCommand,
@@ -132,6 +146,143 @@ const UPLOAD_CONTENT_TYPES = {
   ".gif": "image/gif",
   ".mp4": "video/mp4",
 };
+
+// Grid tiles are at most ~400 CSS px wide (2 columns on phones), so 800px
+// covers 2x screens; the lightbox fills the viewport, so 2400px stays
+// sharp on a large retina display while being a fraction of the original.
+const PREVIEW_SIZES = {
+  thumb: { width: 800, quality: 72 },
+  large: { width: 2400, quality: 82 },
+};
+
+// Animated GIFs would lose their animation as a WebP still, and videos
+// have no image to resize — both keep using the original in the UI.
+const PREVIEWABLE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".avif"]);
+
+function previewKeys(slug, filename) {
+  return {
+    thumb: `gallery-previews/${slug}/thumb/${filename}.webp`,
+    large: `gallery-previews/${slug}/large/${filename}.webp`,
+  };
+}
+
+async function generatePreviews(client, bucket, slug, filename, input) {
+  const keys = previewKeys(slug, filename);
+  for (const [size, { width, quality }] of Object.entries(PREVIEW_SIZES)) {
+    const body = await sharp(input)
+      .rotate() // apply EXIF orientation before metadata is stripped
+      .resize({ width, height: width, fit: "inside", withoutEnlargement: true })
+      .webp({ quality })
+      .toBuffer();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: keys[size],
+        Body: body,
+        ContentType: "image/webp",
+      }),
+    );
+  }
+}
+
+async function listAllKeys(client, bucket, prefix) {
+  const keys = [];
+  let ContinuationToken;
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken }),
+    );
+    for (const obj of page.Contents ?? []) if (obj.Key) keys.push(obj.Key);
+    ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (ContinuationToken);
+  return keys;
+}
+
+async function deleteKeys(client, bucket, keys) {
+  // DeleteObjects takes at most 1000 keys per request.
+  for (let i = 0; i < keys.length; i += 1000) {
+    await client.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: { Objects: keys.slice(i, i + 1000).map((Key) => ({ Key })) },
+      }),
+    );
+  }
+}
+
+async function backfillPreviews(slug, rest) {
+  const force = rest.includes("--force");
+  const fromIndex = rest.indexOf("--from");
+  const fromDir = fromIndex >= 0 ? rest[fromIndex + 1] : null;
+  if (!slug || (fromIndex >= 0 && !fromDir)) {
+    console.error("Usage: npm run gallery:previews -- <slug> [--from <local-folder>] [--force]");
+    process.exit(1);
+  }
+  if (fromDir && !statSync(fromDir, { throwIfNoEntry: false })?.isDirectory()) {
+    console.error(`"${fromDir}" is not a folder.`);
+    process.exit(1);
+  }
+
+  const client = getR2Client();
+  const bucket = requireEnv("R2_BUCKET_NAME");
+  const prefix = `galleries/${slug}/`;
+
+  const [originals, existing] = await Promise.all([
+    listAllKeys(client, bucket, prefix),
+    listAllKeys(client, bucket, `gallery-previews/${slug}/`).then((k) => new Set(k)),
+  ]);
+
+  const todo = originals
+    .map((key) => key.slice(prefix.length))
+    .filter((name) => name && !name.includes("/"))
+    .filter((name) => PREVIEWABLE_EXTENSIONS.has(extname(name).toLowerCase()))
+    .filter((name) => {
+      if (force) return true;
+      const keys = previewKeys(slug, name);
+      return !existing.has(keys.thumb) || !existing.has(keys.large);
+    });
+
+  if (todo.length === 0) {
+    console.log(`All photos in "${slug}" already have previews.`);
+    return;
+  }
+
+  console.log(`Generating previews for ${todo.length} photo(s) in "${slug}"...`);
+  let done = 0;
+  let failed = 0;
+  let next = 0;
+
+  // A few at a time — each worker downloads a full-res original, so this
+  // is mostly network-bound.
+  async function worker() {
+    while (next < todo.length) {
+      const name = todo[next++];
+      try {
+        const localPath = fromDir ? join(fromDir, name) : null;
+        let input;
+        if (localPath && statSync(localPath, { throwIfNoEntry: false })?.isFile()) {
+          input = readFileSync(localPath);
+        } else {
+          if (fromDir) console.log(`  "${name}" not in ${fromDir}, downloading from R2...`);
+          const res = await client.send(
+            new GetObjectCommand({ Bucket: bucket, Key: prefix + name }),
+          );
+          input = Buffer.from(await res.Body.transformToByteArray());
+        }
+        await generatePreviews(client, bucket, slug, name, input);
+        done += 1;
+        console.log(`[${done + failed}/${todo.length}] ${name}`);
+      } catch (err) {
+        failed += 1;
+        console.error(`[${done + failed}/${todo.length}] Failed on "${name}":`, err.message);
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: 4 }, worker));
+
+  console.log(`\nGenerated previews for ${done} photo(s)${failed ? `, ${failed} failed` : ""}.`);
+  if (failed > 0) process.exit(1);
+}
 
 async function create(slug, title, clientName, expiresAtArg) {
   if (!slug || !title || !clientName) {
@@ -321,6 +472,18 @@ async function upload(slug, paths) {
       );
       console.log(`Uploaded ${name} -> ${key}`);
       uploaded += 1;
+
+      if (PREVIEWABLE_EXTENSIONS.has(ext)) {
+        try {
+          await generatePreviews(client, bucket, slug, name, body);
+        } catch (err) {
+          // The original is already up — the gallery still works, it just
+          // shows the full-res file for this photo until backfilled.
+          console.error(
+            `  Couldn't generate previews for "${name}" (${err.message}). Run gallery:previews -- ${slug} to retry.`,
+          );
+        }
+      }
     } catch (err) {
       console.error(`Failed to upload "${name}":`, err.message);
       failed += 1;
@@ -364,14 +527,8 @@ async function deleteGalleryPhotos(slug) {
     .map((obj) => obj.Key)
     .filter((key) => typeof key === "string");
 
-  if (keys.length === 0) return 0;
-
-  await client.send(
-    new DeleteObjectsCommand({
-      Bucket: bucket,
-      Delete: { Objects: keys.map((Key) => ({ Key })) },
-    }),
-  );
+  const previews = await listAllKeys(client, bucket, `gallery-previews/${slug}/`);
+  await deleteKeys(client, bucket, [...keys, ...previews]);
 
   return keys.length;
 }
@@ -703,12 +860,12 @@ async function removePhotos(slug, rest) {
     }
   }
 
-  await client.send(
-    new DeleteObjectsCommand({
-      Bucket: bucket,
-      Delete: { Objects: matchedKeys.map((Key) => ({ Key })) },
-    }),
+  // Preview keys may not exist (videos, GIFs, pre-preview uploads) —
+  // deleting a missing key is a no-op in S3/R2, so no need to check first.
+  const matchedPreviewKeys = matchedKeys.flatMap((key) =>
+    Object.values(previewKeys(slug, key.slice(prefix.length))),
   );
+  await deleteKeys(client, bucket, [...matchedKeys, ...matchedPreviewKeys]);
 
   const { error: favoritesError } = await supabase
     .from("gallery_favorites")
@@ -745,6 +902,8 @@ if (command === "list") {
   await del(args[0], args.slice(1));
 } else if (command === "remove-photo") {
   await removePhotos(args[0], args.slice(1));
+} else if (command === "previews") {
+  await backfillPreviews(args[0], args.slice(1));
 } else {
   console.error(
     [
@@ -759,6 +918,7 @@ if (command === "list") {
       "  npm run gallery:set-password -- <slug>",
       "  npm run gallery:delete -- <slug> [--yes] [--keep-photos]",
       "  npm run gallery:remove-photo -- <slug> <filename> [filename2...] [--yes]",
+      "  npm run gallery:previews -- <slug> [--from <local-folder>] [--force]",
     ].join("\n"),
   );
   process.exit(1);

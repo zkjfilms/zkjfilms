@@ -17,6 +17,7 @@
     "gallery:set-password": "node --env-file=.env.local scripts/gallery.mjs set-password",
     "gallery:delete": "node --env-file=.env.local scripts/gallery.mjs delete",
     "gallery:remove-photo": "node --env-file=.env.local scripts/gallery.mjs remove-photo",
+    "gallery:previews": "node --env-file=.env.local scripts/gallery.mjs previews",
     "r2:cors:show": "node --env-file=.env.local scripts/r2-cors.mjs show",
     "r2:cors:apply": "node --env-file=.env.local scripts/r2-cors.mjs apply",
     "scheduling:sweep-pending": "node --env-file=.env.local scripts/scheduling.mjs sweep-pending",

@@ -41,8 +41,11 @@ function saveBlob(blob: Blob, filename: string) {
 // to a file on disk, so multi-GB galleries never sit in memory. Elsewhere
 // (Safari/Firefox) the zip is assembled as an in-memory Blob, then saved.
 //
-// Files are fetched lazily, one at a time, so `onProgress` reports how
-// many have been pulled in so far.
+// Up to ZIP_CONCURRENCY files are fetched in parallel ahead of the one
+// currently being written, so the next file is usually ready the moment
+// the previous one finishes. `onProgress` reports how many files have
+// been handed to the zip so far.
+const ZIP_CONCURRENCY = 5;
 async function downloadAsZip(
   images: GalleryMedia[],
   filename: string,
@@ -62,11 +65,29 @@ async function downloadAsZip(
       }).then((handle) => handle.createWritable())
     : null;
 
+  const fetchFile = async (image: GalleryMedia) => {
+    const res = await fetch(image.url);
+    if (!res.ok) throw new Error(`Couldn't fetch ${image.filename} (${res.status})`);
+    return res;
+  };
+
   async function* files() {
+    const inFlight: Promise<Response>[] = [];
+    let next = 0;
+    const fill = () => {
+      while (next < images.length && inFlight.length < ZIP_CONCURRENCY) {
+        const p = fetchFile(images[next++]);
+        // Avoid an unhandled-rejection warning for a prefetch that fails
+        // before we reach it — it still throws when awaited below.
+        p.catch(() => {});
+        inFlight.push(p);
+      }
+    };
+    fill();
     for (let i = 0; i < images.length; i++) {
       onProgress(i);
-      const res = await fetch(images[i].url);
-      if (!res.ok) throw new Error(`Couldn't fetch ${images[i].filename} (${res.status})`);
+      const res = await inFlight.shift()!;
+      fill();
       yield { name: images[i].filename, input: res };
     }
   }
@@ -253,8 +274,9 @@ export default function GalleryPhotoGrid({
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element -- signed R2 URLs, not a static/optimizable asset
                 <img
-                  src={media.url}
+                  src={media.thumbUrl}
                   alt={`${title} photo`}
+                  decoding="async"
                   loading="lazy"
                   className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                 />
