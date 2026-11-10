@@ -1,31 +1,84 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { downloadZip } from "client-zip";
 import type { GalleryMedia } from "@/lib/r2";
 import GalleryLightbox from "./GalleryLightbox";
 
-// Triggers a native browser download for one image via a throwaway
-// anchor — downloadUrl carries a Content-Disposition: attachment header
-// from the server so this reliably saves a file rather than navigating.
-function triggerDownload(image: GalleryMedia) {
+// Chromium's File System Access API — not in TS's DOM lib yet.
+type SaveFilePicker = (options: {
+  suggestedName: string;
+  types: { description: string; accept: Record<string, string[]> }[];
+}) => Promise<{ createWritable: () => Promise<WritableStream> }>;
+
+function zipFilename(title: string, suffix: string) {
+  const base =
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "gallery";
+  return `${base}${suffix}.zip`;
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = image.downloadUrl;
-  link.download = image.filename;
-  link.rel = "noopener";
+  link.href = url;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  // Give the browser a moment to start the save before freeing the blob.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-// Browsers throttle/block bursts of programmatic downloads fired in a
-// tight loop — spacing them out keeps each one going through cleanly
-// (though the browser may still show a one-time "allow multiple
-// downloads" prompt for the first batch).
-async function triggerDownloads(images: GalleryMedia[]) {
-  for (const image of images) {
-    triggerDownload(image);
-    await new Promise((resolve) => setTimeout(resolve, 350));
+// Bundles the given media into one .zip, built entirely in the browser:
+// each file is fetched from its signed R2 URL (needs the bucket CORS rule
+// from scripts/r2-cors.mjs) and streamed into the archive. Files are
+// stored, not recompressed — JPEGs and MP4s are already compressed.
+//
+// Where the browser supports it (Chrome/Edge), the zip streams straight
+// to a file on disk, so multi-GB galleries never sit in memory. Elsewhere
+// (Safari/Firefox) the zip is assembled as an in-memory Blob, then saved.
+//
+// Files are fetched lazily, one at a time, so `onProgress` reports how
+// many have been pulled in so far.
+async function downloadAsZip(
+  images: GalleryMedia[],
+  filename: string,
+  onProgress: (done: number) => void,
+) {
+  const picker = (window as Window & { showSaveFilePicker?: SaveFilePicker })
+    .showSaveFilePicker;
+
+  // The save dialog has to open while we're still inside the click's user
+  // gesture, i.e. before any network awaits.
+  const writable = picker
+    ? await picker({
+        suggestedName: filename,
+        types: [
+          { description: "Zip archive", accept: { "application/zip": [".zip"] } },
+        ],
+      }).then((handle) => handle.createWritable())
+    : null;
+
+  async function* files() {
+    for (let i = 0; i < images.length; i++) {
+      onProgress(i);
+      const res = await fetch(images[i].url);
+      if (!res.ok) throw new Error(`Couldn't fetch ${images[i].filename} (${res.status})`);
+      yield { name: images[i].filename, input: res };
+    }
   }
+
+  const zip = downloadZip(files());
+
+  if (writable) {
+    await zip.body!.pipeTo(writable);
+  } else {
+    saveBlob(await zip.blob(), filename);
+  }
+  onProgress(images.length);
 }
 
 function HeartIcon({ filled }: { filled: boolean }) {
@@ -115,31 +168,64 @@ export default function GalleryPhotoGrid({
   onToggleFavorite?: (key: string, favorited: boolean) => void;
 }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [zipping, setZipping] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [zipError, setZipError] = useState<string | null>(null);
+
+  async function startZip(selection: GalleryMedia[], suffix: string) {
+    if (zipping || selection.length === 0) return;
+    setZipError(null);
+    setZipping({ done: 0, total: selection.length });
+    try {
+      await downloadAsZip(selection, zipFilename(title, suffix), (done) =>
+        setZipping({ done, total: selection.length }),
+      );
+    } catch (err) {
+      // Closing the save dialog isn't an error worth showing.
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        console.error(err);
+        setZipError(
+          "Something went wrong building the zip. Try again, or download photos individually.",
+        );
+      }
+    } finally {
+      setZipping(null);
+    }
+  }
+
+  const buttonClass =
+    "border border-foreground px-6 py-2 text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-foreground";
 
   return (
     <>
       <div className="mb-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs uppercase tracking-[0.15em]">
         <button
           type="button"
-          onClick={() => triggerDownloads(images)}
-          className="border border-foreground px-6 py-2 text-foreground transition-colors hover:bg-foreground hover:text-background"
+          disabled={zipping !== null}
+          onClick={() => startZip(images, "")}
+          className={buttonClass}
         >
           Download all ({images.length})
         </button>
         <button
           type="button"
-          disabled={favoritedKeys.size === 0}
+          disabled={zipping !== null || favoritedKeys.size === 0}
           onClick={() =>
-            triggerDownloads(images.filter((i) => favoritedKeys.has(i.key)))
+            startZip(
+              images.filter((i) => favoritedKeys.has(i.key)),
+              "-favorites",
+            )
           }
-          className="border border-foreground px-6 py-2 text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-foreground"
+          className={buttonClass}
         >
           Download favorites ({favoritedKeys.size})
         </button>
       </div>
-      <p className="mb-8 text-center text-xs text-muted">
-        Downloading several photos at once may prompt your browser to allow
-        multiple downloads.
+      <p className="mb-8 text-center text-xs text-muted" aria-live="polite">
+        {zipping
+          ? `Preparing zip… ${zipping.done} of ${zipping.total} files. Keep this tab open.`
+          : (zipError ?? "Downloads as a single .zip file.")}
       </p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
