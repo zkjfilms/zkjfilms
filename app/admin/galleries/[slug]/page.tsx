@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getSupabaseClient } from "@/lib/supabase";
-import { listGalleryImages, type GalleryMedia } from "@/lib/r2";
+import { listGallery, type GalleryMedia, type GalleryZip } from "@/lib/r2";
 import GalleryPhotoGrid from "@/app/gallery/[slug]/GalleryPhotoGrid";
 import NotifyClientPanel from "./NotifyClientPanel";
 import { getConfirmedBookingClients } from "@/lib/clientDirectory";
@@ -51,9 +51,10 @@ export default async function AdminGalleryDetailPage({
   const favoritedKeys = new Set((favoriteRows ?? []).map((row) => row.image_key));
 
   let images: GalleryMedia[];
+  let fullZip: GalleryZip | null = null;
   let imagesError = false;
   try {
-    images = await listGalleryImages(slug);
+    ({ images, fullZip } = await listGallery(slug));
   } catch (err) {
     console.error("Failed to list gallery images from R2:", err);
     images = [];
@@ -80,7 +81,12 @@ export default async function AdminGalleryDetailPage({
       ) : images.length === 0 ? (
         <p className="text-center text-muted">No photos uploaded yet.</p>
       ) : (
-        <GalleryPhotoGrid title={gallery.title} images={images} favoritedKeys={favoritedKeys} />
+        <GalleryPhotoGrid
+          title={gallery.title}
+          images={images}
+          fullZip={fullZip}
+          favoritedKeys={favoritedKeys}
+        />
       )}
 
       <NotifyClientPanel

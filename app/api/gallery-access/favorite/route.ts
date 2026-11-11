@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   // Make sure the claimed imageKey actually belongs to this gallery's R2
-  // prefix (matching listGalleryImages in lib/r2.ts) — otherwise a valid
+  // prefix (matching listGallery in lib/r2.ts) — otherwise a valid
   // token for one gallery could be used to favorite/unfavorite an
   // arbitrary key in another gallery's namespace.
   if (!payload.imageKey.startsWith(`galleries/${payload.slug}/`)) {

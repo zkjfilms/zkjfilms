@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { getSupabaseClient } from "@/lib/supabase";
-import { listGalleryImages, SIGNED_URL_EXPIRY_SECONDS } from "@/lib/r2";
+import { listGallery, SIGNED_URL_EXPIRY_SECONDS } from "@/lib/r2";
 import { isGalleryUnavailable } from "@/lib/gallery";
 import { peekRateLimit, recordRateLimitHit, getClientIp } from "@/lib/rateLimit";
 import { createFavoriteToken } from "@/lib/galleryFavoriteToken";
@@ -180,10 +180,11 @@ export async function POST(request: Request) {
   // R2 is unreachable. The client shows a distinct "couldn't load photos"
   // state when imagesError is set instead of an empty gallery.
   try {
-    const images = await listGalleryImages(payload.slug);
+    const { images, fullZip } = await listGallery(payload.slug);
     return Response.json({
       ok: true,
       images,
+      fullZip,
       expiresAt,
       favoriteToken,
       favoritedKeys,

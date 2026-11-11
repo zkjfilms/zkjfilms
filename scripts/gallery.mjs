@@ -4,7 +4,7 @@
 // Usage (via npm scripts — these already load .env.local):
 //   npm run gallery:list
 //   npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]
-//   npm run gallery:upload -- <slug> <local-folder> | <file> [file2...]
+//   npm run gallery:upload -- <slug> <local-folder> | <file> [file2...] [--no-zip]
 //   npm run gallery:set-expiry -- <slug> <date|none>
 //   npm run gallery:archive -- <slug>
 //   npm run gallery:unarchive -- <slug>
@@ -13,6 +13,7 @@
 //   npm run gallery:delete -- <slug> [--yes] [--keep-photos]
 //   npm run gallery:remove-photo -- <slug> <filename> [filename2...] [--yes]
 //   npm run gallery:previews -- <slug> [--from <local-folder>] [--force]
+//   npm run gallery:zip -- <slug> [--from <local-folder>] [--force]
 //
 // <date> accepts anything JS's Date constructor understands, e.g.
 // 2026-12-31 or 2026-12-31T23:59:59Z. Use "none" (or "clear") to remove
@@ -42,13 +43,28 @@
 // regenerates all of them. By default it re-downloads each original from
 // R2; --from <folder> reads same-named files from a local folder instead
 // (much faster on a slow connection — only the small previews upload),
-// falling back to R2 for any photo not found there. lib/r2.ts galleryPreviewKeys() must match
-// previewKeys() below.
+// falling back to R2 for any photo not found there. lib/r2.ts
+// galleryPreviewKeys() must match previewKeys() below.
+//
+// Full-gallery zip: after uploading, upload also builds one .zip of every
+// original in the gallery and stores it at
+// gallery-zips/<slug>/<fingerprint>.zip — "Download all" serves that as a
+// normal browser download instead of zipping in the visitor's browser. The
+// fingerprint is a hash of every original's filename + ETag (see
+// galleryFingerprint, which must match lib/r2.ts), so once the gallery
+// changes the old zip no longer matches and the site falls back to the
+// in-browser zip until it's rebuilt with `gallery:zip`. Pass --no-zip to
+// upload when adding photos in several batches, then run gallery:zip once
+// at the end. Files are read from the local folder when they match what's
+// in R2 (same MD5), otherwise streamed from R2.
 
-import { randomInt } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { createInterface } from "node:readline/promises";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { createReadStream, openAsBlob, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join } from "node:path";
+import { Readable } from "node:stream";
+import { Upload } from "@aws-sdk/lib-storage";
+import { downloadZip } from "client-zip";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import sharp from "sharp";
@@ -185,17 +201,168 @@ async function generatePreviews(client, bucket, slug, filename, input) {
   }
 }
 
-async function listAllKeys(client, bucket, prefix) {
-  const keys = [];
+async function listAllObjects(client, bucket, prefix) {
+  const objects = [];
   let ContinuationToken;
   do {
     const page = await client.send(
       new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken }),
     );
-    for (const obj of page.Contents ?? []) if (obj.Key) keys.push(obj.Key);
+    for (const obj of page.Contents ?? []) {
+      if (obj.Key && !obj.Key.endsWith("/")) objects.push(obj);
+    }
     ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (ContinuationToken);
-  return keys;
+  return objects;
+}
+
+async function listAllKeys(client, bucket, prefix) {
+  return (await listAllObjects(client, bucket, prefix)).map((obj) => obj.Key);
+}
+
+// Must match galleryFingerprint() in lib/r2.ts exactly.
+function galleryFingerprint(objects) {
+  const lines = objects
+    .map((o) => `${o.filename}\t${o.etag.replaceAll('"', "")}`)
+    .sort();
+  return createHash("sha256").update(lines.join("\n")).digest("hex").slice(0, 16);
+}
+
+function md5File(path) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash("md5");
+    createReadStream(path)
+      .on("data", (chunk) => hash.update(chunk))
+      .on("end", () => resolve(hash.digest("hex")))
+      .on("error", reject);
+  });
+}
+
+function localFilesIn(dir) {
+  const files = new Map();
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile()) files.set(entry.name, join(dir, entry.name));
+  }
+  return files;
+}
+
+function formatMB(bytes) {
+  return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : `${(bytes / 1e6).toFixed(1)} MB`;
+}
+
+// Builds the full-gallery zip (see the header comment) and uploads it in
+// parts, streaming — the zip never exists on disk or fully in memory.
+// localFiles maps filename -> local path for files that may be read
+// locally instead of downloaded from R2.
+async function buildFullZip(client, bucket, slug, { localFiles = new Map(), force = false } = {}) {
+  const prefix = `galleries/${slug}/`;
+  const zipPrefix = `gallery-zips/${slug}/`;
+
+  const [originals, existingZips] = await Promise.all([
+    listAllObjects(client, bucket, prefix),
+    listAllKeys(client, bucket, zipPrefix),
+  ]);
+  if (originals.length === 0) {
+    console.log(`No files in "${slug}" to zip.`);
+    return;
+  }
+
+  const files = originals.map((obj) => ({
+    filename: obj.Key.slice(prefix.length),
+    key: obj.Key,
+    etag: obj.ETag ?? "",
+    size: obj.Size ?? 0,
+    lastModified: obj.LastModified,
+  }));
+  const zipKey = `${zipPrefix}${galleryFingerprint(files)}.zip`;
+
+  if (existingZips.includes(zipKey) && !force) {
+    console.log(`Full-gallery zip for "${slug}" is already up to date.`);
+    return;
+  }
+
+  // Use a local file only if it's byte-identical to what's in R2 — a
+  // single-part upload's ETag is the file's MD5. (Multipart ETags contain
+  // a "-" and aren't an MD5, so those always come from R2.)
+  let localCount = 0;
+  for (const file of files) {
+    const path = localFiles.get(file.filename);
+    const etag = file.etag.replaceAll('"', "");
+    if (
+      path &&
+      !etag.includes("-") &&
+      statSync(path, { throwIfNoEntry: false })?.size === file.size &&
+      (await md5File(path)) === etag
+    ) {
+      file.localPath = path;
+      localCount += 1;
+    }
+  }
+
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  console.log(
+    `Building full-gallery zip for "${slug}": ${files.length} file(s), ${formatMB(totalBytes)} ` +
+      `(${localCount} from local disk, ${files.length - localCount} from R2)...`,
+  );
+
+  async function* entries() {
+    for (const file of files) {
+      let input;
+      if (file.localPath) {
+        input = await openAsBlob(file.localPath);
+      } else {
+        const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: file.key }));
+        input = res.Body.transformToWebStream();
+      }
+      yield { name: file.filename, input, lastModified: file.lastModified, size: file.size };
+    }
+  }
+
+  const upload = new Upload({
+    client,
+    params: {
+      Bucket: bucket,
+      Key: zipKey,
+      Body: Readable.fromWeb(downloadZip(entries()).body),
+      ContentType: "application/zip",
+    },
+    partSize: 64 * 1024 * 1024,
+    queueSize: 4,
+  });
+
+  let lastLogged = 0;
+  upload.on("httpUploadProgress", ({ loaded = 0 }) => {
+    const pct = Math.min(100, Math.floor((loaded / totalBytes) * 100));
+    if (pct >= lastLogged + 10) {
+      lastLogged = pct - (pct % 10);
+      console.log(`  zip upload ${lastLogged}% (${formatMB(loaded)})`);
+    }
+  });
+  await upload.done();
+
+  // Older zips are now stale — the site would never serve them anyway.
+  const stale = existingZips.filter((key) => key !== zipKey);
+  if (stale.length > 0) await deleteKeys(client, bucket, stale);
+
+  console.log(`Full-gallery zip uploaded (${formatMB(totalBytes)}).`);
+}
+
+async function zipCommand(slug, rest) {
+  const force = rest.includes("--force");
+  const fromIndex = rest.indexOf("--from");
+  const fromDir = fromIndex >= 0 ? rest[fromIndex + 1] : null;
+  if (!slug || (fromIndex >= 0 && !fromDir)) {
+    console.error("Usage: npm run gallery:zip -- <slug> [--from <local-folder>] [--force]");
+    process.exit(1);
+  }
+  if (fromDir && !statSync(fromDir, { throwIfNoEntry: false })?.isDirectory()) {
+    console.error(`"${fromDir}" is not a folder.`);
+    process.exit(1);
+  }
+  await buildFullZip(getR2Client(), requireEnv("R2_BUCKET_NAME"), slug, {
+    localFiles: fromDir ? localFilesIn(fromDir) : new Map(),
+    force,
+  });
 }
 
 async function deleteKeys(client, bucket, keys) {
@@ -364,9 +531,11 @@ async function create(slug, title, clientName, expiresAtArg) {
   }
 }
 
-async function upload(slug, paths) {
-  if (!slug || !paths || paths.length === 0) {
-    console.error("Usage: npm run gallery:upload -- <slug> <local-folder> | <file> [file2...]");
+async function upload(slug, args) {
+  const noZip = (args ?? []).includes("--no-zip");
+  const paths = (args ?? []).filter((arg) => arg !== "--no-zip");
+  if (!slug || paths.length === 0) {
+    console.error("Usage: npm run gallery:upload -- <slug> <local-folder> | <file> [file2...] [--no-zip]");
     process.exit(1);
   }
 
@@ -510,6 +679,27 @@ async function upload(slug, paths) {
     }
   }
 
+  if (uploaded > 0) {
+    if (noZip) {
+      console.log(
+        `Skipped the full-gallery zip (--no-zip). Run gallery:zip -- ${slug} --from <folder> once all photos are up.`,
+      );
+    } else {
+      try {
+        await buildFullZip(client, bucket, slug, {
+          localFiles: new Map(filesToConsider.map((f) => [f.name, f.filePath])),
+        });
+      } catch (err) {
+        // The photos are up — "Download all" just falls back to zipping in
+        // the browser until this is retried.
+        console.error(
+          `Couldn't build the full-gallery zip (${err.message}). Retry with gallery:zip -- ${slug} --from <folder>.`,
+        );
+        failed += 1;
+      }
+    }
+  }
+
   if (failed > 0) {
     process.exit(1);
   }
@@ -527,8 +717,11 @@ async function deleteGalleryPhotos(slug) {
     .map((obj) => obj.Key)
     .filter((key) => typeof key === "string");
 
-  const previews = await listAllKeys(client, bucket, `gallery-previews/${slug}/`);
-  await deleteKeys(client, bucket, [...keys, ...previews]);
+  const [previews, zips] = await Promise.all([
+    listAllKeys(client, bucket, `gallery-previews/${slug}/`),
+    listAllKeys(client, bucket, `gallery-zips/${slug}/`),
+  ]);
+  await deleteKeys(client, bucket, [...keys, ...previews, ...zips]);
 
   return keys.length;
 }
@@ -865,7 +1058,10 @@ async function removePhotos(slug, rest) {
   const matchedPreviewKeys = matchedKeys.flatMap((key) =>
     Object.values(previewKeys(slug, key.slice(prefix.length))),
   );
-  await deleteKeys(client, bucket, [...matchedKeys, ...matchedPreviewKeys]);
+  // The full-gallery zip still contains the removed photo(s) — delete it
+  // (the site already ignores it, since the gallery's fingerprint changed).
+  const staleZips = await listAllKeys(client, bucket, `gallery-zips/${slug}/`);
+  await deleteKeys(client, bucket, [...matchedKeys, ...matchedPreviewKeys, ...staleZips]);
 
   const { error: favoritesError } = await supabase
     .from("gallery_favorites")
@@ -878,6 +1074,11 @@ async function removePhotos(slug, rest) {
   }
 
   console.log(`Deleted ${matchedKeys.length} photo(s) from "${slug}".`);
+  if (staleZips.length > 0) {
+    console.log(
+      `Removed the out-of-date full-gallery zip. Rebuild it with: npm run gallery:zip -- ${slug} --from <folder>`,
+    );
+  }
 }
 
 const [, , command, ...args] = process.argv;
@@ -904,13 +1105,15 @@ if (command === "list") {
   await removePhotos(args[0], args.slice(1));
 } else if (command === "previews") {
   await backfillPreviews(args[0], args.slice(1));
+} else if (command === "zip") {
+  await zipCommand(args[0], args.slice(1));
 } else {
   console.error(
     [
       "Usage:",
       "  npm run gallery:list",
       '  npm run gallery:create -- <slug> "<title>" "<client-name>" [expires-at]',
-      "  npm run gallery:upload -- <slug> <local-folder> | <file> [file2...]",
+      "  npm run gallery:upload -- <slug> <local-folder> | <file> [file2...] [--no-zip]",
       "  npm run gallery:set-expiry -- <slug> <date|none>",
       "  npm run gallery:archive -- <slug>",
       "  npm run gallery:unarchive -- <slug>",
@@ -919,6 +1122,7 @@ if (command === "list") {
       "  npm run gallery:delete -- <slug> [--yes] [--keep-photos]",
       "  npm run gallery:remove-photo -- <slug> <filename> [filename2...] [--yes]",
       "  npm run gallery:previews -- <slug> [--from <local-folder>] [--force]",
+      "  npm run gallery:zip -- <slug> [--from <local-folder>] [--force]",
     ].join("\n"),
   );
   process.exit(1);

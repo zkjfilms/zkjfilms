@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useSyncExternalStore, type FormEvent } from "react";
-import type { GalleryMedia } from "@/lib/r2";
+import type { GalleryMedia, GalleryZip } from "@/lib/r2";
 import GalleryPhotoGrid from "./GalleryPhotoGrid";
 import PasswordField from "@/components/PasswordField";
 
 type SubmitStatus = "idle" | "loading" | "error";
 type Session = {
   images: GalleryMedia[];
+  fullZip: GalleryZip | null;
   imagesError: boolean;
   expiresAt: number;
   favoriteToken: string;
@@ -32,6 +33,7 @@ function parseSession(raw: string | null): Session | null {
     if (typeof parsed.expiresAt !== "number") return null;
     return {
       images: parsed.images ?? [],
+      fullZip: parsed.fullZip ?? null,
       imagesError: parsed.imagesError ?? false,
       expiresAt: parsed.expiresAt,
       favoriteToken: typeof parsed.favoriteToken === "string" ? parsed.favoriteToken : "",
@@ -117,6 +119,7 @@ export default function GalleryGate({
   // step in between), and this keeps that one behavior in one place.
   function commitSession(data: {
     images?: GalleryMedia[];
+    fullZip?: GalleryZip | null;
     imagesError?: boolean;
     expiresAt?: number;
     favoriteToken?: string;
@@ -124,6 +127,7 @@ export default function GalleryGate({
   }) {
     const newSession: Session = {
       images: data.images ?? [],
+      fullZip: data.fullZip ?? null,
       imagesError: data.imagesError ?? false,
       expiresAt: data.expiresAt ?? Date.now(),
       favoriteToken: data.favoriteToken ?? "",
@@ -188,6 +192,7 @@ export default function GalleryGate({
         error?: string;
         pinRequired?: boolean;
         images?: GalleryMedia[];
+        fullZip?: GalleryZip | null;
         imagesError?: boolean;
         expiresAt?: number;
         favoriteToken?: string;
@@ -232,6 +237,7 @@ export default function GalleryGate({
       const data: {
         error?: string;
         images?: GalleryMedia[];
+        fullZip?: GalleryZip | null;
         imagesError?: boolean;
         expiresAt?: number;
         favoriteToken?: string;
@@ -254,7 +260,7 @@ export default function GalleryGate({
   }
 
   if (unlocked && session) {
-    const { images, imagesError, favoriteToken } = session;
+    const { images, fullZip, imagesError, favoriteToken } = session;
 
     return (
       <div className="mx-auto w-full max-w-5xl px-6 py-16 sm:px-10">
@@ -284,6 +290,7 @@ export default function GalleryGate({
             <GalleryPhotoGrid
               title={title}
               images={images}
+              fullZip={fullZip}
               favoritedKeys={favorited}
               onToggleFavorite={(key, next) => toggleFavorite(key, next, favoriteToken)}
             />

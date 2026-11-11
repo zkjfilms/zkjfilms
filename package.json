@@ -18,6 +18,7 @@
     "gallery:delete": "node --env-file=.env.local scripts/gallery.mjs delete",
     "gallery:remove-photo": "node --env-file=.env.local scripts/gallery.mjs remove-photo",
     "gallery:previews": "node --env-file=.env.local scripts/gallery.mjs previews",
+    "gallery:zip": "node --env-file=.env.local scripts/gallery.mjs zip",
     "r2:cors:show": "node --env-file=.env.local scripts/r2-cors.mjs show",
     "r2:cors:apply": "node --env-file=.env.local scripts/r2-cors.mjs apply",
     "scheduling:sweep-pending": "node --env-file=.env.local scripts/scheduling.mjs sweep-pending",
@@ -30,6 +31,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
+    "@aws-sdk/lib-storage": "^3.1101.0",
     "@aws-sdk/s3-request-presigner": "^3.1101.0",
     "@supabase/supabase-js": "^2.111.0",
     "@vercel/analytics": "^2.0.1",

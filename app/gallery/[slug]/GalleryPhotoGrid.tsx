@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { downloadZip } from "client-zip";
-import type { GalleryMedia } from "@/lib/r2";
+import type { GalleryMedia, GalleryZip } from "@/lib/r2";
 import GalleryLightbox from "./GalleryLightbox";
 
 // Chromium's File System Access API — not in TS's DOM lib yet.
@@ -20,6 +20,38 @@ function zipFilename(title: string, suffix: string) {
   return `${base}${suffix}.zip`;
 }
 
+function formatBytes(bytes: number) {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes >= 1e6) return `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+  return `${Math.max(1, Math.round(bytes / 1e3))} KB`;
+}
+
+// Starts a normal browser download of a URL (shown in the browser's own
+// downloads bar). The URL carries a Content-Disposition: attachment
+// header from the server, so this saves a file rather than navigating.
+function startNativeDownload(url: string) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+type ZipEntry = { name: string; url: string };
+
+// Original files (full resolution) for "Download all"/"Download favorites".
+const originalEntries = (images: GalleryMedia[]): ZipEntry[] =>
+  images.map((i) => ({ name: i.filename, url: i.url }));
+
+// The 2400px WebP previews, for the "web size" download. Videos, GIFs
+// and photos without previews are left out — they have no smaller copy.
+const webEntries = (images: GalleryMedia[]): ZipEntry[] =>
+  images
+    // != null also covers sessions cached before previewSize existed.
+    .filter((i) => i.previewSize != null)
+    .map((i) => ({ name: `${i.filename.replace(/\.[^.]+$/, "")}.webp`, url: i.previewUrl }));
+
 function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -32,7 +64,7 @@ function saveBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-// Bundles the given media into one .zip, built entirely in the browser:
+// Bundles the given files into one .zip, built entirely in the browser:
 // each file is fetched from its signed R2 URL (needs the bucket CORS rule
 // from scripts/r2-cors.mjs) and streamed into the archive. Files are
 // stored, not recompressed — JPEGs and MP4s are already compressed.
@@ -47,7 +79,7 @@ function saveBlob(blob: Blob, filename: string) {
 // been handed to the zip so far.
 const ZIP_CONCURRENCY = 5;
 async function downloadAsZip(
-  images: GalleryMedia[],
+  images: ZipEntry[],
   filename: string,
   onProgress: (done: number) => void,
 ) {
@@ -65,9 +97,9 @@ async function downloadAsZip(
       }).then((handle) => handle.createWritable())
     : null;
 
-  const fetchFile = async (image: GalleryMedia) => {
+  const fetchFile = async (image: ZipEntry) => {
     const res = await fetch(image.url);
-    if (!res.ok) throw new Error(`Couldn't fetch ${image.filename} (${res.status})`);
+    if (!res.ok) throw new Error(`Couldn't fetch ${image.name} (${res.status})`);
     return res;
   };
 
@@ -88,7 +120,7 @@ async function downloadAsZip(
       onProgress(i);
       const res = await inFlight.shift()!;
       fill();
-      yield { name: images[i].filename, input: res };
+      yield { name: images[i].name, input: res };
     }
   }
 
@@ -177,14 +209,20 @@ function LazyVideoThumbnail({
   );
 }
 
+// `?? 0` covers sessions cached in sessionStorage before sizes existed.
+const totalBytes = (sizes: (number | null | undefined)[]) =>
+  sizes.reduce<number>((sum, n) => sum + (n ?? 0), 0);
+
 export default function GalleryPhotoGrid({
   title,
   images,
+  fullZip,
   favoritedKeys,
   onToggleFavorite,
 }: {
   title: string;
   images: GalleryMedia[];
+  fullZip: GalleryZip | null;
   favoritedKeys: Set<string>;
   onToggleFavorite?: (key: string, favorited: boolean) => void;
 }) {
@@ -194,7 +232,7 @@ export default function GalleryPhotoGrid({
   );
   const [zipError, setZipError] = useState<string | null>(null);
 
-  async function startZip(selection: GalleryMedia[], suffix: string) {
+  async function startZip(selection: ZipEntry[], suffix: string) {
     if (zipping || selection.length === 0) return;
     setZipError(null);
     setZipping({ done: 0, total: selection.length });
@@ -215,6 +253,9 @@ export default function GalleryPhotoGrid({
     }
   }
 
+  const favoriteImages = images.filter((i) => favoritedKeys.has(i.key));
+  const webImages = images.filter((i) => i.previewSize != null);
+
   const buttonClass =
     "border border-foreground px-6 py-2 text-foreground transition-colors hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-foreground";
 
@@ -224,29 +265,49 @@ export default function GalleryPhotoGrid({
         <button
           type="button"
           disabled={zipping !== null}
-          onClick={() => startZip(images, "")}
-          className={buttonClass}
-        >
-          Download all ({images.length})
-        </button>
-        <button
-          type="button"
-          disabled={zipping !== null || favoritedKeys.size === 0}
           onClick={() =>
-            startZip(
-              images.filter((i) => favoritedKeys.has(i.key)),
-              "-favorites",
-            )
+            // Prefer the prebuilt zip: an ordinary browser download that
+            // shows in the downloads bar, survives closing the tab and
+            // never holds the gallery in memory. Fall back to building it
+            // here if the gallery has none (or it's out of date).
+            fullZip
+              ? startNativeDownload(fullZip.url)
+              : startZip(originalEntries(images), "")
           }
           className={buttonClass}
         >
-          Download favorites ({favoritedKeys.size})
+          Download all ({images.length} ·{" "}
+          {formatBytes(fullZip?.size ?? totalBytes(images.map((i) => i.size)))})
+        </button>
+        {webImages.length > 0 && (
+          <button
+            type="button"
+            disabled={zipping !== null}
+            onClick={() => startZip(webEntries(images), "-web")}
+            className={buttonClass}
+          >
+            Web size ({formatBytes(totalBytes(webImages.map((i) => i.previewSize)))})
+          </button>
+        )}
+        <button
+          type="button"
+          disabled={zipping !== null || favoritedKeys.size === 0}
+          onClick={() => startZip(originalEntries(favoriteImages), "-favorites")}
+          className={buttonClass}
+        >
+          Download favorites ({favoritedKeys.size}
+          {favoriteImages.length > 0 &&
+            ` · ${formatBytes(totalBytes(favoriteImages.map((i) => i.size)))}`}
+          )
         </button>
       </div>
       <p className="mb-8 text-center text-xs text-muted" aria-live="polite">
         {zipping
           ? `Preparing zip… ${zipping.done} of ${zipping.total} files. Keep this tab open.`
-          : (zipError ?? "Downloads as a single .zip file.")}
+          : (zipError ??
+            (webImages.length > 0
+              ? "Full resolution for printing and archiving. Web size is smaller and quicker, for sharing online."
+              : "Downloads as a single .zip file."))}
       </p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
