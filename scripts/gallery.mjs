@@ -71,6 +71,7 @@ import sharp from "sharp";
 import {
   S3Client,
   GetObjectCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
   PutObjectCommand,
@@ -149,9 +150,13 @@ const SLUG_PATTERN = /^[a-z0-9-]+$/;
 // Kept in sync with CONTENT_TYPES in uploadImage.mjs by hand — same
 // reasoning as SITE_URL above (this file isn't compiled, so it can't
 // import a shared TS constant).
-// Sanity cap against accidentally pointing this at a folder of full-res
-// RAW/TIFF exports (or the wrong folder entirely) — not a hard product limit.
-const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+// Sanity caps against pointing this at the wrong folder (e.g. full-res
+// RAW/TIFF exports) — not hard product limits. Videos get a much higher
+// cap since client deliverables are routinely several GB; they upload in
+// streamed parts, so size isn't bounded by memory.
+const MAX_IMAGE_UPLOAD_BYTES = 200 * 1024 * 1024;
+const MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024 * 1024;
+const VIDEO_EXTENSIONS = new Set([".mp4"]);
 
 const UPLOAD_CONTENT_TYPES = {
   ".jpg": "image/jpeg",
@@ -281,19 +286,20 @@ async function buildFullZip(client, bucket, slug, { localFiles = new Map(), forc
     return;
   }
 
-  // Use a local file only if it's byte-identical to what's in R2 — a
-  // single-part upload's ETag is the file's MD5. (Multipart ETags contain
-  // a "-" and aren't an MD5, so those always come from R2.)
+  // Use a local file only if it's byte-identical to what's in R2. A
+  // single-part upload's ETag is the file's MD5; a multipart one (large
+  // videos) contains a "-" and isn't, so for those compare against the
+  // md5 that gallery:upload stores in the object's metadata instead.
   let localCount = 0;
   for (const file of files) {
     const path = localFiles.get(file.filename);
-    const etag = file.etag.replaceAll('"', "");
-    if (
-      path &&
-      !etag.includes("-") &&
-      statSync(path, { throwIfNoEntry: false })?.size === file.size &&
-      (await md5File(path)) === etag
-    ) {
+    if (!path || statSync(path, { throwIfNoEntry: false })?.size !== file.size) continue;
+    let expected = file.etag.replaceAll('"', "");
+    if (expected.includes("-")) {
+      const head = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: file.key }));
+      expected = head.Metadata?.md5;
+    }
+    if (expected && (await md5File(path)) === expected) {
       file.localPath = path;
       localCount += 1;
     }
@@ -611,17 +617,17 @@ async function upload(slug, args) {
     const contentType = UPLOAD_CONTENT_TYPES[ext];
 
     if (!contentType) {
-      console.log(`Skipping "${name}" (not a recognized image type).`);
+      console.log(`Skipping "${name}" (not a recognized photo or video type).`);
       skipped += 1;
       continue;
     }
 
+    const isVideo = VIDEO_EXTENSIONS.has(ext);
+    const maxBytes = isVideo ? MAX_VIDEO_UPLOAD_BYTES : MAX_IMAGE_UPLOAD_BYTES;
     const { size } = statSync(filePath);
-    if (size > MAX_UPLOAD_BYTES) {
+    if (size > maxBytes) {
       console.log(
-        `Skipping "${name}" (${(size / (1024 * 1024)).toFixed(1)}MB exceeds ${
-          MAX_UPLOAD_BYTES / (1024 * 1024)
-        }MB sanity limit).`,
+        `Skipping "${name}" (${formatMB(size)} exceeds the ${formatMB(maxBytes)} sanity limit).`,
       );
       skipped += 1;
       continue;
@@ -630,16 +636,38 @@ async function upload(slug, args) {
     const key = `galleries/${slug}/${name}`;
 
     try {
-      const body = readFileSync(filePath);
-      await client.send(
-        new PutObjectCommand({
+      // Images are read whole (they're small, and previews need the
+      // buffer anyway); videos stream from disk. Either way large files go
+      // up in parts, which R2 needs above 5GB and which keeps memory flat.
+      const body = isVideo ? null : readFileSync(filePath);
+      const md5 = body ? createHash("md5").update(body).digest("hex") : await md5File(filePath);
+      const upload = new Upload({
+        client,
+        params: {
           Bucket: bucket,
           Key: key,
-          Body: body,
+          Body: body ?? createReadStream(filePath),
           ContentType: contentType,
-        }),
-      );
-      console.log(`Uploaded ${name} -> ${key}`);
+          // A multipart upload's ETag isn't the file's MD5, so record it
+          // explicitly — buildFullZip uses it to tell whether a local file
+          // matches what's in R2.
+          Metadata: { md5 },
+        },
+        partSize: 64 * 1024 * 1024,
+        queueSize: 4,
+      });
+      if (isVideo && size > 256 * 1024 * 1024) {
+        let lastLogged = 0;
+        upload.on("httpUploadProgress", ({ loaded = 0 }) => {
+          const pct = Math.floor((loaded / size) * 100);
+          if (pct >= lastLogged + 10) {
+            lastLogged = pct - (pct % 10);
+            console.log(`  ${name}: ${lastLogged}% (${formatMB(loaded)} of ${formatMB(size)})`);
+          }
+        });
+      }
+      await upload.done();
+      console.log(`Uploaded ${name} (${formatMB(size)}) -> ${key}`);
       uploaded += 1;
 
       if (PREVIEWABLE_EXTENSIONS.has(ext)) {
