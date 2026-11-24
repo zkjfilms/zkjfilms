@@ -1,29 +1,17 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "@/lib/seo";
+import { buildSitemap } from "@/lib/sitemapEntries";
+import { getFilms } from "@/lib/films";
+import { getPodcastShow } from "@/lib/podcast";
 
-const routes: Array<{
-  path: string;
-  changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
-  priority: number;
-}> = [
-  { path: "", changeFrequency: "monthly", priority: 1 },
-  { path: "/book", changeFrequency: "daily", priority: 0.8 },
-  { path: "/contact", changeFrequency: "yearly", priority: 0.8 },
-  { path: "/about", changeFrequency: "yearly", priority: 0.6 },
-  { path: "/faq", changeFrequency: "monthly", priority: 0.7 },
-  { path: "/headshots", changeFrequency: "monthly", priority: 0.8 },
-  { path: "/creative-portraits", changeFrequency: "monthly", priority: 0.8 },
-  { path: "/boudoir", changeFrequency: "monthly", priority: 0.8 },
-  { path: "/music", changeFrequency: "monthly", priority: 0.8 },
-  { path: "/films", changeFrequency: "monthly", priority: 0.8 },
-  { path: "/podcast", changeFrequency: "weekly", priority: 0.8 },
-];
+// Revalidate so a newly added film/episode reaches the sitemap without a deploy.
+export const revalidate = 3600;
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  return routes.map((route) => ({
-    url: `${SITE_URL}${route.path}`,
-    lastModified: new Date(),
-    changeFrequency: route.changeFrequency,
-    priority: route.priority,
-  }));
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [{ films }, show] = await Promise.all([
+    getFilms().catch(() => ({ films: [], error: true })),
+    getPodcastShow().catch(() => null),
+  ]);
+  const newestFilm = films.map((f) => f.created_at).sort().at(-1) ?? null;
+  const newestEpisode = show?.episodes.map((e) => e.pubDate).sort().at(-1) ?? null;
+  return buildSitemap({ filmsLastModified: newestFilm, podcastLastModified: newestEpisode });
 }

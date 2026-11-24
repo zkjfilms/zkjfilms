@@ -1,39 +1,42 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getFilms } from "@/lib/films";
+import { breadcrumbJsonLd, videoJsonLd } from "@/lib/jsonLd";
+import JsonLd from "@/components/JsonLd";
 
 // Video rows are managed out-of-band via the video:* CLI (scripts/video.mjs),
 // so revalidate periodically — otherwise a newly uploaded film wouldn't
 // appear until the next deploy. Matches app/page.tsx / app/faq / app/book.
 export const revalidate = 300;
 
-export function generateMetadata(): Metadata {
-  return pageMetadata("films");
+export async function generateMetadata(): Promise<Metadata> {
+  const { films } = await getFilms();
+  return {
+    ...pageMetadata("films"),
+    ...(films.length ? {} : { robots: { index: false, follow: true } }),
+  };
 }
 
-type VideoRow = {
-  slug: string;
-  title: string;
-  description: string | null;
-  video_key: string;
-  poster_key: string;
-};
-
 export default async function FilmsPage() {
-  const supabase = getSupabaseClient();
-  const { data: videos, error } = await supabase
-    .from("videos")
-    .select("slug, title, description, video_key, poster_key")
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("Supabase videos fetch failed:", error);
-  }
+  const { films: videos, error } = await getFilms();
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-20 sm:px-10">
+      <JsonLd
+        data={[
+          breadcrumbJsonLd("films"),
+          ...videos.map((f) =>
+            videoJsonLd({
+              title: f.title,
+              description: f.description,
+              posterUrl: publicImageUrl(f.poster_key),
+              contentUrl: publicImageUrl(f.video_key),
+              uploadDate: f.created_at,
+            }),
+          ),
+        ]}
+      />
       <header className="mb-16 text-center">
         <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">
           Motion
@@ -43,7 +46,7 @@ export default async function FilmsPage() {
         </h1>
       </header>
 
-      {!videos || videos.length === 0 ? (
+      {videos.length === 0 ? (
         <p className="text-center text-muted">
           {error
             ? "Couldn't load videos right now."
@@ -51,7 +54,7 @@ export default async function FilmsPage() {
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2">
-          {(videos as VideoRow[]).map((video) => (
+          {videos.map((video) => (
             <div key={video.slug}>
               <div className="relative aspect-video w-full overflow-hidden bg-surface">
                 <video
