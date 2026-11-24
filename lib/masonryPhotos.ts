@@ -208,45 +208,187 @@ export const CREATIVE_PORTRAITS_MASONRY_PHOTOS: MasonryPhoto[] = [
 // "anon13.jpg" — so consecutive grid images aren't from the same shoot),
 // not upload order. Re-shuffle by hand if you add/remove entries.
 //
-// Alt text is intentionally generic (no client names or identifying
-// detail) — the vision model that drafts alt text for every other gallery
-// also declines to describe boudoir/nude content in more specific terms,
-// so a real per-photo description isn't an option here regardless.
+// Alt text is written per photo (light, pose, setting, palette, mood) but
+// kept non-explicit and free of identifying detail: no names, tattoos,
+// piercings, distinctive jewellery or face + hair combinations. Nudity is
+// described only in general art terms ("nude figure study", "bare back").
+// tests/galleryAlts.test.ts guards uniqueness and length.
 export const BOUDOIR_MASONRY_PHOTOS: MasonryPhoto[] = [
-  { key: "boudoir/gallery/Andi-8968138.jpg", width: 3880, height: 5831 },
-  { key: "boudoir/gallery/TRA_2561-Edit.jpg", width: 5753, height: 3828 },
-  { key: "boudoir/gallery/TRA_2576-Edit.jpg", width: 6048, height: 4024 },
-  { key: "boudoir/gallery/TRA_2579-Edit.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/TRA_2587-Edit.jpg", width: 3450, height: 2295 },
-  { key: "boudoir/gallery/TRA_2590-Edit.jpg", width: 3718, height: 2474 },
-  { key: "boudoir/gallery/TRA_2602-Edit.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon-27571.jpg", width: 5693, height: 3788 },
-  { key: "boudoir/gallery/anon1.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon-28741.jpg", width: 4912, height: 3268 },
-  { key: "boudoir/gallery/anon10.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon-29111.jpg", width: 5309, height: 3532 },
-  { key: "boudoir/gallery/anon11.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon-44911.jpg", width: 5186, height: 3450 },
-  { key: "boudoir/gallery/anon13.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon-45931.jpg", width: 3807, height: 5722 },
-  { key: "boudoir/gallery/anon15.jpg", width: 1587, height: 2380 },
-  { key: "boudoir/gallery/anon-46001.jpg", width: 5762, height: 3834 },
-  { key: "boudoir/gallery/anon2.jpg", width: 6048, height: 4024 },
-  { key: "boudoir/gallery/anon-46661.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon3.jpg", width: 5380, height: 3580 },
-  { key: "boudoir/gallery/anon-47071.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon4.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon-47161.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon5.jpg", width: 6048, height: 4024 },
-  { key: "boudoir/gallery/anon-47291.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon6.jpg", width: 3884, height: 5838 },
-  { key: "boudoir/gallery/anon7.jpg", width: 4024, height: 6048 },
-  { key: "boudoir/gallery/anon9.jpg", width: 3092, height: 4647 },
-].map((photo, i) => ({
-  ...photo,
-  alt: `Fine art boudoir photography session in Columbia, Missouri — image ${i + 1}`,
-  src: publicImageUrl(photo.key),
-}));
+  {
+    key: "boudoir/gallery/Andi-8968138.jpg",
+    width: 3880,
+    height: 5831,
+    alt: "Playful close portrait of a woman lying on her stomach, chin propped on both fists, glancing aside against a soft candy-pink backdrop in warm even light.",
+  },
+  {
+    key: "boudoir/gallery/TRA_2561-Edit.jpg",
+    width: 5753,
+    height: 3828,
+    alt: "Overhead crop of hips and crossed legs in black lace lingerie and sheer thigh-high stockings on a deep red floor, low warm light and moody shadow.",
+  },
+  {
+    key: "boudoir/gallery/TRA_2576-Edit.jpg",
+    width: 6048,
+    height: 4024,
+    alt: "Fine art boudoir portrait shot from above: a woman lies upside down on red seamless paper in strappy black lace, one hand at her chest, gazing up.",
+  },
+  {
+    key: "boudoir/gallery/TRA_2579-Edit.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Vertical frame of a woman reclining on a crimson floor, stockinged legs resting up on a chair, eyes closed and smiling, bathed in soft amber light.",
+  },
+  {
+    key: "boudoir/gallery/TRA_2587-Edit.jpg",
+    width: 3450,
+    height: 2295,
+    alt: "Tight overhead portrait with one arm curled above her head and hair fanned across red paper, black harness lingerie, warm filmic tones and a calm gaze.",
+  },
+  {
+    key: "boudoir/gallery/TRA_2590-Edit.jpg",
+    width: 3718,
+    height: 2474,
+    alt: "Dreamy in-camera multiple exposure of a reclining figure in black lace, layered and blurred into swirls of warm amber and red, like a half-remembered moment.",
+  },
+  {
+    key: "boudoir/gallery/TRA_2602-Edit.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "High-angle shot of a woman on hands and knee across an expanse of red floor, one stockinged leg lifted behind her, head bowed in warm studio light.",
+  },
+  {
+    key: "boudoir/gallery/anon-27571.jpg",
+    width: 5693,
+    height: 3788,
+    alt: "Painterly scene of a woman asleep on a fur throw in a satin slip, framed by peach dahlias and pale daisies, glowing in golden, candle-warm light.",
+  },
+  {
+    key: "boudoir/gallery/anon1.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Black-and-white high-key study cropped at the lips: a lace-trimmed corset and sheer frilled apron, one hand lifting the hem against bright window light.",
+  },
+  {
+    key: "boudoir/gallery/anon-28741.jpg",
+    width: 4912,
+    height: 3268,
+    alt: "Reclining nude figure study from behind, face turned away into a fur blanket, a lace-edged blouse gathered at the waist, washed in honey-gold light.",
+  },
+  {
+    key: "boudoir/gallery/anon10.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Dramatic backlit black-and-white portrait in a sheer black tulle robe, gaze turned to the side, the figure nearly silhouetted against a white window.",
+  },
+  {
+    key: "boudoir/gallery/anon-29111.jpg",
+    width: 5309,
+    height: 3532,
+    alt: "Soft-focus portrait of a woman leaning forward beneath a veil of sheer ivory fabric, looking down and aside, glowing in warm amber bedroom light.",
+  },
+  {
+    key: "boudoir/gallery/anon11.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Fine art boudoir silhouette from behind: bare shoulders above an off-the-shoulder ruffled tulle gown, backlit by a curtained window in black and white.",
+  },
+  {
+    key: "boudoir/gallery/anon-44911.jpg",
+    width: 5186,
+    height: 3450,
+    alt: "Low-key nude torso study, one hand resting at the collarbone, skin lit by a single warm source and falling off into a black background.",
+  },
+  {
+    key: "boudoir/gallery/anon13.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Full-length black-and-white silhouette from behind, a voluminous tulle gown trailing across a wood floor toward sheer window curtains flooded with light.",
+  },
+  {
+    key: "boudoir/gallery/anon-45931.jpg",
+    width: 3807,
+    height: 5722,
+    alt: "Warm, intimate nude study cropped below the chin, a crisp white shirt slipping off both shoulders, sculpted by soft side light against deep shadow.",
+  },
+  {
+    key: "boudoir/gallery/anon15.jpg",
+    width: 1587,
+    height: 2380,
+    alt: "Old-master style portrait of a seated woman in a dark sheer wrap, cradling an ornate gilded frame fragment against a deep red backdrop in low light.",
+  },
+  {
+    key: "boudoir/gallery/anon-46001.jpg",
+    width: 5762,
+    height: 3834,
+    alt: "Overhead view of a figure reclining on a tufted leather sofa in an open white shirt and black lace, rendered in warm, dim, chiaroscuro light.",
+  },
+  {
+    key: "boudoir/gallery/anon2.jpg",
+    width: 6048,
+    height: 4024,
+    alt: "High-key black-and-white crop from behind: ribbon-tied black lingerie and thigh-high stockings, one hand at the hip, edges glowing from window light.",
+  },
+  {
+    key: "boudoir/gallery/anon-46661.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Moody monochrome close study of pleated black tulle crossed over the torso, curls at the edge of frame, deep shadows broken by a thin line of light.",
+  },
+  {
+    key: "boudoir/gallery/anon3.jpg",
+    width: 5380,
+    height: 3580,
+    alt: "Fine art boudoir silhouette of a woman standing before sheer curtains in strappy lingerie, stockings and tall boots, looking back over her shoulder.",
+  },
+  {
+    key: "boudoir/gallery/anon-47071.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Backlit black-and-white nude figure study framed by an open black tulle robe, cropped at the chin, the body's contours traced by soft window light.",
+  },
+  {
+    key: "boudoir/gallery/anon4.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Black-and-white portrait glancing back over a bare shoulder toward the camera, the long curve of the back lit against a bright, washed-out window.",
+  },
+  {
+    key: "boudoir/gallery/anon-47161.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Intimate black-and-white crop at the lips, a ruffled sheer robe slipping from one shoulder, soft window light grazing the skin with gentle grain.",
+  },
+  {
+    key: "boudoir/gallery/anon5.jpg",
+    width: 6048,
+    height: 4024,
+    alt: "High-key monochrome torso study with one arm raised and a hand drawn across the chest, the figure fading into pure white light at the edges.",
+  },
+  {
+    key: "boudoir/gallery/anon-47291.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Fine art boudoir nude in black and white, standing with a hand over the heart and the other holding a sheer curtain, softly backlit and cropped at the chin.",
+  },
+  {
+    key: "boudoir/gallery/anon6.jpg",
+    width: 3884,
+    height: 5838,
+    alt: "Low-key black-and-white nude figure study with both arms stretched overhead like a dancer, pale skin lit from one side against a black void.",
+  },
+  {
+    key: "boudoir/gallery/anon7.jpg",
+    width: 4024,
+    height: 6048,
+    alt: "Full-length standing nude in tall black boots, hands behind the head, spotlit against black seamless with deep negative space below, black and white.",
+  },
+  {
+    key: "boudoir/gallery/anon9.jpg",
+    width: 3092,
+    height: 4647,
+    alt: "Chiaroscuro nude figure study holding a black tulle robe open behind her, gaze turned aside, a single light carving the form out of darkness.",
+  },
+].map((photo) => ({ ...photo, src: publicImageUrl(photo.key) }));
 
 export const MUSIC_MASONRY_PHOTOS: MasonryPhoto[] = [
   {

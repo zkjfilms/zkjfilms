@@ -70,7 +70,8 @@ export const BOUDOIR_SERVICE: Service = {
     "Boudoir and fine art nude photography built around trust. This is some of the most personal work I do — shaped entirely around what you're comfortable with, at whatever pace feels right. Every image stays private unless you decide otherwise: fully public, cropped and anonymous, or never shared at all.",
   heroImageUrl: publicImageUrl("boudoir/AnonBanner.jpg"),
   mobileHeroImageUrl: publicImageUrl("mobile/boudoir/AnonBanner.jpg"),
-  heroImageAlt: "Fine art boudoir photography session in Columbia, Missouri.",
+  heroImageAlt:
+    "Fine art boudoir portrait of a woman on hands and knees across a red studio floor in black lingerie and stockings, head bowed, in soft warm light.",
   masonryPhotos: BOUDOIR_MASONRY_PHOTOS,
   faqIds: ["privacy-boudoir", "sign-anything"],
 };
