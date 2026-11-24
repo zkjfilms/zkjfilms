@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd, faqJsonLd } from "@/lib/jsonLd";
 import FaqAccordion from "@/components/FaqAccordion";
 import { FAQ_CATEGORIES, getFaqItems } from "@/lib/faq";
 
@@ -16,27 +18,9 @@ export function generateMetadata(): Metadata {
 export default async function FaqPage() {
   const faqItems = await getFaqItems();
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: faqItems.map((item) => ({
-      "@type": "Question",
-      name: item.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: item.answer,
-      },
-    })),
-  };
-
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20 sm:px-10">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
-        }}
-      />
+      <JsonLd data={[faqJsonLd(faqItems), breadcrumbJsonLd("faq")]} />
 
       <header className="mb-16 text-center">
         <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd } from "@/lib/jsonLd";
 import BookingFlow from "./BookingFlow";
 import FaqAccordion from "@/components/FaqAccordion";
 import { getFaqItems, type FaqItem } from "@/lib/faq";
@@ -30,6 +32,7 @@ export default async function BookPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20 sm:px-10">
+      <JsonLd data={breadcrumbJsonLd("book")} />
       <header className="mb-12 text-center">
         <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">Schedule Online</p>
         <h1 className="font-serif text-4xl italic leading-tight text-foreground sm:text-5xl">

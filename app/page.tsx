@@ -2,7 +2,10 @@ import HeroImage from "@/components/HeroImage";
 import Link from "next/link";
 import type { Metadata } from "next";
 import SectionNav from "@/components/SectionNav";
-import { BUSINESS, DEFAULT_OG_IMAGE, SITE_URL, pageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo";
+import JsonLd from "@/components/JsonLd";
+import { businessJsonLd } from "@/lib/jsonLd";
+import { startingPriceCents } from "@/lib/pricing";
 import { publicImageUrl } from "@/lib/media";
 import { fetchActiveAppointmentTypes, type AppointmentTypeRow } from "@/lib/availabilityQuery";
 import { formatPrice, formatPriceRange } from "@/lib/format";
@@ -40,10 +43,8 @@ function startingPrice(
   types: AppointmentTypeRow[],
   match: (name: string) => boolean,
 ): string | null {
-  const prices = types
-    .filter((type) => type.requires_payment && match(type.name))
-    .map((type) => type.price_cents);
-  return prices.length ? `From ${formatPrice(Math.min(...prices))}` : null;
+  const cents = startingPriceCents(types, match);
+  return cents === null ? null : `From ${formatPrice(cents)}`;
 }
 
 export default async function Home() {
@@ -104,48 +105,9 @@ export default async function Home() {
     },
   ];
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": ["LocalBusiness", "ProfessionalService"],
-    "@id": `${SITE_URL}/#business`,
-    name: BUSINESS.name,
-    description: BUSINESS.description,
-    url: SITE_URL,
-    telephone: BUSINESS.telephone,
-    email: BUSINESS.email,
-    image: DEFAULT_OG_IMAGE.url,
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: BUSINESS.address.streetAddress,
-      addressLocality: BUSINESS.address.addressLocality,
-      addressRegion: BUSINESS.address.addressRegion,
-      postalCode: BUSINESS.address.postalCode,
-      addressCountry: BUSINESS.address.addressCountry,
-    },
-    geo: {
-      "@type": "GeoCoordinates",
-      latitude: BUSINESS.geo.latitude,
-      longitude: BUSINESS.geo.longitude,
-    },
-    areaServed: BUSINESS.areaServed,
-    sameAs: BUSINESS.sameAs,
-    openingHoursSpecification: {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: BUSINESS.hours.dayOfWeek,
-      opens: BUSINESS.hours.opens,
-      closes: BUSINESS.hours.closes,
-    },
-    ...(priceRange ? { priceRange } : {}),
-  };
-
   return (
     <div className="flex flex-col">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
-        }}
-      />
+      <JsonLd data={businessJsonLd(priceRange)} />
 
       <SectionNav sections={sections} />
 

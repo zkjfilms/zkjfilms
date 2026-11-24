@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd } from "@/lib/jsonLd";
 import ContactForm from "./ContactForm";
 import { pageMetadata, BUSINESS } from "@/lib/seo";
 import { OUTLINE_BUTTON } from "@/components/buttonStyles";
@@ -11,6 +13,7 @@ export function generateMetadata(): Metadata {
 export default function ContactPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-20 sm:px-10">
+      <JsonLd data={breadcrumbJsonLd("contact")} />
       <header className="mb-12 text-center">
         <p className="mb-3 text-xs uppercase tracking-[0.3em] text-muted">
           Get In Touch

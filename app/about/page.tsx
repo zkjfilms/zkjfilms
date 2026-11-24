@@ -3,6 +3,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ogImageFromOriginal, pageMetadata } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd, personJsonLd } from "@/lib/jsonLd";
 import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 export function generateMetadata(): Metadata {
@@ -20,6 +22,7 @@ export function generateMetadata(): Metadata {
 export default function AboutPage() {
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-14 px-6 py-20 sm:px-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start lg:gap-20">
+      <JsonLd data={[personJsonLd(), breadcrumbJsonLd("about")]} />
       <div className="relative order-1 aspect-[2/3] w-full overflow-hidden lg:order-2">
         <Image
           src={publicImageUrl("zach-medium.jpg")}
