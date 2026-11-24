@@ -142,6 +142,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/portraits", destination: "/creative-portraits", permanent: true },
+      // Old-site URLs Google still crawls (Search Console 404 report, 2026-11-24).
+      { source: "/home", destination: "/", permanent: true },
+      { source: "/services", destination: "/", permanent: true },
+      { source: "/photos", destination: "/", permanent: true },
+      { source: "/music-photography", destination: "/music", permanent: true },
     ];
   },
 };
