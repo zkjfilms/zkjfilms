@@ -1,17 +1,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { pageMetadata } from "@/lib/seo";
+import { ogImageFromOriginal, pageMetadata } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
 import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
 export function generateMetadata(): Metadata {
-  return pageMetadata("about", {
-    url: publicImageUrl("zach-medium.jpg"),
-    width: 1200,
-    height: 1800,
-    alt: "Black-and-white portrait of Zach K. Johnson in profile",
-  });
+  return pageMetadata(
+    "about",
+    ogImageFromOriginal(
+      publicImageUrl("zach-medium.jpg"),
+      2009,
+      3016,
+      "Black-and-white portrait of Zach K. Johnson in profile",
+    ),
+  );
 }
 
 export default function AboutPage() {

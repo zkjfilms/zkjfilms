@@ -1,8 +1,7 @@
-import type { OgImage } from "@/lib/seo";
+import { LATE_NIGHT_LISTENING_URL, ogImageFromOriginal, type OgImage } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
 import type { MasonryPhoto } from "@/lib/masonryPhotos";
 import { HEADSHOTS_MASONRY_PHOTOS, CREATIVE_PORTRAITS_MASONRY_PHOTOS, BOUDOIR_MASONRY_PHOTOS, MUSIC_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
-import { LATE_NIGHT_LISTENING_URL } from "@/lib/seo";
 
 export type Service = {
   slug: string;
@@ -11,6 +10,9 @@ export type Service = {
   tagline: string;
   description: string;
   heroImageUrl: string;
+  // Pixel size of the original hero file (hard-coded; used to declare the
+  // resized social-share image's true aspect ratio — see serviceOgImage).
+  heroImageSize?: { width: number; height: number };
   // CSS object-position for the hero <Image> (e.g. "center 15%") — the hero
   // section is a tall (min-h-[70vh]) object-cover crop, so a photo whose
   // subject isn't near the vertical center needs this or the subject gets
@@ -34,6 +36,7 @@ export const HEADSHOTS_SERVICE: Service = {
   description:
     "Professional portraits for people who need to show up polished — LinkedIn, business branding, personal websites, and professional profiles. Clean, confident, and ready for wherever you need to make a first impression.",
   heroImageUrl: publicImageUrl("headshots/lucas.jpg"),
+  heroImageSize: { width: 6048, height: 4024 },
   mobileHeroImageUrl: publicImageUrl("mobile/headshots/lucas.jpg"),
   heroImagePosition: "center 10%",
   heroImageAlt:
@@ -50,6 +53,7 @@ export const CREATIVE_PORTRAITS_SERVICE: Service = {
   description:
     "More personal, more art-directed. Lighting, styling, and concept-driven sessions for people who want something beyond a standard portrait — a set of images that actually feels like you.",
   heroImageUrl: publicImageUrl("creative-portraits/KwaniHero.jpg"),
+  heroImageSize: { width: 5708, height: 3211 },
   mobileHeroImageUrl: publicImageUrl("mobile/creative-portraits/KwaniHero.jpg"),
   heroImageAlt:
     "Low-angle silhouette of a woman in a black slip dress, head tilted back and one fist raised above her hair, against a pale hazy sky in this Columbia, Missouri portrait.",
@@ -79,6 +83,7 @@ export const MUSIC_SERVICE: Service = {
   description:
     "Concert and live-performance photography — bands, solo artists, and venues, shot in the moment. Booked directly by artists, venues, or labels for promo, press, and archival use.",
   heroImageUrl: publicImageUrl("music/ZJ7_2203.jpg"),
+  heroImageSize: { width: 6048, height: 4024 },
   mobileHeroImageUrl: publicImageUrl("mobile/music/ZJ7_2203.jpg"),
   heroImageAlt:
     "Long-haired, bearded man in a fedora hat plays pedal steel guitar with a mallet, blue-lit from below against a dark red wall strung with colorful fairy lights.",
@@ -97,8 +102,11 @@ export const SERVICES: Service[] = [
   HEADSHOTS_SERVICE,
 ];
 
-// Hero photo as the page's social-share image. Never used for boudoir
-// (nude imagery must not appear in link previews — see the SEO spec).
+// Hero photo as the page's social-share image, resized via the Next image
+// optimizer. Never used for boudoir (nude imagery must not appear in link
+// previews — see the SEO spec).
 export function serviceOgImage(service: Service): OgImage {
-  return { url: service.heroImageUrl, width: 1200, height: 630, alt: service.heroImageAlt };
+  if (!service.heroImageSize) throw new Error(`${service.slug}: heroImageSize required for OG image`);
+  const { width, height } = service.heroImageSize;
+  return ogImageFromOriginal(service.heroImageUrl, width, height, service.heroImageAlt);
 }

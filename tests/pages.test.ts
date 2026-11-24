@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ROUTES, type RouteKey } from "@/content/pages";
-import { buildPageMetadata, fullTitle, pageMetadata, SITE_URL } from "@/lib/seo";
+import { buildPageMetadata, DEFAULT_OG_IMAGE, fullTitle, pageMetadata, SITE_URL } from "@/lib/seo";
+import { HEADSHOTS_SERVICE, serviceOgImage } from "@/lib/services";
 
 const entries = Object.entries(ROUTES) as [RouteKey, (typeof ROUTES)[RouteKey]][];
 
@@ -44,5 +45,19 @@ describe("metadata", () => {
     const m = buildPageMetadata({ title: "T", description: "D", path: "/x", image: img });
     expect((m.openGraph as { images: unknown[] }).images[0]).toEqual(img);
     expect((m.twitter as { images: string[] }).images[0]).toBe(img.url);
+  });
+});
+
+describe("OG images", () => {
+  it("boudoir uses the default brand image", () => {
+    const m = pageMetadata("boudoir");
+    expect((m.openGraph as { images: unknown[] }).images[0]).toEqual(DEFAULT_OG_IMAGE);
+  });
+  it("service pages use a resized optimizer URL with true dimensions", () => {
+    const img = serviceOgImage(HEADSHOTS_SERVICE);
+    expect(img.url.startsWith(`${SITE_URL}/_next/image?url=`)).toBe(true);
+    expect(img.url).toContain("w=1200");
+    expect(img.width).toBe(1200);
+    expect(img.height).toBe(798);
   });
 });

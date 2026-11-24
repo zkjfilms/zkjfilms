@@ -69,6 +69,25 @@ export const STUDIO_ADDRESS = `${BUSINESS.address.streetAddress}, ${BUSINESS.add
 
 export type OgImage = { url: string; width: number; height: number; alt: string };
 
+// Social crawlers choke on multi-MB originals (Facebook caps at 8 MB), so
+// share images go through the Next image optimizer at 1200px wide (in the
+// default deviceSizes; q=75 is in next.config.ts `qualities`). The origin
+// must match images.remotePatterns. Declared height is the true output
+// height for the original's aspect ratio.
+export function ogImageFromOriginal(
+  originalUrl: string,
+  origWidth: number,
+  origHeight: number,
+  alt: string,
+): OgImage {
+  return {
+    url: `${SITE_URL}/_next/image?url=${encodeURIComponent(originalUrl)}&w=1200&q=75`,
+    width: 1200,
+    height: Math.round((1200 * origHeight) / origWidth),
+    alt,
+  };
+}
+
 // Per-page metadata must build its own full `openGraph`/`twitter` objects —
 // Next.js REPLACES (not merges) those nested objects wholesale whenever a
 // page defines them, so omitting the image/card fields here would silently
