@@ -11,10 +11,10 @@ import JsonLd from "@/components/JsonLd";
 export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { films } = await getFilms();
+  const { films, error } = await getFilms();
   return {
     ...pageMetadata("films"),
-    ...(films.length ? {} : { robots: { index: false, follow: true } }),
+    ...(error || films.length ? {} : { robots: { index: false, follow: true } }),
   };
 }
 

@@ -7,11 +7,12 @@ import { getPodcastShow } from "@/lib/podcast";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [{ films }, show] = await Promise.all([
+  const [{ films, error }, show] = await Promise.all([
     getFilms().catch(() => ({ films: [], error: true })),
     getPodcastShow().catch(() => null),
   ]);
   const newestFilm = films.map((f) => f.created_at).sort().at(-1) ?? null;
   const newestEpisode = show?.episodes.map((e) => e.pubDate).sort().at(-1) ?? null;
-  return buildSitemap({ filmsLastModified: newestFilm, podcastLastModified: newestEpisode });
+  const filmsState = error ? "unknown" : films.length ? "some" : "none";
+  return buildSitemap({ filmsState, filmsLastModified: newestFilm, podcastLastModified: newestEpisode });
 }
