@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "vitest run && next build",
     "start": "next start",
     "lint": "eslint app components lib scripts",
     "gallery:list": "node --env-file=.env.local scripts/gallery.mjs list",
@@ -56,6 +58,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }
