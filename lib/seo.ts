@@ -2,6 +2,7 @@
 // JSON-LD structured data, robots.ts, and sitemap.ts.
 
 import type { Metadata } from "next";
+import { ROUTES, type RouteKey } from "@/content/pages";
 
 export const SITE_URL = "https://zkjfilms.com";
 
@@ -66,6 +67,8 @@ export const BUSINESS = {
 // confirmation emails, and calendar invites.
 export const STUDIO_ADDRESS = `${BUSINESS.address.streetAddress}, ${BUSINESS.address.addressLocality}, ${BUSINESS.address.addressRegion} ${BUSINESS.address.postalCode}`;
 
+export type OgImage = { url: string; width: number; height: number; alt: string };
+
 // Per-page metadata must build its own full `openGraph`/`twitter` objects —
 // Next.js REPLACES (not merges) those nested objects wholesale whenever a
 // page defines them, so omitting the image/card fields here would silently
@@ -74,31 +77,51 @@ export function buildPageMetadata({
   title,
   description,
   path = "",
+  image = DEFAULT_OG_IMAGE,
+  absoluteTitle = false,
 }: {
   title: string;
   description: string;
   path?: string;
+  image?: OgImage;
+  absoluteTitle?: boolean;
 }): Metadata {
-  const url = `${SITE_URL}${path}`;
-
+  const url = `${SITE_URL}${path || "/"}`;
+  const shareTitle = absoluteTitle ? title : `${title} | ${SITE_NAME}`;
   return {
-    title,
+    title: absoluteTitle ? { absolute: title } : title,
     description,
     openGraph: {
-      title,
+      title: shareTitle,
       description,
       url,
       siteName: SITE_NAME,
       type: "website",
       locale: "en_US",
-      images: [DEFAULT_OG_IMAGE],
+      images: [image],
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: shareTitle,
       description,
-      images: [DEFAULT_OG_IMAGE.url],
+      images: [image.url],
     },
     alternates: { canonical: url },
   };
+}
+
+export function fullTitle(key: RouteKey): string {
+  const r = ROUTES[key];
+  return r.absoluteTitle ? r.title : `${r.title} | ${SITE_NAME}`;
+}
+
+export function pageMetadata(key: RouteKey, image?: OgImage): Metadata {
+  const r = ROUTES[key];
+  return buildPageMetadata({
+    title: r.title,
+    description: r.description,
+    path: r.path,
+    image,
+    absoluteTitle: r.absoluteTitle,
+  });
 }

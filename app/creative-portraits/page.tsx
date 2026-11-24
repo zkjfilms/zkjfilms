@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo";
 import ServiceLandingPage from "@/components/ServiceLandingPage";
-import { CREATIVE_PORTRAITS_SERVICE } from "@/lib/services";
+import { CREATIVE_PORTRAITS_SERVICE, serviceOgImage } from "@/lib/services";
 
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({
-    title: "Creative Portraits",
-    description:
-      "Art-directed creative portrait photography sessions in Columbia, Missouri, built around concept, lighting, and styling.",
-    path: "/creative-portraits",
-  });
+  return pageMetadata("creativePortraits", serviceOgImage(CREATIVE_PORTRAITS_SERVICE));
 }
 
 export default function CreativePortraitsPage() {

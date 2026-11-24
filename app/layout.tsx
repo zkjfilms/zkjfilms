@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { BUSINESS, DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { ROUTES } from "@/content/pages";
 import "./globals.css";
 
 const playfairDisplay = Playfair_Display({
@@ -23,18 +24,10 @@ const jost = Jost({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default:
-      "Zach K. Johnson | Columbia, MO Portrait & Boudoir Photographer",
+    default: ROUTES.home.title,
     template: `%s | ${SITE_NAME}`,
   },
   description: BUSINESS.description,
-  keywords: [
-    "Columbia Missouri portrait photographer",
-    "Mid-Missouri boudoir photography",
-    "Columbia MO boudoir photographer",
-    "portrait photographer Columbia MO",
-    "fine art photography Missouri",
-  ],
   openGraph: {
     siteName: SITE_NAME,
     locale: "en_US",

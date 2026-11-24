@@ -1,16 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
 import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
-const TITLE = "About";
-const DESCRIPTION =
-  "Meet Zach K. Johnson, a Columbia, Missouri portrait, boudoir, and fine art photographer serving Mid-Missouri.";
-
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({ title: TITLE, description: DESCRIPTION, path: "/about" });
+  return pageMetadata("about", {
+    url: publicImageUrl("zach-medium.jpg"),
+    width: 1200,
+    height: 1800,
+    alt: "Black-and-white portrait of Zach K. Johnson in profile",
+  });
 }
 
 export default function AboutPage() {

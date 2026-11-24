@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
 import { getSupabaseClient } from "@/lib/supabase";
-
-const TITLE = "Films";
-const DESCRIPTION =
-  "Cinematic video work from Zach K. Johnson — highlight reels and film pieces from Columbia, Missouri.";
 
 // Video rows are managed out-of-band via the video:* CLI (scripts/video.mjs),
 // so revalidate periodically — otherwise a newly uploaded film wouldn't
@@ -13,7 +9,7 @@ const DESCRIPTION =
 export const revalidate = 300;
 
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({ title: TITLE, description: DESCRIPTION, path: "/films" });
+  return pageMetadata("films");
 }
 
 type VideoRow = {

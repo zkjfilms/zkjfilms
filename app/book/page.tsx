@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buildPageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo";
 import BookingFlow from "./BookingFlow";
 import FaqAccordion from "@/components/FaqAccordion";
 import { getFaqItems, type FaqItem } from "@/lib/faq";
@@ -19,11 +19,7 @@ const TEASER_FAQ_IDS = [
 ];
 
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({
-    title: "Book a Session",
-    description: "Book a portrait, headshot, boudoir, or music/performance photography session with a Columbia, Missouri photographer serving Mid-Missouri.",
-    path: "/book",
-  });
+  return pageMetadata("book");
 }
 
 export default async function BookPage() {

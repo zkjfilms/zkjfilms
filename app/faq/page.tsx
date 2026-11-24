@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buildPageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo";
 import FaqAccordion from "@/components/FaqAccordion";
 import { FAQ_CATEGORIES, getFaqItems } from "@/lib/faq";
 
@@ -9,16 +9,8 @@ import { FAQ_CATEGORIES, getFaqItems } from "@/lib/faq";
 // periodically so an admin price change shows up here without a redeploy.
 export const revalidate = 300;
 
-const TITLE = "Frequently Asked Questions";
-const DESCRIPTION =
-  "Answers to common questions about booking a portrait, headshot, boudoir, music/performance, or fine art photography session with a Columbia, Missouri photographer.";
-
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({
-    title: TITLE,
-    description: DESCRIPTION,
-    path: "/faq",
-  });
+  return pageMetadata("faq");
 }
 
 export default async function FaqPage() {

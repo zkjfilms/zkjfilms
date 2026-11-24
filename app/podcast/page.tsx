@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo";
 import { getPodcastShow, PODCAST_LINKS } from "@/lib/podcast";
 import PodcastExperience from "@/components/podcast/PodcastExperience";
 
@@ -8,16 +8,8 @@ import PodcastExperience from "@/components/podcast/PodcastExperience";
 // they show up without a redeploy. Matches app/films/page.tsx / app/faq.
 export const revalidate = 300;
 
-const TITLE = "What Comes Next — Podcast";
-const DESCRIPTION =
-  "What Comes Next is a series by filmmaker Zach K. Johnson featuring guests speaking in their own words about how life has shaped who they are today.";
-
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({
-    title: TITLE,
-    description: DESCRIPTION,
-    path: "/podcast",
-  });
+  return pageMetadata("podcast");
 }
 
 export default async function PodcastPage() {

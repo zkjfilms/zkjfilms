@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
-import { buildPageMetadata } from "@/lib/seo";
+import { pageMetadata } from "@/lib/seo";
 import ServiceLandingPage from "@/components/ServiceLandingPage";
-import { HEADSHOTS_SERVICE } from "@/lib/services";
+import { HEADSHOTS_SERVICE, serviceOgImage } from "@/lib/services";
 
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({
-    title: "Professional Headshots",
-    description:
-      "Professional headshot photography in Columbia, Missouri — polished portraits for LinkedIn, business branding, and professional profiles.",
-    path: "/headshots",
-  });
+  return pageMetadata("headshots", serviceOgImage(HEADSHOTS_SERVICE));
 }
 
 export default function HeadshotsPage() {

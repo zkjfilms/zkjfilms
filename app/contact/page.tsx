@@ -1,19 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ContactForm from "./ContactForm";
-import { buildPageMetadata, BUSINESS } from "@/lib/seo";
+import { pageMetadata, BUSINESS } from "@/lib/seo";
 import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
-const TITLE = "Contact & Booking";
-const DESCRIPTION =
-  "Book a portrait, headshot, or boudoir photography session with a Columbia, Missouri photographer serving Mid-Missouri.";
-
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({
-    title: TITLE,
-    description: DESCRIPTION,
-    path: "/contact",
-  });
+  return pageMetadata("contact");
 }
 
 export default function ContactPage() {

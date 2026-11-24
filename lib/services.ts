@@ -1,3 +1,4 @@
+import type { OgImage } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
 import type { MasonryPhoto } from "@/lib/masonryPhotos";
 import { HEADSHOTS_MASONRY_PHOTOS, CREATIVE_PORTRAITS_MASONRY_PHOTOS, BOUDOIR_MASONRY_PHOTOS, MUSIC_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
@@ -95,3 +96,9 @@ export const SERVICES: Service[] = [
   MUSIC_SERVICE,
   HEADSHOTS_SERVICE,
 ];
+
+// Hero photo as the page's social-share image. Never used for boudoir
+// (nude imagery must not appear in link previews — see the SEO spec).
+export function serviceOgImage(service: Service): OgImage {
+  return { url: service.heroImageUrl, width: 1200, height: 630, alt: service.heroImageAlt };
+}

@@ -2,7 +2,7 @@ import HeroImage from "@/components/HeroImage";
 import Link from "next/link";
 import type { Metadata } from "next";
 import SectionNav from "@/components/SectionNav";
-import { BUSINESS, DEFAULT_OG_IMAGE, SITE_URL, buildPageMetadata } from "@/lib/seo";
+import { BUSINESS, DEFAULT_OG_IMAGE, SITE_URL, pageMetadata } from "@/lib/seo";
 import { publicImageUrl } from "@/lib/media";
 import { fetchActiveAppointmentTypes, type AppointmentTypeRow } from "@/lib/availabilityQuery";
 import { formatPrice, formatPriceRange } from "@/lib/format";
@@ -17,12 +17,8 @@ import {
 } from "@/lib/services";
 import { OUTLINE_BUTTON } from "@/components/buttonStyles";
 
-const TITLE = "Zach K. Johnson | Columbia, MO Portrait & Boudoir Photographer";
-const DESCRIPTION =
-  "Columbia, Missouri portrait and boudoir photographer offering natural-light portrait, boudoir, and fine art photography sessions throughout Mid-Missouri.";
-
 export function generateMetadata(): Metadata {
-  return buildPageMetadata({ title: TITLE, description: DESCRIPTION });
+  return pageMetadata("home");
 }
 
 // priceRange is pulled live from the same appointment_types data that
