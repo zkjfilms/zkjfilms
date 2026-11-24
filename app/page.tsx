@@ -7,6 +7,7 @@ import JsonLd from "@/components/JsonLd";
 import { businessJsonLd } from "@/lib/jsonLd";
 import { startingPriceCents } from "@/lib/pricing";
 import { publicImageUrl } from "@/lib/media";
+import { BOUDOIR_MASONRY_PHOTOS } from "@/lib/masonryPhotos";
 import { fetchActiveAppointmentTypes, type AppointmentTypeRow } from "@/lib/availabilityQuery";
 import { formatPrice, formatPriceRange } from "@/lib/format";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -39,6 +40,11 @@ const sections = [
 
 // "From $X" for the cheapest active, paid appointment type whose name passes
 // `match` — null when none does (e.g. a service with no bookable type yet).
+// Alt text comes from the gallery entry for this photo so the two can't drift.
+const BOUDOIR_CARD_KEY = "boudoir/gallery/TRA_2587-Edit.jpg";
+const BOUDOIR_CARD_ALT =
+  BOUDOIR_MASONRY_PHOTOS.find((p) => p.key === BOUDOIR_CARD_KEY)?.alt ?? "";
+
 function startingPrice(
   types: AppointmentTypeRow[],
   match: (name: string) => boolean,
@@ -88,8 +94,8 @@ export default async function Home() {
     // horizontal pose doesn't survive a 4:5 crop. Landscape source, so the
     // crop is shifted toward her face.
     serviceCard(BOUDOIR_SERVICE, {
-      src: publicImageUrl("boudoir/gallery/TRA_2587-Edit.jpg"),
-      alt: "Woman with long wavy blonde hair lying on a deep red floor in black lace lingerie with a strappy harness, one hand resting on her chest, looking up at the camera.",
+      src: publicImageUrl(BOUDOIR_CARD_KEY),
+      alt: BOUDOIR_CARD_ALT,
       position: "58% center",
     }),
     serviceCard(MUSIC_SERVICE),

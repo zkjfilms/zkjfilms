@@ -4,7 +4,9 @@ import { getFilms } from "@/lib/films";
 import { getPodcastShow } from "@/lib/podcast";
 
 // Revalidate so a newly added film/episode reaches the sitemap without a deploy.
-export const revalidate = 3600;
+// Every 5 minutes: Next uses the lowest revalidate in the route, and the
+// podcast feed fetch already uses 300.
+export const revalidate = 300;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [{ films, error }, show] = await Promise.all([

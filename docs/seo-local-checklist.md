@@ -15,12 +15,15 @@ Things only the site owner can do. The code changes are already in place. Nothin
 
 - [ ] Verify the `zkjfilms.com` domain property.
 - [ ] Submit the sitemap: `https://zkjfilms.com/sitemap.xml`.
-- [ ] Run Google's Rich Results Test on each page below. Confirm it detects the types listed. A page may also show warnings. Errors are what matter.
+- [ ] Run the Rich Results Test (https://search.google.com/test/rich-results) on these pages. Confirm it detects the types listed. A page may also show warnings. Errors are what matter.
   - `/` : LocalBusiness
-  - `/headshots` : Service + BreadcrumbList
-  - `/faq` : FAQPage + BreadcrumbList
-  - `/about` : Person + BreadcrumbList
-  - `/podcast` : PodcastSeries + BreadcrumbList
+  - Inner pages (`/headshots`, `/faq`, `/about`, `/podcast`, and the other service pages) : BreadcrumbList
+  - `/faq` : FAQPage. Google now shows FAQ rich results only for some sites, so FAQPage may parse fine without showing up in search.
+  - `/films` : VideoObject, once a film exists (see section 4)
+- [ ] Run the Schema Markup Validator (https://validator.schema.org) on these pages. Google's Rich Results Test does not list these types, so use this tool instead.
+  - Service pages (for example `/headshots`) : Service
+  - `/about` : Person
+  - `/podcast` : PodcastSeries (shows only when the podcast feed loads)
 - [ ] Use URL Inspection, then Request indexing, on the pages whose titles changed.
 - [ ] Watch Page indexing and Performance for 4 to 6 weeks after the title changes. Compare impressions and clicks before and after.
 

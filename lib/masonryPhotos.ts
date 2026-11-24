@@ -254,7 +254,7 @@ export const BOUDOIR_MASONRY_PHOTOS: MasonryPhoto[] = [
     key: "boudoir/gallery/TRA_2602-Edit.jpg",
     width: 4024,
     height: 6048,
-    alt: "High-angle shot of a woman on hands and knee across an expanse of red floor, one stockinged leg lifted behind her, head bowed in warm studio light.",
+    alt: "High-angle shot of a woman on hands and one knee across an expanse of red floor, one stockinged leg lifted behind her, head bowed in warm studio light.",
   },
   {
     key: "boudoir/gallery/anon-27571.jpg",
